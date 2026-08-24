@@ -137,7 +137,7 @@ When the draw pile is empty:
 
 A **bout** is one complete attack/defense sequence until:
 
-- the defender successfully beats the attack, or
+- the attacker finishes a fully covered table as bito, or
 - the defender takes the cards.
 
 A bout may contain:
@@ -148,6 +148,26 @@ A bout may contain:
 - transfers;
 - further defense;
 - repeated recalculation of arithmetic relations.
+
+### 6.1 Attack packets and bout sequencing
+
+A bout contains one or more attack packets, with at most one unresolved packet at a time.
+
+1. The initial attack creates the first active packet.
+2. Before any successful defense, the current defender may transfer exactly the active packet's
+   accumulated value.
+3. Each transfer extends that same unresolved packet, increases its accumulated value, and changes
+   the defender.
+4. Once any defense succeeds, transfer is closed for the rest of the bout.
+5. A successful defense closes only the current packet.
+6. The attacker may then finish the bout as bito or make a legal throw-in.
+7. A throw-in after defense creates a new packet with its own independent defense requirement;
+   attack values from closed packets are not added to it.
+8. The latest defense cards become the direct anchors for the next throw-in opportunity.
+9. Older physical cards remain on the table for total and arithmetic-mean calculations.
+10. The active defender may take while a packet is unresolved, ending the bout immediately; the
+    current attacker keeps initiative.
+11. If the attacker finishes as bito after a closed packet, the defender gets initiative.
 
 ---
 
@@ -233,9 +253,16 @@ There is no explicit point-value ceiling for an attack.
 
 However:
 
-> The total number of attacking / thrown-in cards may not exceed the number of cards the defender had in hand at the start of the bout.
+> The total number of attacking / thrown-in cards may not exceed the number of cards the current
+> defender had when that participant became defender.
 
-This limit is fixed when the bout starts and is not recalculated after cards are played.
+Defense cards do not count toward this limit. The initial limit uses the defender's hand count when
+the bout starts and remains fixed while that participant remains defender.
+
+If a transfer changes the defender, the limit resets to the new defender's remaining hand count at
+the moment the transfer is received. The transfer is legal only if the total number of attack,
+transfer, and throw-in cards already on the table after the proposed transfer does not exceed that
+new limit.
 
 ---
 
@@ -415,6 +442,9 @@ No exact integer target is produced.
 
 Instead of defending, a player may transfer the attack to the next player if they can play cards whose total effective value is **exactly equal to the current accumulated attack value**.
 
+Transfer is available only before the first successful defense of the bout. It does not reopen for
+later throw-in packets.
+
 Rule:
 
 `transferValue == currentAttackValue`
@@ -492,7 +522,13 @@ The player who took the cards effectively loses the next attacking turn.
 
 ## 14. Successful defense
 
-If the defender successfully beats the complete attack:
+If the defender successfully beats the active attack packet:
+
+- that packet closes;
+- its defense cards become the direct anchors for the next throw-in opportunity;
+- the attacker may make another legal throw-in packet or finish the bout as bito.
+
+If the attacker finishes the fully covered bout as bito:
 
 - the table becomes **bito** / discarded;
 - the defender becomes the attacker for the next bout.
@@ -593,8 +629,9 @@ The implementation should preserve these invariants:
 6. Throw-in total and mean are recalculated after every legal addition.
 7. Same-rank relations are legal independently of arithmetic.
 8. Multi-card combinations may satisfy an arithmetic target.
-9. Attack card count never exceeds the defender's starting hand size.
-10. After successful defense, defender attacks next.
+9. Attack card count never exceeds the current defender's limit, which resets when a transfer
+   changes the defender.
+10. After the attacker finishes a fully covered bout as bito, the defender attacks next.
 11. After taking, previous attacker attacks again.
 12. Attacker refills first.
 13. No trump exists after the deck is exhausted.

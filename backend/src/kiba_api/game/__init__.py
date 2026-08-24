@@ -14,6 +14,21 @@ from kiba_api.game.attack import (
     analyze_initial_attack,
     is_legal_initial_attack,
 )
+from kiba_api.game.bout import (
+    AttackPacket,
+    BoutActionError,
+    BoutErrorCode,
+    BoutOutcome,
+    BoutPhase,
+    BoutState,
+    Seat,
+    finish_bout,
+    play_defense,
+    play_initial_attack,
+    play_throw_in,
+    play_transfer,
+    take,
+)
 from kiba_api.game.cards import Card, JokerColor, Rank, Suit, TrumpState
 from kiba_api.game.moves import (
     ThrowInAnalysis,
@@ -32,11 +47,18 @@ from kiba_api.game.scoring import (
 from kiba_api.game.transfer import TransferAnalysis, analyze_transfer
 
 __all__ = [
+    "AttackPacket",
+    "BoutActionError",
+    "BoutErrorCode",
+    "BoutOutcome",
+    "BoutPhase",
+    "BoutState",
     "Card",
     "InitialAttackAnalysis",
     "InitialAttackReason",
     "JokerColor",
     "Rank",
+    "Seat",
     "Suit",
     "TableArithmeticSummary",
     "ThrowInAnalysis",
@@ -49,6 +71,7 @@ __all__ = [
     "analyze_throw_in",
     "cards_have_same_rank",
     "find_exact_value_subsets",
+    "finish_bout",
     "get_arithmetic_mean",
     "get_base_value",
     "get_cards_value",
@@ -58,5 +81,10 @@ __all__ = [
     "is_legal_initial_attack",
     "is_trump",
     "matches_exact_value",
+    "play_defense",
+    "play_initial_attack",
+    "play_throw_in",
+    "play_transfer",
     "summarize_table_arithmetic",
+    "take",
 ]
