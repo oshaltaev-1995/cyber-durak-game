@@ -25,7 +25,8 @@ Supported deck sizes:
 - **36 cards**
 - **54 cards** including two Jokers
 
-Future variants may support two physical decks, but that is not required for the first MVP.
+The Alpha implementation constructs only the 36-card deck. The 54-card/Joker deck and variants
+using two physical decks remain future scope and must not invent values for ranks 2–5.
 
 ---
 
@@ -34,6 +35,8 @@ Future variants may support two physical decks, but that is not required for the
 - Each player receives **7 cards**.
 - The remaining deck stays face-up with its top card visible.
 - The visible top card determines the trump state for the bout.
+- The visible top card remains physically at the front of the draw pile and is the next card drawn
+  when refill begins; it is not removed as a separate trump card.
 
 ---
 
@@ -512,6 +515,7 @@ The receiving player may instead defend or take according to the normal rules if
 If the defender cannot or does not want to defend:
 
 - the defender takes the cards from the table;
+- the entire physical table is added to that player's hand before refill;
 - that player does **not** become the next attacker;
 - the previous attacker keeps initiative;
 - after refill, the previous attacker attacks again.
@@ -551,7 +555,9 @@ If a player has:
 
 The player who **started the bout as attacker** draws first.
 
-Then the remaining players draw in turn order.
+Then the remaining players draw in turn order. Transfers do not change this order: the original
+bout attacker still refills first. Cards are drawn from the exposed front of the draw pile, one at a
+time. A player already holding 7 or more cards draws nothing, including after taking a table.
 
 ### 15.2 New trump timing
 
@@ -559,7 +565,9 @@ The trump state is fixed for the entire current bout.
 
 Drawing cards must not change the effective values of cards already played during that bout.
 
-After the bout is fully resolved and refill has occurred, the newly exposed top card defines the trump state for the next bout.
+After the bout is fully resolved and refill has occurred, the newly exposed top card defines the
+trump state for the next bout. The previous bout's trump snapshot does not carry forward. If refill
+empties the draw pile, the next bout has no trump.
 
 ---
 

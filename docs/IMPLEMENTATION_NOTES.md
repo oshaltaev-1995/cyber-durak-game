@@ -209,6 +209,10 @@ winner?
 version
 ```
 
+A game-level state owns the actual ordered card hands, draw pile and discard pile. `BoutState`
+remains the authority for one bout's legality and tracks only numeric remaining hand counts; while
+a bout is active, those counts must exactly equal the corresponding game-owned hand lengths.
+
 A monotonic `version` is useful for websocket reconciliation.
 
 ---
