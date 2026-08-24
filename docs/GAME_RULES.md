@@ -583,9 +583,19 @@ When the deck is empty:
 
 ## 17. Winning
 
-The first player to legally get rid of all cards wins.
+The game result is evaluated only after the current bout ends as TAKE or BITO, all table-card
+movement has been applied, and both players have refilled in the normal order. A hand temporarily
+reaching zero during an unresolved bout is not a win.
 
-The exact timing of victory must be handled by the rules engine so that a player cannot be declared winner prematurely while they are still required to take cards or while a bout is unresolved.
+The game can finish only when the draw pile is empty. After bout resolution and refill:
+
+- if neither hand is empty, play continues;
+- if exactly one hand is empty, that player wins;
+- if both hands are empty, the game is a **draw**.
+
+There is no simultaneous-empty tie-break based on who played a final card first, who started the
+bout, or who was the final attacker or defender. TAKE first gives the taker the entire table; BITO
+first moves the table to discard; only then does refill and result evaluation occur.
 
 ---
 

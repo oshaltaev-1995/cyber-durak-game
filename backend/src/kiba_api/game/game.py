@@ -34,10 +34,36 @@ _STANDARD_36_RANKS = (
 
 
 class GamePhase(StrEnum):
-    """The two non-terminal phases supported before winner resolution exists."""
+    """The constrained lifecycle phase of a two-participant game."""
 
     READY_FOR_BOUT = "ready_for_bout"
     BOUT_ACTIVE = "bout_active"
+    COMPLETE = "complete"
+
+
+class GameOutcome(StrEnum):
+    """A canonical completed-game outcome."""
+
+    WIN = "win"
+    DRAW = "draw"
+
+
+@dataclass(frozen=True, slots=True)
+class GameResult:
+    """An explicit win or draw result for a completed game."""
+
+    outcome: GameOutcome
+    winner: Seat | None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.outcome, GameOutcome):
+            raise TypeError("outcome must be a GameOutcome")
+        if self.winner is not None and not isinstance(self.winner, Seat):
+            raise TypeError("winner must be a Seat or None")
+        if self.outcome is GameOutcome.WIN and self.winner is None:
+            raise ValueError("a win result requires a winner")
+        if self.outcome is GameOutcome.DRAW and self.winner is not None:
+            raise ValueError("a draw result cannot have a winner")
 
 
 class GameErrorCode(StrEnum):
@@ -49,7 +75,7 @@ class GameErrorCode(StrEnum):
     CARD_NOT_OWNED = "card_not_owned"
     TOO_MANY_EQUIVALENT_CARDS = "too_many_equivalent_cards"
     HAND_COUNT_MISMATCH = "hand_count_mismatch"
-    EMPTY_HAND_REQUIRES_COMPLETION = "empty_hand_requires_completion"
+    GAME_COMPLETE = "game_complete"
 
 
 class GameActionError(ValueError):
@@ -68,18 +94,19 @@ class GameState:
     seat_two_hand: tuple[Card, ...]
     draw_pile: tuple[Card, ...]
     discard_pile: tuple[Card, ...]
-    current_attacker: Seat
+    current_attacker: Seat | None
     phase: GamePhase = GamePhase.READY_FOR_BOUT
     active_bout: BoutState | None = None
     bout_starting_attacker: Seat | None = None
+    result: GameResult | None = None
 
     def __post_init__(self) -> None:
         _validate_card_tuple("seat_one_hand", self.seat_one_hand)
         _validate_card_tuple("seat_two_hand", self.seat_two_hand)
         _validate_card_tuple("draw_pile", self.draw_pile)
         _validate_card_tuple("discard_pile", self.discard_pile)
-        if not isinstance(self.current_attacker, Seat):
-            raise TypeError("current_attacker must be a Seat")
+        if self.current_attacker is not None and not isinstance(self.current_attacker, Seat):
+            raise TypeError("current_attacker must be a Seat or None")
         if not isinstance(self.phase, GamePhase):
             raise TypeError("phase must be a GamePhase")
         if self.active_bout is not None and not isinstance(self.active_bout, BoutState):
@@ -89,10 +116,23 @@ class GameState:
             Seat,
         ):
             raise TypeError("bout_starting_attacker must be a Seat or None")
+        if self.result is not None and not isinstance(self.result, GameResult):
+            raise TypeError("result must be a GameResult or None")
+
+        if self.phase is GamePhase.COMPLETE:
+            self._validate_complete_result()
+            return
+
+        if self.result is not None:
+            raise ValueError("a non-complete game cannot have a result")
+        if self.current_attacker is None:
+            raise ValueError("a non-complete game requires a current attacker")
 
         if self.phase is GamePhase.READY_FOR_BOUT:
             if self.active_bout is not None or self.bout_starting_attacker is not None:
                 raise ValueError("a ready game cannot retain active-bout state")
+            if not self.seat_one_hand or not self.seat_two_hand:
+                raise ValueError("a ready game cannot have an empty hand")
             return
 
         if self.active_bout is None or self.bout_starting_attacker is None:
@@ -102,6 +142,31 @@ class GameState:
         if self.active_bout.phase is BoutPhase.COMPLETE:
             raise ValueError("a completed bout must be resolved before storing GameState")
         _require_hand_count_invariant(self, self.active_bout)
+
+    def _validate_complete_result(self) -> None:
+        if self.active_bout is not None or self.bout_starting_attacker is not None:
+            raise ValueError("a complete game cannot retain active-bout state")
+        if self.current_attacker is not None:
+            raise ValueError("a complete game cannot have a next attacker")
+        if self.result is None:
+            raise ValueError("a complete game requires a result")
+        if self.draw_pile:
+            raise ValueError("a complete game requires an empty draw pile")
+
+        seat_one_empty = not self.seat_one_hand
+        seat_two_empty = not self.seat_two_hand
+        if self.result.outcome is GameOutcome.DRAW:
+            if not seat_one_empty or not seat_two_empty:
+                raise ValueError("a draw requires both hands to be empty")
+            return
+
+        expected_winner: Seat | None = None
+        if seat_one_empty and not seat_two_empty:
+            expected_winner = Seat.ONE
+        elif seat_two_empty and not seat_one_empty:
+            expected_winner = Seat.TWO
+        if self.result.winner is not expected_winner:
+            raise ValueError("a win requires exactly the reported winner's hand to be empty")
 
     @classmethod
     def deal(cls, draw_pile: Iterable[Card], *, initial_attacker: Seat) -> Self:
@@ -141,10 +206,12 @@ def create_36_card_deck() -> tuple[Card, ...]:
 
 def start_game_bout(state: GameState) -> GameState:
     """Start an empty bout using real hand lengths and the exposed top card."""
+    if state.phase is GamePhase.COMPLETE:
+        raise GameActionError(GameErrorCode.GAME_COMPLETE)
     if state.phase is GamePhase.BOUT_ACTIVE:
         raise GameActionError(GameErrorCode.BOUT_ALREADY_ACTIVE)
-    if not state.seat_one_hand or not state.seat_two_hand:
-        raise GameActionError(GameErrorCode.EMPTY_HAND_REQUIRES_COMPLETION)
+    if state.current_attacker is None:
+        raise ValueError("a ready game requires a current attacker")
 
     bout = BoutState.start(
         attacker=state.current_attacker,
@@ -261,12 +328,15 @@ def _resolve_completed_bout(state: GameState, bout: BoutState) -> GameState:
         state.draw_pile,
         state.bout_starting_attacker,
     )
+    result = _evaluate_game_result(seat_one_hand, seat_two_hand, draw_pile)
     return GameState(
         seat_one_hand=seat_one_hand,
         seat_two_hand=seat_two_hand,
         draw_pile=draw_pile,
         discard_pile=discard_pile,
-        current_attacker=bout.next_attacker,
+        current_attacker=None if result is not None else bout.next_attacker,
+        phase=GamePhase.COMPLETE if result is not None else GamePhase.READY_FOR_BOUT,
+        result=result,
     )
 
 
@@ -287,10 +357,28 @@ def _refill_hands(
 
 
 def _require_active_bout(state: GameState) -> BoutState:
+    if state.phase is GamePhase.COMPLETE:
+        raise GameActionError(GameErrorCode.GAME_COMPLETE)
     if state.phase is not GamePhase.BOUT_ACTIVE or state.active_bout is None:
         raise GameActionError(GameErrorCode.NO_ACTIVE_BOUT)
     _require_hand_count_invariant(state, state.active_bout)
     return state.active_bout
+
+
+def _evaluate_game_result(
+    seat_one_hand: tuple[Card, ...],
+    seat_two_hand: tuple[Card, ...],
+    draw_pile: tuple[Card, ...],
+) -> GameResult | None:
+    if draw_pile:
+        return None
+    if not seat_one_hand and not seat_two_hand:
+        return GameResult(outcome=GameOutcome.DRAW, winner=None)
+    if not seat_one_hand:
+        return GameResult(outcome=GameOutcome.WIN, winner=Seat.ONE)
+    if not seat_two_hand:
+        return GameResult(outcome=GameOutcome.WIN, winner=Seat.TWO)
+    return None
 
 
 def _require_hand_count_invariant(state: GameState, bout: BoutState) -> None:

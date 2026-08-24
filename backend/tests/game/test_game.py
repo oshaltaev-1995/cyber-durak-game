@@ -11,7 +11,9 @@ from kiba_api.game import (
     Card,
     GameActionError,
     GameErrorCode,
+    GameOutcome,
     GamePhase,
+    GameResult,
     GameState,
     Rank,
     Seat,
@@ -144,16 +146,21 @@ def test_start_bout_uses_no_trump_when_draw_pile_is_empty() -> None:
     assert started.active_bout.trump_state == TrumpState.no_trump()
 
 
-def test_start_bout_rejects_active_game_and_empty_hand_without_inferring_winner() -> None:
+def test_start_bout_rejects_an_active_game() -> None:
     ready = ready_game((card(Rank.SIX),), (card(Rank.SEVEN),))
     assert_game_error(GameErrorCode.BOUT_ALREADY_ACTIVE, start_game_bout, start_game_bout(ready))
 
-    for state in (
-        ready_game((), (card(Rank.SEVEN),)),
-        ready_game((card(Rank.SIX),), ()),
-    ):
-        assert_game_error(GameErrorCode.EMPTY_HAND_REQUIRES_COMPLETION, start_game_bout, state)
-        assert not hasattr(state, "winner")
+
+@pytest.mark.parametrize(
+    ("seat_one_hand", "seat_two_hand"),
+    [((), (card(Rank.SEVEN),)), ((card(Rank.SIX),), ()), ((), ())],
+)
+def test_ready_state_rejects_empty_hands_that_require_a_terminal_result(
+    seat_one_hand: tuple[Card, ...],
+    seat_two_hand: tuple[Card, ...],
+) -> None:
+    with pytest.raises(ValueError, match="ready game cannot have an empty hand"):
+        ready_game(seat_one_hand, seat_two_hand)
 
 
 def test_owned_initial_attack_removes_exact_card_and_preserves_hand_order() -> None:
@@ -530,3 +537,318 @@ def test_active_game_rejects_bout_hand_count_mismatch() -> None:
         )
 
     assert caught.value.code is GameErrorCode.HAND_COUNT_MISMATCH
+
+
+@pytest.mark.parametrize(
+    ("seat_one_hand", "seat_two_hand", "expected_winner"),
+    [
+        ((card(Rank.JACK),), (card(Rank.KING), card(Rank.SIX)), Seat.ONE),
+        ((card(Rank.JACK), card(Rank.SIX)), (card(Rank.KING),), Seat.TWO),
+    ],
+)
+def test_bito_resolves_the_only_empty_hand_as_winner(
+    seat_one_hand: tuple[Card, ...],
+    seat_two_hand: tuple[Card, ...],
+    expected_winner: Seat,
+) -> None:
+    state = start_game_bout(ready_game(seat_one_hand, seat_two_hand))
+    state = play_game_initial_attack(state, Seat.ONE, [card(Rank.JACK)])
+    state = play_game_defense(state, Seat.TWO, [card(Rank.KING)])
+
+    resolved = finish_game_bout(state, Seat.ONE)
+
+    assert resolved.phase is GamePhase.COMPLETE
+    assert resolved.result == GameResult(GameOutcome.WIN, expected_winner)
+    assert resolved.current_attacker is None
+    assert resolved.draw_pile == ()
+
+
+@pytest.mark.parametrize("initial_attacker", [Seat.ONE, Seat.TWO])
+def test_bito_with_both_hands_empty_is_a_draw_without_attacker_tiebreak(
+    initial_attacker: Seat,
+) -> None:
+    attacking_card = card(Rank.JACK)
+    defending_card = card(Rank.KING)
+    hands = {
+        initial_attacker: (attacking_card,),
+        initial_attacker.other: (defending_card,),
+    }
+    state = start_game_bout(
+        ready_game(
+            hands[Seat.ONE],
+            hands[Seat.TWO],
+            attacker=initial_attacker,
+        )
+    )
+    state = play_game_initial_attack(state, initial_attacker, [attacking_card])
+    state = play_game_defense(state, initial_attacker.other, [defending_card])
+
+    resolved = finish_game_bout(state, initial_attacker)
+
+    assert resolved.phase is GamePhase.COMPLETE
+    assert resolved.result == GameResult(GameOutcome.DRAW, None)
+    assert resolved.result.winner is None
+    assert resolved.current_attacker is None
+
+
+def test_no_result_exists_while_a_bout_is_unresolved_even_when_hands_are_empty() -> None:
+    state = start_game_bout(ready_game((card(Rank.JACK),), (card(Rank.KING),)))
+
+    attacked = play_game_initial_attack(state, Seat.ONE, [card(Rank.JACK)])
+    defended = play_game_defense(attacked, Seat.TWO, [card(Rank.KING)])
+
+    assert attacked.seat_one_hand == ()
+    assert attacked.phase is GamePhase.BOUT_ACTIVE
+    assert attacked.result is None
+    assert defended.seat_one_hand == ()
+    assert defended.seat_two_hand == ()
+    assert defended.phase is GamePhase.BOUT_ACTIVE
+    assert defended.result is None
+
+
+def test_temporary_empty_hand_refills_before_result_and_game_continues() -> None:
+    draw = tuple(
+        card(rank, suit)
+        for suit in (Suit.HEARTS, Suit.DIAMONDS)
+        for rank in (
+            Rank.SIX,
+            Rank.SEVEN,
+            Rank.EIGHT,
+            Rank.NINE,
+            Rank.TEN,
+            Rank.JACK,
+            Rank.QUEEN,
+            Rank.KING,
+        )
+    )
+    state = start_game_bout(
+        ready_game(
+            (card(Rank.JACK),),
+            (card(Rank.KING),),
+            draw_pile=draw,
+        )
+    )
+    state = play_game_initial_attack(state, Seat.ONE, [card(Rank.JACK)])
+    assert state.seat_one_hand == ()
+    assert state.result is None
+    state = play_game_defense(state, Seat.TWO, [card(Rank.KING)])
+
+    resolved = finish_game_bout(state, Seat.ONE)
+
+    assert len(resolved.seat_one_hand) == 7
+    assert len(resolved.seat_two_hand) == 7
+    assert len(resolved.draw_pile) == 2
+    assert resolved.phase is GamePhase.READY_FOR_BOUT
+    assert resolved.result is None
+
+
+@pytest.mark.parametrize(
+    ("initial_attacker", "expected_winner"),
+    [(Seat.ONE, Seat.TWO), (Seat.TWO, Seat.ONE)],
+)
+def test_single_refill_card_goes_to_bout_starter_before_winner_evaluation(
+    initial_attacker: Seat,
+    expected_winner: Seat,
+) -> None:
+    attacking_card = card(Rank.JACK)
+    defending_card = card(Rank.KING)
+    hands = {
+        initial_attacker: (attacking_card,),
+        initial_attacker.other: (defending_card,),
+    }
+    state = start_game_bout(
+        ready_game(
+            hands[Seat.ONE],
+            hands[Seat.TWO],
+            draw_pile=(card(Rank.SIX, Suit.HEARTS),),
+            attacker=initial_attacker,
+        )
+    )
+    state = play_game_initial_attack(state, initial_attacker, [attacking_card])
+    state = play_game_defense(state, initial_attacker.other, [defending_card])
+
+    resolved = finish_game_bout(state, initial_attacker)
+
+    assert resolved.hand(initial_attacker) == (card(Rank.SIX, Suit.HEARTS),)
+    assert resolved.hand(initial_attacker.other) == ()
+    assert resolved.result == GameResult(GameOutcome.WIN, expected_winner)
+
+
+def test_empty_deck_with_neither_hand_empty_continues() -> None:
+    state = start_game_bout(
+        ready_game(
+            (card(Rank.JACK), card(Rank.SIX)),
+            (card(Rank.KING), card(Rank.SEVEN)),
+        )
+    )
+    state = play_game_initial_attack(state, Seat.ONE, [card(Rank.JACK)])
+    state = play_game_defense(state, Seat.TWO, [card(Rank.KING)])
+
+    resolved = finish_game_bout(state, Seat.ONE)
+
+    assert resolved.draw_pile == ()
+    assert resolved.seat_one_hand == (card(Rank.SIX),)
+    assert resolved.seat_two_hand == (card(Rank.SEVEN),)
+    assert resolved.phase is GamePhase.READY_FOR_BOUT
+    assert resolved.result is None
+
+
+def test_attacker_wins_only_after_take_moves_the_table_and_refill_finishes() -> None:
+    king = card(Rank.KING)
+    six = card(Rank.SIX)
+    state = start_game_bout(ready_game((king,), (six,)))
+    state = play_game_initial_attack(state, Seat.ONE, [king])
+
+    resolved = take_game_bout(state, Seat.TWO)
+
+    assert resolved.seat_one_hand == ()
+    assert resolved.seat_two_hand == (six, king)
+    assert resolved.result == GameResult(GameOutcome.WIN, Seat.ONE)
+    assert resolved.phase is GamePhase.COMPLETE
+
+
+def test_take_refills_the_temporarily_empty_attacker_before_result_evaluation() -> None:
+    king = card(Rank.KING)
+    six = card(Rank.SIX)
+    refill_card = card(Rank.SEVEN, Suit.HEARTS)
+    state = start_game_bout(
+        ready_game(
+            (king,),
+            (six,),
+            draw_pile=(refill_card,),
+        )
+    )
+    state = play_game_initial_attack(state, Seat.ONE, [king])
+    assert state.seat_one_hand == ()
+    assert state.result is None
+
+    resolved = take_game_bout(state, Seat.TWO)
+
+    assert resolved.seat_one_hand == (refill_card,)
+    assert resolved.seat_two_hand == (six, king)
+    assert resolved.draw_pile == ()
+    assert resolved.phase is GamePhase.READY_FOR_BOUT
+    assert resolved.result is None
+
+
+def test_transfer_history_does_not_change_simultaneous_empty_draw() -> None:
+    king = card(Rank.KING)
+    nines = (card(Rank.NINE), card(Rank.NINE, Suit.DIAMONDS))
+    defense = (card(Rank.QUEEN), card(Rank.QUEEN, Suit.DIAMONDS), card(Rank.TEN))
+    state = start_game_bout(ready_game((king, *defense), nines))
+    state = play_game_initial_attack(state, Seat.ONE, [king])
+    state = play_game_transfer(state, Seat.TWO, nines)
+    state = play_game_defense(state, Seat.ONE, defense)
+
+    resolved = finish_game_bout(state, Seat.TWO)
+
+    assert resolved.seat_one_hand == ()
+    assert resolved.seat_two_hand == ()
+    assert resolved.result == GameResult(GameOutcome.DRAW, None)
+
+
+def completed_draw_game() -> GameState:
+    state = start_game_bout(ready_game((card(Rank.JACK),), (card(Rank.KING),)))
+    state = play_game_initial_attack(state, Seat.ONE, [card(Rank.JACK)])
+    state = play_game_defense(state, Seat.TWO, [card(Rank.KING)])
+    return finish_game_bout(state, Seat.ONE)
+
+
+def completed_win_game() -> GameState:
+    state = start_game_bout(ready_game((card(Rank.JACK),), (card(Rank.KING), card(Rank.SIX))))
+    state = play_game_initial_attack(state, Seat.ONE, [card(Rank.JACK)])
+    state = play_game_defense(state, Seat.TWO, [card(Rank.KING)])
+    return finish_game_bout(state, Seat.ONE)
+
+
+@pytest.mark.parametrize("completed_state", [completed_win_game, completed_draw_game])
+def test_completed_games_reject_start_and_all_gameplay_actions(
+    completed_state: Callable[[], GameState],
+) -> None:
+    state = completed_state()
+    actions: tuple[Callable[[], object], ...] = (
+        lambda: start_game_bout(state),
+        lambda: play_game_initial_attack(state, Seat.ONE, [card(Rank.SIX)]),
+        lambda: play_game_transfer(state, Seat.ONE, [card(Rank.SIX)]),
+        lambda: play_game_defense(state, Seat.ONE, [card(Rank.SIX)]),
+        lambda: play_game_throw_in(state, Seat.ONE, [card(Rank.SIX)]),
+        lambda: finish_game_bout(state, Seat.ONE),
+        lambda: take_game_bout(state, Seat.ONE),
+    )
+
+    for action in actions:
+        assert_game_error(GameErrorCode.GAME_COMPLETE, action)
+
+
+def test_completed_game_and_result_are_immutable() -> None:
+    state = completed_draw_game()
+    assert state.result is not None
+
+    with pytest.raises(FrozenInstanceError):
+        state.phase = GamePhase.READY_FOR_BOUT  # type: ignore[misc]
+    with pytest.raises(FrozenInstanceError):
+        state.result.winner = Seat.ONE  # type: ignore[misc]
+
+
+def test_game_result_requires_winner_only_for_win() -> None:
+    with pytest.raises(ValueError, match="win result requires a winner"):
+        GameResult(GameOutcome.WIN, None)
+    with pytest.raises(ValueError, match="draw result cannot have a winner"):
+        GameResult(GameOutcome.DRAW, Seat.ONE)
+
+
+def test_non_complete_game_cannot_have_a_result() -> None:
+    with pytest.raises(ValueError, match="non-complete game cannot have a result"):
+        GameState(
+            seat_one_hand=(card(Rank.SIX),),
+            seat_two_hand=(card(Rank.SEVEN),),
+            draw_pile=(),
+            discard_pile=(),
+            current_attacker=Seat.ONE,
+            result=GameResult(GameOutcome.WIN, Seat.ONE),
+        )
+
+
+def test_complete_game_requires_result_and_empty_draw_pile() -> None:
+    with pytest.raises(ValueError, match="complete game requires a result"):
+        GameState(
+            seat_one_hand=(),
+            seat_two_hand=(card(Rank.SEVEN),),
+            draw_pile=(),
+            discard_pile=(),
+            current_attacker=None,
+            phase=GamePhase.COMPLETE,
+        )
+    with pytest.raises(ValueError, match="empty draw pile"):
+        GameState(
+            seat_one_hand=(),
+            seat_two_hand=(card(Rank.SEVEN),),
+            draw_pile=(card(Rank.SIX),),
+            discard_pile=(),
+            current_attacker=None,
+            phase=GamePhase.COMPLETE,
+            result=GameResult(GameOutcome.WIN, Seat.ONE),
+        )
+
+
+def test_complete_result_must_match_final_hands() -> None:
+    with pytest.raises(ValueError, match="draw requires both hands"):
+        GameState(
+            seat_one_hand=(),
+            seat_two_hand=(card(Rank.SEVEN),),
+            draw_pile=(),
+            discard_pile=(),
+            current_attacker=None,
+            phase=GamePhase.COMPLETE,
+            result=GameResult(GameOutcome.DRAW, None),
+        )
+    with pytest.raises(ValueError, match="reported winner"):
+        GameState(
+            seat_one_hand=(),
+            seat_two_hand=(card(Rank.SEVEN),),
+            draw_pile=(),
+            discard_pile=(),
+            current_attacker=None,
+            phase=GamePhase.COMPLETE,
+            result=GameResult(GameOutcome.WIN, Seat.TWO),
+        )

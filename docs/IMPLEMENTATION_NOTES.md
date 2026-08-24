@@ -205,7 +205,7 @@ draw_pile[]
 discard_pile[]
 bout
 phase
-winner?
+result? (win with winner seat, or draw)
 version
 ```
 
