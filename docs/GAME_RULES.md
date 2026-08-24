@@ -600,7 +600,7 @@ If playtesting reveals degenerate loops or overly powerful chains, the game desi
 
 ### 20.4 Player counts
 
-The rules clearly support transfer chains and therefore naturally support 3+ players, but the first playable MVP may intentionally start with 2 players plus bot.
+The rules clearly support transfer chains and therefore naturally support 3+ players, but the first playable MVP intentionally starts with 2 participants total: one human and one bot.
 
 ---
 
@@ -646,4 +646,3 @@ The implementation should therefore prioritize:
 3. playtesting before adding artificial balance rules;
 4. keeping game logic deterministic and independent from UI;
 5. allowing rules to evolve without breaking saved architecture.
-
