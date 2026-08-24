@@ -8,6 +8,12 @@ from kiba_api.game.arithmetic import (
     matches_exact_value,
     summarize_table_arithmetic,
 )
+from kiba_api.game.attack import (
+    InitialAttackAnalysis,
+    InitialAttackReason,
+    analyze_initial_attack,
+    is_legal_initial_attack,
+)
 from kiba_api.game.cards import Card, JokerColor, Rank, Suit, TrumpState
 from kiba_api.game.moves import (
     ThrowInAnalysis,
@@ -27,6 +33,8 @@ from kiba_api.game.transfer import TransferAnalysis, analyze_transfer
 
 __all__ = [
     "Card",
+    "InitialAttackAnalysis",
+    "InitialAttackReason",
     "JokerColor",
     "Rank",
     "Suit",
@@ -36,6 +44,7 @@ __all__ = [
     "ThrowInTargets",
     "TransferAnalysis",
     "TrumpState",
+    "analyze_initial_attack",
     "analyze_transfer",
     "analyze_throw_in",
     "cards_have_same_rank",
@@ -46,6 +55,7 @@ __all__ = [
     "get_effective_value",
     "get_throw_in_targets",
     "is_legal_defense",
+    "is_legal_initial_attack",
     "is_trump",
     "matches_exact_value",
     "summarize_table_arithmetic",

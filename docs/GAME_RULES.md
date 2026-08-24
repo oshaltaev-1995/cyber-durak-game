@@ -161,6 +161,16 @@ A player may start an attack with:
 
 Cards may not simply be placed together without a relation.
 
+### 7.1 Initial-attack relation scope
+
+An initial attack may use a single card, same-rank relationships, or one connected structure made
+from two or more non-empty card groups with equal effective totals. Either side of an arithmetic
+equality may contain multiple physical cards.
+
+Initial attack construction does **not** expose the selected cards' total or arithmetic mean as new
+targets. Table-total and arithmetic-mean targets become available only for post-response throw-ins
+after a defender has responded and a table state exists.
+
 Examples:
 
 `9 + 7` ❌
@@ -187,7 +197,7 @@ Because:
 
 `12 + 6 = 18 = K`
 
-### 7.1 Trump values participate in attack relations
+### 7.2 Trump values participate in attack relations
 
 Example:
 
@@ -203,7 +213,7 @@ Therefore:
 
 The cards are connected because their effective values are equal.
 
-### 7.2 Same rank remains a valid relation
+### 7.3 Same rank remains a valid relation
 
 If one or more cards of a rank are already part of a legal attack, additional cards of that same rank may be added, subject to the card-count limit.
 
