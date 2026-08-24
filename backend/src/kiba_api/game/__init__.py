@@ -23,6 +23,7 @@ from kiba_api.game.scoring import (
     get_effective_value,
     is_trump,
 )
+from kiba_api.game.transfer import TransferAnalysis, analyze_transfer
 
 __all__ = [
     "Card",
@@ -33,7 +34,9 @@ __all__ = [
     "ThrowInAnalysis",
     "ThrowInReason",
     "ThrowInTargets",
+    "TransferAnalysis",
     "TrumpState",
+    "analyze_transfer",
     "analyze_throw_in",
     "cards_have_same_rank",
     "find_exact_value_subsets",
