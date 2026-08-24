@@ -1,5 +1,6 @@
 """Pure defense and throw-in rule primitives."""
 
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -25,7 +26,7 @@ class ThrowInReason(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ThrowInTargets:
-    """Arithmetic targets exposed by the current physical table cards."""
+    """Direct-anchor values and arithmetic targets from the physical table."""
 
     represented_effective_values: frozenset[int]
     table_total: int | None
@@ -62,10 +63,14 @@ def is_legal_defense(
 
 def get_throw_in_targets(
     table_cards: Iterable[Card],
+    direct_anchor_cards: Iterable[Card],
     trump_state: TrumpState,
 ) -> ThrowInTargets:
-    """Derive immutable arithmetic targets from the pre-action table."""
+    """Derive direct targets and physical-table arithmetic before an action."""
     table = tuple(table_cards)
+    direct_anchors = tuple(direct_anchor_cards)
+    _validate_direct_anchors(table, direct_anchors)
+
     if not table:
         return ThrowInTargets(
             represented_effective_values=frozenset(),
@@ -76,7 +81,7 @@ def get_throw_in_targets(
     summary = summarize_table_arithmetic(table, trump_state)
     return ThrowInTargets(
         represented_effective_values=frozenset(
-            get_effective_value(card, trump_state) for card in table
+            get_effective_value(card, trump_state) for card in direct_anchors
         ),
         table_total=summary.total_effective_value,
         arithmetic_mean=summary.arithmetic_mean,
@@ -86,20 +91,22 @@ def get_throw_in_targets(
 def analyze_throw_in(
     selected_cards: Iterable[Card],
     table_cards: Iterable[Card],
+    direct_anchor_cards: Iterable[Card],
     trump_state: TrumpState,
 ) -> ThrowInAnalysis:
-    """Evaluate one selection against only the supplied pre-action table."""
+    """Evaluate a selection against supplied table arithmetic and direct anchors."""
     selected = tuple(selected_cards)
     table = tuple(table_cards)
+    direct_anchors = tuple(direct_anchor_cards)
     selected_value = get_cards_value(selected, trump_state)
+    targets = get_throw_in_targets(table, direct_anchors, trump_state)
 
     if not selected or not table:
         return ThrowInAnalysis(selected_value=selected_value, reasons=frozenset())
 
     reasons: set[ThrowInReason] = set()
-    targets = get_throw_in_targets(table, trump_state)
 
-    if _has_represented_same_rank(selected, table):
+    if _has_represented_same_rank(selected, direct_anchors):
         reasons.add(ThrowInReason.SAME_RANK)
 
     if any(
@@ -125,9 +132,20 @@ def analyze_throw_in(
     return ThrowInAnalysis(selected_value=selected_value, reasons=frozenset(reasons))
 
 
-def _has_represented_same_rank(selected: tuple[Card, ...], table: tuple[Card, ...]) -> bool:
+def _has_represented_same_rank(
+    selected: tuple[Card, ...],
+    direct_anchors: tuple[Card, ...],
+) -> bool:
     selection_shares_rank = len(selected) == 1 or cards_have_same_rank(selected)
     if not selection_shares_rank:
         return False
     selected_rank = selected[0].rank
-    return any(card.rank is selected_rank for card in table)
+    return any(card.rank is selected_rank for card in direct_anchors)
+
+
+def _validate_direct_anchors(
+    table: tuple[Card, ...],
+    direct_anchors: tuple[Card, ...],
+) -> None:
+    if not Counter(direct_anchors) <= Counter(table):
+        raise ValueError("direct_anchor_cards must be a multiset subset of table_cards")

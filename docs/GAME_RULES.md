@@ -306,11 +306,26 @@ Defense:
 
 `K = 18`
 
-Because 18 is now represented on the table, another card or combination totaling 18 may be thrown in.
+Because the defending King is a current direct throw-in anchor, it exposes rank King and effective
+value 18. Another card or combination totaling 18 may be thrown in.
 
 Example:
 
 `10 + 8 = 18` ✅
+
+Direct anchors and physical-table arithmetic have different lifecycles. After an attack packet has
+been successfully covered, its attacking cards remain physically on the table and continue to
+contribute to the table total and arithmetic mean. Those covered attacking cards no longer
+independently authorize same-rank or existing-value throw-ins. The bout layer determines which
+cards belong to the current active response context and are direct anchors at each step.
+
+Example:
+
+`J(12)` is covered by `K(18)`.
+
+The King is the direct anchor, while both physical cards remain in table arithmetic. This exposes
+direct value 18, table total 30, and arithmetic mean 15. The covered Jack's old value 12 and rank
+Jack cannot simply be reused as direct throw-in targets.
 
 ### 10.2 Total table sum
 
