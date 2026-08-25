@@ -1,0 +1,18 @@
+<section class="action-bar" aria-label="Действия игрока">
+  <div class="selection-summary" aria-live="polite">
+    <span>Выбрано: {{ selectedCards().length }}</span>
+    <strong>{{ selectionExpression() }}</strong>
+  </div>
+  <div class="actions">
+    @for (action of actions(); track action) {
+      <button
+        type="button"
+        [class.secondary]="action === 'TAKE' || action === 'BITO'"
+        [disabled]="actionDisabled(action)"
+        (click)="actionSelected.emit(action)"
+      >
+        {{ labels[action] }}
+      </button>
+    }
+  </div>
+</section>

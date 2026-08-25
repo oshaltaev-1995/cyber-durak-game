@@ -1,0 +1,17 @@
+<section class="hand" aria-labelledby="hand-title">
+  <div class="hand-heading">
+    <h2 id="hand-title">Ваши карты</h2>
+    <span>{{ cards().length }}</span>
+  </div>
+  <div class="card-strip">
+    @for (card of cards(); track card.code) {
+      <app-playing-card
+        [card]="card"
+        [selectable]="true"
+        [selected]="selectedCodes().has(card.code)"
+        [disabled]="disabled()"
+        (cardSelected)="cardSelected.emit($event)"
+      />
+    }
+  </div>
+</section>

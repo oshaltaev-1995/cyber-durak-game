@@ -1,0 +1,92 @@
+<div class="game-shell">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Kiba — главная">
+      <span class="brand-mark" aria-hidden="true">K</span>
+      <span>KIBA</span>
+    </a>
+    @if (game() !== null) {
+      <button class="new-game" type="button" [disabled]="pending()" (click)="startNewGame()">
+        Новая игра
+      </button>
+    }
+  </header>
+
+  @if (game() === null) {
+    <main class="welcome">
+      <div class="welcome-copy">
+        <span class="kicker">Cyber Durak</span>
+        <h1>KIBA</h1>
+        <p>Арифметический карточный дурак</p>
+        <button class="play-button" type="button" [disabled]="pending()" (click)="startNewGame()">
+          {{ pending() ? 'Раздаём карты…' : 'Играть' }}
+        </button>
+        @if (errorMessage(); as error) {
+          <div class="error-message" role="alert">{{ error }}</div>
+        }
+      </div>
+    </main>
+  } @else if (game(); as currentGame) {
+    <main class="game-board">
+      <section class="game-meta">
+        <app-trump-indicator
+          [trump]="currentGame.trump"
+          [exposedCard]="currentGame.exposed_top_card"
+          [drawPileCount]="currentGame.draw_pile_count"
+        />
+        <div class="bot-panel" aria-label="Карты бота">
+          <div class="bot-avatar" aria-hidden="true">BOT</div>
+          <div>
+            <span>Соперник</span>
+            <strong>Бот · {{ currentGame.bot_hand_count }} карт</strong>
+            @if (currentGame.bot_hand_count > 0) {
+              <div class="card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
+            }
+          </div>
+        </div>
+      </section>
+
+      <div class="status-banner" aria-live="polite">
+        <span class="status-dot" aria-hidden="true"></span>
+        <strong>{{ statusText() }}</strong>
+        <small>
+          Атака {{ currentGame.total_attack_card_count ?? 0 }} / лимит
+          {{ currentGame.attack_card_limit ?? '—' }}
+        </small>
+      </div>
+
+      @if (errorMessage(); as error) {
+        <div class="error-message in-game" role="alert">{{ error }}</div>
+      }
+
+      <app-game-table
+        [packets]="currentGame.packets"
+        [arithmetic]="currentGame.table_arithmetic"
+        [activeAttackValue]="currentGame.active_attack_value"
+        [directAnchors]="currentGame.direct_anchor_cards"
+      />
+
+      @if (currentGame.phase === 'complete') {
+        <section class="result-panel" aria-live="polite">
+          <span>Игра окончена</span>
+          <h2>{{ resultTitle(currentGame) }}</h2>
+          <button type="button" [disabled]="pending()" (click)="startNewGame()">Сыграть ещё</button>
+        </section>
+      } @else {
+        <app-hand
+          [cards]="currentGame.human_hand"
+          [selectedCodes]="selectedCodes()"
+          [disabled]="pending()"
+          (cardSelected)="toggleCard($event)"
+        />
+        <div class="action-dock">
+          <app-action-bar
+            [actions]="currentGame.available_actions"
+            [selectedCards]="selectedCards()"
+            [pending]="pending()"
+            (actionSelected)="submitAction($event)"
+          />
+        </div>
+      }
+    </main>
+  }
+</div>

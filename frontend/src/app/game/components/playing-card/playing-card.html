@@ -1,0 +1,35 @@
+<ng-template #cardFace>
+  <span class="corner" [class]="colorClass()">
+    <strong>{{ card().rank }}</strong>
+    <span>{{ suitSymbol() }}</span>
+  </span>
+  <span class="suit" [class]="colorClass()" aria-hidden="true">{{ suitSymbol() }}</span>
+  <span class="value">{{ card().effective_value }}</span>
+  @if (card().is_trump) {
+    <span class="trump-badge">Козырь</span>
+  }
+</ng-template>
+
+@if (selectable()) {
+  <button
+    type="button"
+    class="playing-card"
+    [class.selected]="selected()"
+    [class.compact]="compact()"
+    [disabled]="disabled()"
+    [attr.aria-label]="accessibleLabel()"
+    [attr.aria-pressed]="selected()"
+    (click)="select()"
+  >
+    <ng-container [ngTemplateOutlet]="cardFace" />
+  </button>
+} @else {
+  <div
+    class="playing-card display-only"
+    [class.compact]="compact()"
+    role="img"
+    [attr.aria-label]="accessibleLabel()"
+  >
+    <ng-container [ngTemplateOutlet]="cardFace" />
+  </div>
+}

@@ -1,0 +1,17 @@
+<section class="trump-panel" aria-label="Козырь и колода">
+  @if (exposedCard(); as card) {
+    <app-playing-card [card]="card" [compact]="true" />
+    <div>
+      <span class="label">Козырь</span>
+      <strong>{{ explanation() }}</strong>
+      <small>Открытая карта · в колоде {{ drawPileCount() }}</small>
+    </div>
+  } @else {
+    <div class="empty-deck" aria-hidden="true">∅</div>
+    <div>
+      <span class="label">Колода пуста</span>
+      <strong>Козырей нет</strong>
+      <small>Игра продолжается обычными значениями</small>
+    </div>
+  }
+</section>

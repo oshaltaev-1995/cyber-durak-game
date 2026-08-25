@@ -367,6 +367,24 @@ their ordered hand and public table state, while the bot hand is represented onl
 the draw pile only by a count plus its single exposed top card. Bot cards, future draw-pile order,
 and random-generator state never enter the response schema.
 
+### 10.3 Alpha Angular game table
+
+The Phase 3C2 Angular client is a thin presentation layer over the Phase 3C1 REST contract. A typed
+`GameApiService` calls relative `/api` URLs; the development server proxies those requests to the
+backend, while a future deployment can serve both applications behind one origin. The game page
+uses focused standalone components for cards, hand selection, trump/deck status, packet-oriented
+table history, exact arithmetic facts, and the action bar. Lightweight Angular signals hold the
+current public snapshot, pending state, errors, and selected card codes; no separate state-management
+dependency is required.
+
+Action buttons come exclusively from the server's `available_actions`. The client may sum the
+backend-supplied `effective_value` fields to explain a local selection, but it never uses that sum to
+decide legality. Every move is submitted to the authoritative session API, which also performs bot
+auto-advance before returning the next public snapshot. A rejected move keeps the current snapshot
+and selection available for correction. The serializer contract supplies only the human hand, bot
+count, draw-pile count and exposed top card, so the UI neither expects nor renders bot cards or
+future draw order.
+
 Possible bot priorities:
 
 ### Defense

@@ -1,0 +1,71 @@
+<section class="table" aria-labelledby="table-title">
+  <div class="table-heading">
+    <div>
+      <span class="eyebrow">Игровой стол</span>
+      <h2 id="table-title">Текущий кон</h2>
+    </div>
+    <div class="math-facts" aria-label="Арифметика стола">
+      <span
+        >Сумма <strong>{{ arithmetic().total_effective_value }}</strong></span
+      >
+      <span
+        >Среднее <strong>{{ arithmetic().arithmetic_mean ?? '—' }}</strong></span
+      >
+      @if (activeAttackValue() !== null) {
+        <span class="need"
+          >Покрыть &gt; <strong>{{ activeAttackValue() }}</strong></span
+        >
+      }
+    </div>
+  </div>
+
+  @if (packets().length === 0) {
+    <div class="empty-table">
+      <span aria-hidden="true">♠</span>
+      <p>Стол пуст. Выберите карту, чтобы начать кон.</p>
+    </div>
+  } @else {
+    <div class="packet-list">
+      @for (packet of packets(); track $index; let index = $index) {
+        <article class="packet" [class.active]="!packet.closed">
+          <header>
+            <span>Пакет {{ index + 1 }}</span>
+            <strong>{{ packet.closed ? 'Покрыт' : 'Активен' }}</strong>
+          </header>
+          <div class="packet-sides">
+            <div class="packet-side attack-side">
+              <span class="side-label">Атака · {{ packet.attack_value }}</span>
+              <div class="packet-cards">
+                @for (card of packet.attack_cards; track card.code) {
+                  <app-playing-card [card]="card" [compact]="true" />
+                }
+              </div>
+            </div>
+            <div class="relation" aria-hidden="true">→</div>
+            <div class="packet-side defense-side">
+              <span class="side-label">Защита · {{ packet.defense_value ?? '—' }}</span>
+              @if (packet.defense_cards.length > 0) {
+                <div class="packet-cards">
+                  @for (card of packet.defense_cards; track card.code) {
+                    <app-playing-card [card]="card" [compact]="true" />
+                  }
+                </div>
+              } @else {
+                <div class="awaiting">Ожидает ответа</div>
+              }
+            </div>
+          </div>
+        </article>
+      }
+    </div>
+  }
+
+  @if (directAnchors().length > 0) {
+    <div class="anchors">
+      <span>Текущая опора:</span>
+      @for (card of directAnchors(); track card.code) {
+        <strong>{{ card.code }} · {{ card.effective_value }}</strong>
+      }
+    </div>
+  }
+</section>

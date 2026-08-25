@@ -1,9 +1,9 @@
 # Cyber Durak / Kiba
 
 Cyber Durak is a browser-based shedding card game with a custom arithmetic ruleset. Its historical
-gameplay codename is **Kiba**. The backend now contains the complete two-player 36-card rules engine,
-a deterministic baseline bot, and an Alpha process-local human-versus-bot REST session layer. The
-Angular project remains a tested foundation; the playable card-table UI is the next separate phase.
+gameplay codename is **Kiba**. The repository contains the complete two-player 36-card rules engine,
+a deterministic baseline bot, an Alpha process-local REST session layer, and a responsive playable
+Angular human-versus-bot table.
 
 ## Repository structure
 
@@ -46,6 +46,11 @@ Open the frontend at <http://localhost:4200>. The backend health check is availa
 ```json
 {"status":"ok"}
 ```
+
+Click **Играть** to create a new game, select cards by tapping or clicking them, and use the actions
+offered below the hand. The Angular development server proxies `/api` to the local backend, so both
+services must be running. The UI works from public server state only: bot cards and future draw-pile
+order remain hidden, and the backend decides whether every submitted move is legal.
 
 Create and inspect an Alpha human-versus-bot game with:
 

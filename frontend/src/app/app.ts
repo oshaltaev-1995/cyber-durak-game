@@ -1,12 +1,11 @@
-import { Component } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { GamePageComponent } from './game/game-page';
 
 @Component({
-  imports: [RouterLink, RouterOutlet],
+  imports: [GamePageComponent],
   selector: 'app-root',
   styleUrl: './app.css',
   templateUrl: './app.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class App {
-  protected readonly title = 'Kiba';
-}
+export class App {}
