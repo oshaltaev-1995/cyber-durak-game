@@ -334,24 +334,45 @@ def _play_cards(
     updated_bout = bout_action(bout, actor, selected)
     updated_hand = _remove_cards(current_hand, selected)
 
-    changes: dict[str, object] = {"active_bout": updated_bout}
+    seat_one_hand = state.seat_one_hand
+    seat_two_hand = state.seat_two_hand
     if actor is Seat.ONE:
-        changes["seat_one_hand"] = updated_hand
+        seat_one_hand = updated_hand
     else:
-        changes["seat_two_hand"] = updated_hand
-    updated_state = replace(state, **changes)
+        seat_two_hand = updated_hand
+
+    if updated_bout.phase is BoutPhase.COMPLETE:
+        return _resolve_completed_bout(
+            state,
+            updated_bout,
+            seat_one_hand=seat_one_hand,
+            seat_two_hand=seat_two_hand,
+        )
+
+    updated_state = replace(
+        state,
+        active_bout=updated_bout,
+        seat_one_hand=seat_one_hand,
+        seat_two_hand=seat_two_hand,
+    )
     _require_hand_count_invariant(updated_state, updated_bout)
     return updated_state
 
 
-def _resolve_completed_bout(state: GameState, bout: BoutState) -> GameState:
+def _resolve_completed_bout(
+    state: GameState,
+    bout: BoutState,
+    *,
+    seat_one_hand: tuple[Card, ...] | None = None,
+    seat_two_hand: tuple[Card, ...] | None = None,
+) -> GameState:
     if bout.phase is not BoutPhase.COMPLETE or bout.outcome is None or bout.next_attacker is None:
         raise ValueError("BoutState must be complete before game-level resolution")
     if state.bout_starting_attacker is None:
         raise GameActionError(GameErrorCode.NO_ACTIVE_BOUT)
 
-    seat_one_hand = state.seat_one_hand
-    seat_two_hand = state.seat_two_hand
+    seat_one_hand = state.seat_one_hand if seat_one_hand is None else seat_one_hand
+    seat_two_hand = state.seat_two_hand if seat_two_hand is None else seat_two_hand
     discard_pile = state.discard_pile
     table_cards = bout.table_cards
 
@@ -390,13 +411,50 @@ def _refill_hands(
     starting_attacker: Seat,
 ) -> tuple[tuple[Card, ...], tuple[Card, ...], tuple[Card, ...]]:
     hands = {Seat.ONE: seat_one_hand, Seat.TWO: seat_two_hand}
+    needs = {seat: max(0, 7 - len(hand)) for seat, hand in hands.items()}
+    total_needed = sum(needs.values())
+
+    if len(draw_pile) >= total_needed:
+        quotas = needs
+    else:
+        quotas = _balanced_refill_quotas(hands, needs, len(draw_pile), starting_attacker)
+
     remaining = draw_pile
     for seat in (starting_attacker, starting_attacker.other):
-        needed = max(0, 7 - len(hands[seat]))
-        drawn = remaining[:needed]
+        drawn = remaining[: quotas[seat]]
         hands[seat] += drawn
         remaining = remaining[len(drawn) :]
     return hands[Seat.ONE], hands[Seat.TWO], remaining
+
+
+def _balanced_refill_quotas(
+    hands: dict[Seat, tuple[Card, ...]],
+    needs: dict[Seat, int],
+    available: int,
+    starting_attacker: Seat,
+) -> dict[Seat, int]:
+    """Allocate an insufficient pile with minimum final hand-count difference."""
+    candidates: list[tuple[int, int]] = []
+    for seat_one_quota in range(needs[Seat.ONE] + 1):
+        seat_two_quota = available - seat_one_quota
+        if 0 <= seat_two_quota <= needs[Seat.TWO]:
+            candidates.append((seat_one_quota, seat_two_quota))
+
+    if not candidates:
+        raise ValueError("an insufficient refill pile must have a legal allocation")
+
+    def allocation_key(quotas: tuple[int, int]) -> tuple[int, int]:
+        final_counts = {
+            Seat.ONE: len(hands[Seat.ONE]) + quotas[0],
+            Seat.TWO: len(hands[Seat.TWO]) + quotas[1],
+        }
+        return (
+            abs(final_counts[Seat.ONE] - final_counts[Seat.TWO]),
+            -final_counts[starting_attacker],
+        )
+
+    seat_one_quota, seat_two_quota = min(candidates, key=allocation_key)
+    return {Seat.ONE: seat_one_quota, Seat.TWO: seat_two_quota}
 
 
 def _require_active_bout(state: GameState) -> BoutState:

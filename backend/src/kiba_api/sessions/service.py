@@ -18,6 +18,7 @@ from kiba_api.game import (
     create_new_game,
     finish_game_bout,
     play_bot_turn,
+    play_defense,
     play_game_defense,
     play_game_initial_attack,
     play_game_throw_in,
@@ -236,6 +237,13 @@ def _remember_resolved_bout(
     """Retain the public cards from the latest bout after game-level resolution."""
     previous_bout = previous_state.active_bout
     if previous_bout is not None and updated_state.active_bout is None:
+        if previous_bout.phase is BoutPhase.WAITING_FOR_DEFENDER_RESPONSE and len(
+            updated_state.discard_pile
+        ) > len(previous_state.discard_pile):
+            discarded_table = updated_state.discard_pile[len(previous_state.discard_pile) :]
+            defense_cards = discarded_table[len(previous_bout.table_cards) :]
+            if defense_cards:
+                return play_defense(previous_bout, previous_bout.defender, defense_cards)
         return previous_bout
     return current_last_bout
 

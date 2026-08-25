@@ -213,6 +213,19 @@ A game-level state owns the actual ordered card hands, draw pile and discard pil
 remains the authority for one bout's legality and tracks only numeric remaining hand counts; while
 a bout is active, those counts must exactly equal the corresponding game-owned hand lengths.
 
+A successful defense that spends the defender's final card transitions `BoutState` directly to a
+BITO outcome. `GameState` immediately applies that completed bout in the same card-action
+transition, so no intermediate attacker-decision state can expose another throw-in against a
+zero-card defender. Winner/draw evaluation remains game-level and still runs only after discard and
+refill.
+
+Refill first calculates both seats' deficits to seven. A sufficient pile retains ordinary
+attacker-first sequential refill. For an insufficient pile, the engine compares the small set of
+legal two-seat draw quotas, minimizes the resulting hand-count difference, and uses the original
+bout attacker's final hand count as the deterministic tie-break. Cards are then drawn from the
+existing pile order, original attacker quota first; no held card is moved and hands at or above
+seven receive no refill cards.
+
 A monotonic `version` is useful for websocket reconciliation.
 
 ---

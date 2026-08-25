@@ -343,26 +343,29 @@ def test_throw_in_packet_exposes_server_confirmed_mean_explanation() -> None:
 
 def test_completed_response_preserves_the_decisive_bout_context() -> None:
     jack = card(Rank.JACK)
-    king = card(Rank.KING)
-    state = start_game_bout(game((jack,), (king,)))
-    state = play_game_initial_attack(state, Seat.ONE, (jack,))
-    state = play_game_defense(state, Seat.TWO, (king,))
+    ace = card(Rank.ACE)
+    state = start_game_bout(game((ace,), (jack,), attacker=Seat.TWO))
+    state = play_game_initial_attack(state, Seat.TWO, (jack,))
     client, game_id = client_for_state(state)
 
-    response = client.post(f"/api/games/{game_id}/actions", json={"action": "BITO"})
+    response = client.post(
+        f"/api/games/{game_id}/actions",
+        json={"action": "DEFEND", "cards": ["AC"]},
+    )
 
     assert response.status_code == 200
     body = response.json()
     assert body["phase"] == "complete"
     assert body["result"] == {"outcome": "DRAW", "winner": None, "winner_seat": None}
-    assert [value["code"] for value in body["table_cards"]] == ["JC", "KC"]
+    assert [value["code"] for value in body["table_cards"]] == ["JC", "AC"]
     assert body["table_arithmetic"] == {
-        "total_effective_value": 30,
+        "total_effective_value": 32,
         "physical_card_count": 2,
-        "arithmetic_mean": "15",
+        "arithmetic_mean": "16",
     }
     assert body["bout_phase"] == "complete"
     assert len(body["packets"]) == 1
+    assert body["available_actions"] == []
 
 
 def test_illegal_defense_and_wrong_turn_return_conflicts_without_mutation() -> None:

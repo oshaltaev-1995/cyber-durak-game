@@ -285,6 +285,29 @@ def test_legal_defense_closes_packet_and_disables_transfer() -> None:
     assert defended.table_cards == (card(Rank.JACK), card(Rank.KING))
 
 
+def test_final_defense_automatically_finishes_bito_and_rejects_throw_in() -> None:
+    state = play_initial_attack(
+        start_bout(seat_two_hand_count=1),
+        Seat.ONE,
+        [card(Rank.JACK)],
+    )
+
+    defended = play_defense(state, Seat.TWO, [card(Rank.KING)])
+
+    assert defended.hand_count(Seat.TWO) == 0
+    assert defended.phase is BoutPhase.COMPLETE
+    assert defended.outcome is BoutOutcome.BITO
+    assert defended.next_attacker is Seat.TWO
+    assert defended.active_packet is None
+    assert_bout_error(
+        BoutErrorCode.BOUT_COMPLETE,
+        play_throw_in,
+        defended,
+        Seat.ONE,
+        [card(Rank.QUEEN)],
+    )
+
+
 @pytest.mark.parametrize(
     "defense_card",
     [card(Rank.KING, Suit.DIAMONDS), card(Rank.QUEEN)],

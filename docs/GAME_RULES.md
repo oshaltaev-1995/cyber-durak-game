@@ -184,7 +184,9 @@ A bout contains one or more attack packets, with at most one unresolved packet a
    the defender.
 4. Once any defense succeeds, transfer is closed for the rest of the bout.
 5. A successful defense closes only the current packet.
-6. The attacker may then finish the bout as bito or make a legal throw-in.
+6. If that defense used the defender's final card or cards, the bout immediately ends as bito and
+   no further throw-in is allowed. Otherwise, the attacker may finish the bout as bito or make a
+   legal throw-in.
 7. A throw-in after defense creates a new packet with its own independent defense requirement;
    attack values from closed packets are not added to it.
 8. The latest defense cards become the direct anchors for the next throw-in opportunity.
@@ -553,6 +555,15 @@ If the defender successfully beats the active attack packet:
 - its defense cards become the direct anchors for the next throw-in opportunity;
 - the attacker may make another legal throw-in packet or finish the bout as bito.
 
+Recovered Kiba endgame rule:
+
+> If the defender successfully covers the active packet using their final card or cards, no further
+> throw-in is allowed and the bout ends immediately as bito.
+
+The defender then has the normal bito initiative if the game continues. Reaching zero here does not
+declare a winner inside the bout: table movement, refill, and game-level winner/draw evaluation
+still occur in their normal order.
+
 If the attacker finishes the fully covered bout as bito:
 
 - the table becomes **bito** / discarded;
@@ -580,7 +591,31 @@ Then the remaining players draw in turn order. Transfers do not change this orde
 bout attacker still refills first. Cards are drawn from the exposed front of the draw pile, one at a
 time. A player already holding 7 or more cards draws nothing, including after taking a table.
 
-### 15.2 New trump timing
+### 15.2 Insufficient-deck balancing
+
+Recovered Kiba endgame behavior keeps the two hands as even as possible when the remaining draw
+pile cannot refill both players completely to seven.
+
+- If enough cards exist to refill both eligible hands to seven, normal attacker-first refill is
+  unchanged.
+- If the pile is insufficient, every remaining card is allocated to minimize the absolute
+  difference between the two resulting hand sizes.
+- No hand is intentionally raised above seven, and a TAKE-created hand already above seven is not
+  reduced or otherwise rebalanced.
+- If two legal allocations are equally balanced, the player who started the bout as attacker gets
+  refill priority.
+- After quotas are determined, the original attacker receives their allocated cards first from the
+  front of the draw pile, followed by the other player. Existing cards are never moved between
+  hands.
+
+Examples:
+
+- `3 / 5` with four cards remaining becomes `6 / 6`, not `7 / 5`.
+- `4 / 5` with four cards remaining becomes `7 / 6` when Seat ONE was the original attacker.
+- `6 / 3` with three cards remaining becomes `6 / 6` rather than giving the first player a card
+  that would create a larger imbalance.
+
+### 15.3 New trump timing
 
 The trump state is fixed for the entire current bout.
 

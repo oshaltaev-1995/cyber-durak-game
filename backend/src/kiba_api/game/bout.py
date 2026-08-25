@@ -258,6 +258,8 @@ class BoutState:
                 raise ValueError("the attacker-decision phase requires a closed packet")
             if self.transfer_open:
                 raise ValueError("transfer must be closed after a successful defense")
+            if self.hand_count(self.defender) == 0:
+                raise ValueError("a zero-card defender must finish the bout as bito")
 
     def _validate_terminal_metadata(self) -> None:
         if self.phase is not BoutPhase.COMPLETE:
@@ -371,13 +373,18 @@ def play_defense(
         defense_cards=selected,
         defense_value=get_cards_value(selected, state.trump_state),
     )
+    defender_is_empty = state.hand_count(actor) == len(selected)
     return _spend_cards(
         state,
         actor,
         len(selected),
         packets=(*state.packets[:-1], closed_packet),
-        phase=BoutPhase.WAITING_FOR_ATTACKER_DECISION,
+        phase=(
+            BoutPhase.COMPLETE if defender_is_empty else BoutPhase.WAITING_FOR_ATTACKER_DECISION
+        ),
         transfer_open=False,
+        outcome=(BoutOutcome.BITO if defender_is_empty else None),
+        next_attacker=(state.defender if defender_is_empty else None),
     )
 
 

@@ -359,7 +359,7 @@ def test_take_returns_complete_transferred_table_before_refill() -> None:
     assert resolved.phase is GamePhase.READY_FOR_BOUT
 
 
-def test_insufficient_refill_pile_is_consumed_by_original_attacker_first() -> None:
+def test_insufficient_refill_is_balanced_instead_of_exhausting_attacker_need_first() -> None:
     jack = card(Rank.JACK)
     king = card(Rank.KING)
     draw = (
@@ -367,12 +367,18 @@ def test_insufficient_refill_pile_is_consumed_by_original_attacker_first() -> No
         card(Rank.SIX, Suit.HEARTS),
         card(Rank.SEVEN, Suit.HEARTS),
         card(Rank.EIGHT, Suit.HEARTS),
-        card(Rank.NINE, Suit.HEARTS),
     )
     state = start_game_bout(
         ready_game(
             (jack, card(Rank.SIX), card(Rank.SEVEN), card(Rank.EIGHT)),
-            (king, card(Rank.NINE), card(Rank.TEN), card(Rank.QUEEN), card(Rank.ACE)),
+            (
+                king,
+                card(Rank.NINE),
+                card(Rank.TEN),
+                card(Rank.QUEEN),
+                card(Rank.ACE),
+                card(Rank.SIX, Suit.DIAMONDS),
+            ),
             draw_pile=draw,
         )
     )
@@ -381,10 +387,92 @@ def test_insufficient_refill_pile_is_consumed_by_original_attacker_first() -> No
 
     resolved = finish_game_bout(state, Seat.ONE)
 
-    assert resolved.seat_one_hand[-4:] == draw[:4]
-    assert len(resolved.seat_one_hand) == 7
-    assert resolved.seat_two_hand[-1:] == draw[4:]
-    assert len(resolved.seat_two_hand) == 5
+    assert resolved.seat_one_hand[-3:] == draw[:3]
+    assert resolved.seat_two_hand[-1:] == draw[3:]
+    assert len(resolved.seat_one_hand) == 6
+    assert len(resolved.seat_two_hand) == 6
+    assert resolved.draw_pile == ()
+
+
+@pytest.mark.parametrize("starting_attacker", [Seat.ONE, Seat.TWO])
+def test_balanced_odd_refill_uses_original_attacker_as_tiebreak(
+    starting_attacker: Seat,
+) -> None:
+    attacking_hand = (
+        card(Rank.JACK),
+        card(Rank.SIX),
+        card(Rank.SEVEN),
+        card(Rank.EIGHT),
+        card(Rank.NINE),
+    )
+    defending_hand = (
+        card(Rank.KING),
+        card(Rank.SIX, Suit.DIAMONDS),
+        card(Rank.SEVEN, Suit.DIAMONDS),
+        card(Rank.EIGHT, Suit.DIAMONDS),
+        card(Rank.NINE, Suit.DIAMONDS),
+        card(Rank.TEN, Suit.DIAMONDS),
+    )
+    hands = {
+        starting_attacker: attacking_hand,
+        starting_attacker.other: defending_hand,
+    }
+    draw = (
+        card(Rank.ACE, Suit.SPADES),
+        card(Rank.SIX, Suit.HEARTS),
+        card(Rank.SEVEN, Suit.HEARTS),
+        card(Rank.EIGHT, Suit.HEARTS),
+    )
+    state = start_game_bout(
+        ready_game(
+            hands[Seat.ONE],
+            hands[Seat.TWO],
+            draw_pile=draw,
+            attacker=starting_attacker,
+        )
+    )
+    state = play_game_initial_attack(state, starting_attacker, [card(Rank.JACK)])
+    state = play_game_defense(state, starting_attacker.other, [card(Rank.KING)])
+
+    resolved = finish_game_bout(state, starting_attacker)
+
+    assert len(resolved.hand(starting_attacker)) == 7
+    assert len(resolved.hand(starting_attacker.other)) == 6
+    assert resolved.hand(starting_attacker)[-3:] == draw[:3]
+    assert resolved.hand(starting_attacker.other)[-1:] == draw[3:]
+    assert resolved.draw_pile == ()
+
+
+def test_balanced_refill_can_skip_first_player_to_avoid_larger_imbalance() -> None:
+    one_hand = (
+        card(Rank.JACK),
+        card(Rank.SIX),
+        card(Rank.SEVEN),
+        card(Rank.EIGHT),
+        card(Rank.NINE),
+        card(Rank.TEN),
+        card(Rank.QUEEN),
+    )
+    two_hand = (
+        card(Rank.KING),
+        card(Rank.SIX, Suit.DIAMONDS),
+        card(Rank.SEVEN, Suit.DIAMONDS),
+        card(Rank.EIGHT, Suit.DIAMONDS),
+    )
+    draw = (
+        card(Rank.ACE, Suit.SPADES),
+        card(Rank.SIX, Suit.HEARTS),
+        card(Rank.SEVEN, Suit.HEARTS),
+    )
+    state = start_game_bout(ready_game(one_hand, two_hand, draw_pile=draw))
+    state = play_game_initial_attack(state, Seat.ONE, [card(Rank.JACK)])
+    state = play_game_defense(state, Seat.TWO, [card(Rank.KING)])
+
+    resolved = finish_game_bout(state, Seat.ONE)
+
+    assert resolved.seat_one_hand == one_hand[1:]
+    assert resolved.seat_two_hand == (*two_hand[1:], *draw)
+    assert len(resolved.seat_one_hand) == len(resolved.seat_two_hand) == 6
     assert resolved.draw_pile == ()
 
 
@@ -540,22 +628,28 @@ def test_active_game_rejects_bout_hand_count_mismatch() -> None:
 
 
 @pytest.mark.parametrize(
-    ("seat_one_hand", "seat_two_hand", "expected_winner"),
+    ("seat_one_hand", "seat_two_hand", "expected_winner", "automatic_bito"),
     [
-        ((card(Rank.JACK),), (card(Rank.KING), card(Rank.SIX)), Seat.ONE),
-        ((card(Rank.JACK), card(Rank.SIX)), (card(Rank.KING),), Seat.TWO),
+        ((card(Rank.JACK),), (card(Rank.KING), card(Rank.SIX)), Seat.ONE, False),
+        ((card(Rank.JACK), card(Rank.SIX)), (card(Rank.KING),), Seat.TWO, True),
     ],
 )
 def test_bito_resolves_the_only_empty_hand_as_winner(
     seat_one_hand: tuple[Card, ...],
     seat_two_hand: tuple[Card, ...],
     expected_winner: Seat,
+    automatic_bito: bool,
 ) -> None:
     state = start_game_bout(ready_game(seat_one_hand, seat_two_hand))
     state = play_game_initial_attack(state, Seat.ONE, [card(Rank.JACK)])
     state = play_game_defense(state, Seat.TWO, [card(Rank.KING)])
 
-    resolved = finish_game_bout(state, Seat.ONE)
+    if automatic_bito:
+        assert state.phase is GamePhase.COMPLETE
+        resolved = state
+    else:
+        assert state.phase is GamePhase.BOUT_ACTIVE
+        resolved = finish_game_bout(state, Seat.ONE)
 
     assert resolved.phase is GamePhase.COMPLETE
     assert resolved.result == GameResult(GameOutcome.WIN, expected_winner)
@@ -583,7 +677,7 @@ def test_bito_with_both_hands_empty_is_a_draw_without_attacker_tiebreak(
     state = play_game_initial_attack(state, initial_attacker, [attacking_card])
     state = play_game_defense(state, initial_attacker.other, [defending_card])
 
-    resolved = finish_game_bout(state, initial_attacker)
+    resolved = state
 
     assert resolved.phase is GamePhase.COMPLETE
     assert resolved.result == GameResult(GameOutcome.DRAW, None)
@@ -591,7 +685,7 @@ def test_bito_with_both_hands_empty_is_a_draw_without_attacker_tiebreak(
     assert resolved.current_attacker is None
 
 
-def test_no_result_exists_while_a_bout_is_unresolved_even_when_hands_are_empty() -> None:
+def test_result_waits_for_successful_final_defense_then_resolves_automatically() -> None:
     state = start_game_bout(ready_game((card(Rank.JACK),), (card(Rank.KING),)))
 
     attacked = play_game_initial_attack(state, Seat.ONE, [card(Rank.JACK)])
@@ -602,8 +696,8 @@ def test_no_result_exists_while_a_bout_is_unresolved_even_when_hands_are_empty()
     assert attacked.result is None
     assert defended.seat_one_hand == ()
     assert defended.seat_two_hand == ()
-    assert defended.phase is GamePhase.BOUT_ACTIVE
-    assert defended.result is None
+    assert defended.phase is GamePhase.COMPLETE
+    assert defended.result == GameResult(GameOutcome.DRAW, None)
 
 
 def test_temporary_empty_hand_refills_before_result_and_game_continues() -> None:
@@ -633,7 +727,7 @@ def test_temporary_empty_hand_refills_before_result_and_game_continues() -> None
     assert state.result is None
     state = play_game_defense(state, Seat.TWO, [card(Rank.KING)])
 
-    resolved = finish_game_bout(state, Seat.ONE)
+    resolved = state
 
     assert len(resolved.seat_one_hand) == 7
     assert len(resolved.seat_two_hand) == 7
@@ -667,7 +761,7 @@ def test_single_refill_card_goes_to_bout_starter_before_winner_evaluation(
     state = play_game_initial_attack(state, initial_attacker, [attacking_card])
     state = play_game_defense(state, initial_attacker.other, [defending_card])
 
-    resolved = finish_game_bout(state, initial_attacker)
+    resolved = state
 
     assert resolved.hand(initial_attacker) == (card(Rank.SIX, Suit.HEARTS),)
     assert resolved.hand(initial_attacker.other) == ()
@@ -740,7 +834,7 @@ def test_transfer_history_does_not_change_simultaneous_empty_draw() -> None:
     state = play_game_transfer(state, Seat.TWO, nines)
     state = play_game_defense(state, Seat.ONE, defense)
 
-    resolved = finish_game_bout(state, Seat.TWO)
+    resolved = state
 
     assert resolved.seat_one_hand == ()
     assert resolved.seat_two_hand == ()
@@ -750,8 +844,7 @@ def test_transfer_history_does_not_change_simultaneous_empty_draw() -> None:
 def completed_draw_game() -> GameState:
     state = start_game_bout(ready_game((card(Rank.JACK),), (card(Rank.KING),)))
     state = play_game_initial_attack(state, Seat.ONE, [card(Rank.JACK)])
-    state = play_game_defense(state, Seat.TWO, [card(Rank.KING)])
-    return finish_game_bout(state, Seat.ONE)
+    return play_game_defense(state, Seat.TWO, [card(Rank.KING)])
 
 
 def completed_win_game() -> GameState:
