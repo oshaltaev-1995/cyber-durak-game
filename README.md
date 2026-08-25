@@ -31,7 +31,7 @@ Start the services in separate terminals:
 ```bash
 cd backend
 uv sync
-uv run uvicorn --app-dir src kiba_api.main:app --reload
+uv run uvicorn --app-dir src kiba_api.main:app --reload --port 18000
 ```
 
 ```bash
@@ -40,8 +40,8 @@ npm ci
 npm start
 ```
 
-Open the frontend at <http://localhost:4200>. The backend health check is available at
-<http://localhost:8000/health> and returns:
+Open the frontend at <http://localhost:14200>. The backend health check is available at
+<http://localhost:18000/health> and returns:
 
 ```json
 {"status":"ok"}
@@ -55,13 +55,13 @@ order remain hidden, and the backend decides whether every submitted move is leg
 Create and inspect an Alpha human-versus-bot game with:
 
 ```bash
-curl -X POST http://localhost:8000/api/games
-curl http://localhost:8000/api/games/<game_id>
+curl -X POST http://localhost:18000/api/games
+curl http://localhost:18000/api/games/<game_id>
 ```
 
 Submit one of `INITIAL_ATTACK`, `DEFEND`, `TRANSFER`, `THROW_IN`, `TAKE`, or `BITO` to
 `POST /api/games/<game_id>/actions`. Card actions use stable codes such as `6C`, `10H`, `QS`, `KD`,
-and `AC`. Interactive OpenAPI documentation is available at <http://localhost:8000/docs>.
+and `AC`. Interactive OpenAPI documentation is available at <http://localhost:18000/docs>.
 
 Alpha sessions are held only in backend process memory and are lost when the backend restarts. The
 API sends the human hand and public table state, but never sends bot cards or hidden draw-pile order.
@@ -99,9 +99,25 @@ Build and start both development services:
 docker compose up --build
 ```
 
-The frontend is exposed on port 4200 and the backend on port 8000. Source directories are mounted
-into the containers, so both development servers reload when their source files change. Stop the
-stack with `docker compose down`.
+The frontend is exposed on host port `14200` and the backend on loopback-only host port `18000`.
+Inside Compose, Angular and FastAPI continue to use ports `4200` and `8000`; the frontend proxy sends
+relative `/api` requests directly to `backend:8000`. Source directories are mounted into the
+containers, so both development servers reload when their source files change. Stop the stack with
+`docker compose down`.
+
+For an iPhone or another device on the same Wi-Fi, find the Mac's Wi-Fi address and open the frontend
+through it:
+
+```bash
+ipconfig getifaddr en0
+```
+
+```text
+http://<MAC_LAN_IP>:14200
+```
+
+Only the frontend URL is needed: its same-origin `/api` proxy reaches the backend. The development
+server binds to all local interfaces for LAN access; no Mac address is hardcoded in the project.
 
 No database or environment file is required for the process-local Alpha session layer.
 

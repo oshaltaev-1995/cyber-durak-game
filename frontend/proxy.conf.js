@@ -1,4 +1,4 @@
-const target = process.env['KIBA_API_PROXY_TARGET'] ?? 'http://localhost:8000';
+const target = process.env['KIBA_API_PROXY_TARGET'] ?? 'http://localhost:18000';
 
 module.exports = [
   {
