@@ -20,6 +20,7 @@ from kiba_api.game.bout import (
     take,
 )
 from kiba_api.game.cards import Card, Rank, Suit, TrumpState
+from kiba_api.game.scoring import get_effective_value, is_trump
 
 _STANDARD_36_RANKS = (
     Rank.SIX,
@@ -206,12 +207,44 @@ def create_36_card_deck() -> tuple[Card, ...]:
 
 
 def create_new_game(rng: random.Random | None = None) -> GameState:
-    """Shuffle and deal a fresh 36-card MVP game with a random first attacker."""
+    """Shuffle and deal a fresh 36-card MVP game under the lowest-trump rule."""
     random_source = rng if rng is not None else random.Random()
     shuffled_deck = list(create_36_card_deck())
     random_source.shuffle(shuffled_deck)
-    initial_attacker = random_source.choice((Seat.ONE, Seat.TWO))
-    return GameState.deal(shuffled_deck, initial_attacker=initial_attacker)
+    dealt_state = GameState.deal(shuffled_deck, initial_attacker=Seat.ONE)
+    initial_attacker = _determine_initial_attacker(
+        dealt_state.seat_one_hand,
+        dealt_state.seat_two_hand,
+        dealt_state.current_trump_state,
+        random_source,
+    )
+    return replace(dealt_state, current_attacker=initial_attacker)
+
+
+def _determine_initial_attacker(
+    seat_one_hand: Iterable[Card],
+    seat_two_hand: Iterable[Card],
+    trump_state: TrumpState,
+    rng: random.Random,
+) -> Seat:
+    """Choose the lowest-trump owner, randomizing only a tie or absent trumps."""
+    lowest_one = _get_lowest_trump_value(seat_one_hand, trump_state)
+    lowest_two = _get_lowest_trump_value(seat_two_hand, trump_state)
+
+    if lowest_one is None:
+        return Seat.TWO if lowest_two is not None else rng.choice((Seat.ONE, Seat.TWO))
+    if lowest_two is None or lowest_one < lowest_two:
+        return Seat.ONE
+    if lowest_two < lowest_one:
+        return Seat.TWO
+    return rng.choice((Seat.ONE, Seat.TWO))
+
+
+def _get_lowest_trump_value(cards: Iterable[Card], trump_state: TrumpState) -> int | None:
+    return min(
+        (get_effective_value(card, trump_state) for card in cards if is_trump(card, trump_state)),
+        default=None,
+    )
 
 
 def start_game_bout(state: GameState) -> GameState:

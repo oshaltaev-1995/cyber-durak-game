@@ -40,14 +40,24 @@ using two physical decks remain future scope and must not invent values for rank
 - The visible top card remains physically at the front of the draw pile and is the next card drawn
   when refill begins; it is not removed as a separate trump card.
 
-### 3.1 Digital MVP new-match decision
+### 3.1 Initial attacker
 
-For a fresh digital 36-card MVP match, all 36 cards are shuffled before the initial deal. The first
-attacker is then selected randomly with equal probability between Seat ONE and Seat TWO.
+For a fresh digital 36-card MVP match, all 36 cards are shuffled before the initial deal. The
+exposed top draw-pile card then defines trump by the normal matching-suit or matching-rank rule.
 
-This first-attacker selection is a **digital MVP product decision**, not a reconstructed rule from
-the original childhood game. It does not use the dealt cards, lowest trump, or any other card-based
-selection rule.
+The reconstructed Kiba rule is:
+
+> The player holding the lowest trump card in the initial hand attacks first.
+
+Only trump cards in the two dealt hands participate. Compare them by effective value under the
+current trump state, not by suit order, rank order, or base value alone.
+
+Example: with exposed `7♥`, `7♠ = 14`, `8♥ = 16`, and `6♥ = 12`. The holder of `6♥` attacks first.
+
+Historical behavior is not remembered for two edge cases. The digital implementation chooses
+randomly with equal probability between Seat ONE and Seat TWO when both players' lowest trump
+values are equal, or when neither initial hand contains a trump. These are digital product
+fallbacks; the exposed card and shuffled deck order remain unchanged.
 
 ---
 
