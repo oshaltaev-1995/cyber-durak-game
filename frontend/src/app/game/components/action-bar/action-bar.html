@@ -1,7 +1,32 @@
 <section class="action-bar" aria-label="Действия игрока">
-  <div class="selection-summary" aria-live="polite">
-    <span>Выбрано: {{ selectedCards().length }}</span>
-    <strong>{{ selectionExpression() }}</strong>
+  <div
+    class="selection-summary"
+    [class.has-selection]="selectedCards().length > 0"
+    role="status"
+    aria-live="polite"
+    [attr.aria-label]="selectionAriaLabel()"
+  >
+    <div class="selection-heading" aria-hidden="true">
+      <span
+        >Выбрано: <strong>{{ selectedCards().length }}</strong></span
+      >
+      @if (selectedCards().length > 0) {
+        <span
+          >Сумма: <strong>{{ selectedTotal() }}</strong></span
+        >
+      }
+    </div>
+    @if (selectedCards().length > 0) {
+      <div class="selected-card-list" aria-hidden="true">
+        @for (card of selectedCards(); track card.code; let last = $last) {
+          <span class="selected-card-code">{{ cardLabel(card) }}</span>
+          @if (!last) {
+            <span class="plus">+</span>
+          }
+        }
+      </div>
+    }
+    <strong class="selection-values" aria-hidden="true">{{ selectionValuesExpression() }}</strong>
   </div>
   <div class="actions">
     @for (action of actions(); track action) {

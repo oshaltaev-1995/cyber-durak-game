@@ -10,6 +10,7 @@ from uuid import uuid4
 from kiba_api.game import (
     BotActionError,
     BoutPhase,
+    BoutState,
     Card,
     GamePhase,
     GameState,
@@ -71,6 +72,7 @@ class GameSession:
     state: GameState
     human_seat: Seat = Seat.ONE
     bot_seat: Seat = Seat.TWO
+    last_bout: BoutState | None = None
 
     def __post_init__(self) -> None:
         if not self.game_id:
@@ -81,6 +83,8 @@ class GameSession:
             raise TypeError("human_seat and bot_seat must be Seat values")
         if self.human_seat is self.bot_seat:
             raise ValueError("human and bot seats must differ")
+        if self.last_bout is not None and not isinstance(self.last_bout, BoutState):
+            raise TypeError("last_bout must be a BoutState or None")
 
 
 @dataclass(slots=True)
@@ -97,13 +101,13 @@ class InMemoryGameSessionStore:
         self._records: dict[str, _SessionRecord] = {}
         self._lock = RLock()
 
-    def create(self, state: GameState) -> GameSession:
+    def create(self, state: GameState, *, last_bout: BoutState | None = None) -> GameSession:
         """Store a new human Seat.ONE versus bot Seat.TWO session."""
         with self._lock:
             game_id = self._id_factory()
             if not game_id or game_id in self._records:
                 raise ValueError("session id factory must produce a unique non-empty id")
-            session = GameSession(game_id=game_id, state=state)
+            session = GameSession(game_id=game_id, state=state, last_bout=last_bout)
             self._records[game_id] = _SessionRecord(session=session)
             return session
 
@@ -154,8 +158,8 @@ class GameSessionService:
 
     def create_game(self) -> GameSession:
         """Create, normalize, and store a fresh human-versus-bot game."""
-        state = self._advance_to_human_or_complete(self._game_factory())
-        return self._store.create(state)
+        state, last_bout = self._advance_to_human_or_complete(self._game_factory())
+        return self._store.create(state, last_bout=last_bout)
 
     def get_game(self, game_id: str) -> GameSession:
         """Return a snapshot without exposing mutable repository state."""
@@ -183,11 +187,23 @@ class GameSessionService:
                 action_type,
                 selected,
             )
-            advanced_state = self._advance_to_human_or_complete(updated_state)
-            record.session = replace(session, state=advanced_state)
+            last_bout = _remember_resolved_bout(state, updated_state, session.last_bout)
+            advanced_state, last_bout = self._advance_to_human_or_complete(
+                updated_state,
+                last_bout,
+            )
+            record.session = replace(
+                session,
+                state=advanced_state,
+                last_bout=last_bout,
+            )
             return record.session
 
-    def _advance_to_human_or_complete(self, state: GameState) -> GameState:
+    def _advance_to_human_or_complete(
+        self,
+        state: GameState,
+        last_bout: BoutState | None = None,
+    ) -> tuple[GameState, BoutState | None]:
         bot_action_count = 0
         while state.phase is not GamePhase.COMPLETE:
             if state.phase is GamePhase.READY_FOR_BOUT:
@@ -196,18 +212,32 @@ class GameSessionService:
 
             actor = _acting_seat(state)
             if actor is Seat.ONE:
-                return state
+                return state, last_bout
             if actor is not Seat.TWO:
                 raise ValueError("an active two-seat game must have a current actor")
             if bot_action_count >= self._bot_action_limit:
                 raise SessionActionError(SessionErrorCode.BOT_AUTO_ADVANCE_LIMIT)
             try:
+                previous_state = state
                 state = self._bot_turn(state, Seat.TWO)
             except BotActionError as error:
                 raise RuntimeError("baseline bot could not advance an owned decision") from error
+            last_bout = _remember_resolved_bout(previous_state, state, last_bout)
             bot_action_count += 1
 
-        return state
+        return state, last_bout
+
+
+def _remember_resolved_bout(
+    previous_state: GameState,
+    updated_state: GameState,
+    current_last_bout: BoutState | None,
+) -> BoutState | None:
+    """Retain the public cards from the latest bout after game-level resolution."""
+    previous_bout = previous_state.active_bout
+    if previous_bout is not None and updated_state.active_bout is None:
+        return previous_bout
+    return current_last_bout
 
 
 def _apply_human_action(

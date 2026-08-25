@@ -17,6 +17,7 @@ from kiba_api.game import (
     create_new_game,
     play_game_defense,
     play_game_initial_attack,
+    play_game_throw_in,
     start_game_bout,
 )
 from kiba_api.main import create_app
@@ -307,10 +308,61 @@ def test_table_response_preserves_packets_anchors_total_and_exact_mean() -> None
             "defense_cards": [body["table_cards"][1]],
             "defense_value": 18,
             "closed": True,
+            "throw_in_reasons": [],
         }
     ]
     assert body["active_packet"] is None
     assert body["available_actions"] == ["THROW_IN", "BITO"]
+
+
+def test_throw_in_packet_exposes_server_confirmed_mean_explanation() -> None:
+    jack = card(Rank.JACK)
+    queen = card(Rank.QUEEN)
+    king = card(Rank.KING)
+    state = start_game_bout(
+        game(
+            (jack, queen, card(Rank.SIX)),
+            (king, card(Rank.ACE), card(Rank.SEVEN)),
+        )
+    )
+    state = play_game_initial_attack(state, Seat.ONE, (jack,))
+    state = play_game_defense(state, Seat.TWO, (king,))
+    state = play_game_throw_in(state, Seat.ONE, (queen,))
+    client, game_id = client_for_state(state)
+
+    body = client.get(f"/api/games/{game_id}").json()
+
+    assert body["packets"][1]["throw_in_reasons"] == [
+        {
+            "type": "arithmetic_mean",
+            "target_value": 15,
+            "expression": "30 / 2 = 15",
+        }
+    ]
+
+
+def test_completed_response_preserves_the_decisive_bout_context() -> None:
+    jack = card(Rank.JACK)
+    king = card(Rank.KING)
+    state = start_game_bout(game((jack,), (king,)))
+    state = play_game_initial_attack(state, Seat.ONE, (jack,))
+    state = play_game_defense(state, Seat.TWO, (king,))
+    client, game_id = client_for_state(state)
+
+    response = client.post(f"/api/games/{game_id}/actions", json={"action": "BITO"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["phase"] == "complete"
+    assert body["result"] == {"outcome": "DRAW", "winner": None, "winner_seat": None}
+    assert [value["code"] for value in body["table_cards"]] == ["JC", "KC"]
+    assert body["table_arithmetic"] == {
+        "total_effective_value": 30,
+        "physical_card_count": 2,
+        "arithmetic_mean": "15",
+    }
+    assert body["bout_phase"] == "complete"
+    assert len(body["packets"]) == 1
 
 
 def test_illegal_defense_and_wrong_turn_return_conflicts_without_mutation() -> None:
@@ -398,5 +450,8 @@ def test_complete_game_can_be_played_only_through_rest_actions() -> None:
         action_count += 1
 
     assert action_count < 500
-    assert response.json()["phase"] == GamePhase.COMPLETE.value
-    assert response.json()["result"]["outcome"] in {"WIN", "DRAW"}
+    final = response.json()
+    assert final["phase"] == GamePhase.COMPLETE.value
+    assert final["result"]["outcome"] in {"WIN", "DRAW"}
+    assert final["packets"]
+    assert final["table_cards"]

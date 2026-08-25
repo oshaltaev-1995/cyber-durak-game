@@ -2,16 +2,16 @@
   <div class="table-heading">
     <div>
       <span class="eyebrow">Игровой стол</span>
-      <h2 id="table-title">Текущий кон</h2>
+      <h2 id="table-title">{{ final() ? 'Финальный кон' : 'Текущий кон' }}</h2>
     </div>
     <div class="math-facts" aria-label="Арифметика стола">
       <span
         >Сумма <strong>{{ arithmetic().total_effective_value }}</strong></span
       >
       <span
-        >Среднее <strong>{{ arithmetic().arithmetic_mean ?? '—' }}</strong></span
+        >Среднее <strong>{{ formatExactValue(arithmetic().arithmetic_mean) }}</strong></span
       >
-      @if (activeAttackValue() !== null) {
+      @if (activeAttackValue() !== null && !final()) {
         <span class="need"
           >Покрыть &gt; <strong>{{ activeAttackValue() }}</strong></span
         >
@@ -55,6 +55,18 @@
               }
             </div>
           </div>
+          @if (packet.throw_in_reasons.length > 0) {
+            <div class="throw-reasons" aria-label="Подтверждённое объяснение подкидывания">
+              @for (reason of packet.throw_in_reasons; track reason.type) {
+                <div class="throw-reason">
+                  <strong>{{ reasonLabel(reason.type) }}</strong>
+                  @if (reason.expression) {
+                    <span>{{ reason.expression }}</span>
+                  }
+                </div>
+              }
+            </div>
+          }
         </article>
       }
     </div>

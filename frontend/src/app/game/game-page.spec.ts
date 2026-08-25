@@ -192,6 +192,7 @@ describe('GamePageComponent', () => {
             defense_cards: [queenDiamonds],
             defense_value: 15,
             closed: true,
+            throw_in_reasons: [],
           },
         ],
         active_attack_value: 18,
@@ -204,8 +205,87 @@ describe('GamePageComponent', () => {
     expect(text).toContain('Атака · 6');
     expect(text).toContain('Защита · 15');
     expect(text).toContain('Сумма 21');
-    expect(text).toContain('Среднее 21/2');
+    expect(text).toContain('Среднее 21 / 2');
     expect(text).toContain('Покрыть > 18');
+  });
+
+  it('keeps a complete multi-card selection visible in the persistent action summary', () => {
+    create();
+    const cards = (fixture.nativeElement as HTMLElement).querySelectorAll('app-hand .playing-card');
+    (cards[0] as HTMLButtonElement).click();
+    (cards[2] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const summary = (fixture.nativeElement as HTMLElement).querySelector(
+      '.action-dock .selection-summary',
+    ) as HTMLElement;
+    expect(summary.textContent).toContain('Выбрано: 2');
+    expect(summary.textContent).toContain('6♣');
+    expect(summary.textContent).toContain('7♥');
+    expect(summary.textContent).toContain('6 + 14 = 20');
+    expect(summary.getAttribute('aria-label')).toContain('Сумма 20');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.player-hand-region'),
+    ).not.toBeNull();
+  });
+
+  it('renders exact mean values and server-confirmed throw-in explanations', () => {
+    create(
+      makeGame({
+        table_arithmetic: {
+          total_effective_value: 32,
+          physical_card_count: 3,
+          arithmetic_mean: '32/3',
+        },
+        packets: [
+          {
+            attack_cards: [sixClubs],
+            attack_value: 6,
+            defense_cards: [queenDiamonds],
+            defense_value: 15,
+            closed: true,
+            throw_in_reasons: [],
+          },
+          {
+            attack_cards: [queenDiamonds],
+            attack_value: 15,
+            defense_cards: [],
+            defense_value: null,
+            closed: false,
+            throw_in_reasons: [
+              {
+                type: 'arithmetic_mean',
+                target_value: 15,
+                expression: '30 / 2 = 15',
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const tableText = (fixture.nativeElement as HTMLElement).querySelector(
+      'app-game-table',
+    )?.textContent;
+    expect(tableText).toContain('Среднее 32 / 3');
+    expect(tableText).toContain('Подкинуто по среднему');
+    expect(tableText).toContain('30 / 2 = 15');
+  });
+
+  it('renders an exact integer arithmetic mean without decimal formatting', () => {
+    create(
+      makeGame({
+        table_arithmetic: {
+          total_effective_value: 30,
+          physical_card_count: 2,
+          arithmetic_mean: '15',
+        },
+      }),
+    );
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('app-game-table')?.textContent,
+    ).toContain('Среднее 15');
   });
 
   it('uses every server-provided action type and terminal actions need no cards', () => {
@@ -233,8 +313,35 @@ describe('GamePageComponent', () => {
     [{ outcome: 'WIN', winner: 'BOT', winner_seat: 'two' } as const, 'Бот победил'],
     [{ outcome: 'DRAW', winner: null, winner_seat: null } as const, 'Ничья 🤝'],
   ])('renders a completed result and can play again', (result, title) => {
-    create(makeGame({ phase: 'complete', result, available_actions: [] }));
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain(title);
+    create(
+      makeGame({
+        phase: 'complete',
+        result,
+        available_actions: [],
+        human_hand: [sixClubs],
+        table_cards: [sixClubs, queenDiamonds],
+        table_arithmetic: {
+          total_effective_value: 21,
+          physical_card_count: 2,
+          arithmetic_mean: '21/2',
+        },
+        packets: [
+          {
+            attack_cards: [sixClubs],
+            attack_value: 6,
+            defense_cards: [queenDiamonds],
+            defense_value: 15,
+            closed: true,
+            throw_in_reasons: [],
+          },
+        ],
+      }),
+    );
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain(title);
+    expect(element.querySelector('app-game-table')?.textContent).toContain('Финальный кон');
+    expect(element.querySelector('app-game-table')?.textContent).toContain('Атака · 6');
+    expect(element.querySelectorAll('app-hand .playing-card')).toHaveLength(1);
     api.createGame.mockReturnValue(of(makeGame({ game_id: 'game-2' })));
     clickButton('Сыграть ещё');
     expect(api.createGame).toHaveBeenCalledTimes(2);

@@ -5,16 +5,20 @@
 
 .game-shell {
   min-height: 100dvh;
-  padding: 0.75rem 0.75rem 9.5rem;
+  padding: 0.75rem 0.75rem 12rem;
   color: var(--text-strong);
   background:
     radial-gradient(circle at 50% 25%, rgb(38 130 103 / 26%), transparent 30rem),
     linear-gradient(145deg, #09291f, #071b19 60%, #07131b);
 }
 
+.game-shell.complete {
+  padding-bottom: 1.5rem;
+}
+
 .topbar {
   display: flex;
-  width: min(100%, 72rem);
+  width: min(100%, 80rem);
   min-height: 3.25rem;
   margin: auto;
   align-items: center;
@@ -110,7 +114,7 @@ button:disabled {
 .game-board {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  width: min(100%, 72rem);
+  width: min(100%, 80rem);
   margin: 0.5rem auto 0;
   gap: 0.75rem;
 }
@@ -232,6 +236,10 @@ button:disabled {
   text-align: center;
 }
 
+.player-hand-region {
+  min-width: 0;
+}
+
 .result-panel span {
   color: var(--text-muted);
   font-size: 0.75rem;
@@ -259,32 +267,7 @@ button:disabled {
 }
 
 @media (min-width: 64rem) {
-  .game-board {
-    grid-template-columns: minmax(0, 1fr) 18rem;
-  }
-
-  .game-meta,
-  .status-banner,
-  .error-message,
-  app-game-table {
-    grid-column: 1;
-  }
-
-  app-hand,
-  .result-panel {
-    grid-column: 2;
-  }
-
-  .game-meta,
-  .status-banner {
-    grid-column: 1 / -1;
-  }
-
-  app-hand {
-    grid-row: 3 / span 3;
-  }
-
   .action-dock {
-    padding-inline: max(1rem, calc((100vw - 72rem) / 2));
+    padding-inline: max(1rem, calc((100vw - 80rem) / 2));
   }
 }

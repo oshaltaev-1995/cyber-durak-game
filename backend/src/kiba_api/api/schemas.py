@@ -66,12 +66,19 @@ class TrumpResponse(BaseModel):
     trump_suit: str | None
 
 
+class ThrowInReasonResponse(BaseModel):
+    type: Literal["same_rank", "existing_value", "table_total", "arithmetic_mean"]
+    target_value: int | None
+    expression: str | None
+
+
 class PacketResponse(BaseModel):
     attack_cards: list[CardResponse]
     attack_value: int
     defense_cards: list[CardResponse]
     defense_value: int | None
     closed: bool
+    throw_in_reasons: list[ThrowInReasonResponse]
 
 
 class TableArithmeticResponse(BaseModel):

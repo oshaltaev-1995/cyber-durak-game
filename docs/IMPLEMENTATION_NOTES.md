@@ -385,6 +385,13 @@ and selection available for correction. The serializer contract supplies only th
 count, draw-pile count and exposed top card, so the UI neither expects nor renders bot cards or
 future draw order.
 
+The Alpha session retains the latest resolved bout snapshot as presentation history outside
+`GameState`. When a match completes, serialization uses that public snapshot to keep the decisive
+table, packet structure, and exact arithmetic visible without changing game-completion semantics or
+putting UI history into the rules model. Later throw-in packets also include explanation metadata
+derived by the existing authoritative `analyze_throw_in` primitive. Angular renders those confirmed
+reason codes and expressions after acceptance; it does not infer throw-in legality before submission.
+
 Possible bot priorities:
 
 ### Defense

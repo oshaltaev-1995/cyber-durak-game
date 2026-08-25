@@ -11,24 +11,59 @@
 
 .selection-summary {
   display: grid;
-  gap: 0.2rem;
+  gap: 0.35rem;
   min-width: 0;
+  padding: 0.1rem;
 }
 
-.selection-summary span {
+.selection-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem 0.8rem;
+}
+
+.selection-heading span {
   color: var(--text-muted);
   font-size: 0.68rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.selection-summary strong {
-  overflow: hidden;
+.selection-heading strong,
+.selection-values {
   color: var(--text-strong);
+}
+
+.selected-card-list {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  align-items: center;
+  gap: 0.28rem;
+  padding-block: 0.12rem;
+}
+
+.selected-card-code {
+  flex: 0 0 auto;
+  padding: 0.22rem 0.42rem;
+  border: 1px solid rgb(255 224 138 / 35%);
+  border-radius: 999px;
+  color: #fff3c5;
+  background: rgb(255 224 138 / 9%);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.plus {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.selection-values {
   font-size: 0.78rem;
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .actions {

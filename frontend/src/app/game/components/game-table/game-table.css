@@ -149,6 +149,31 @@ h2 {
   text-align: center;
 }
 
+.throw-reasons {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgb(255 255 255 / 9%);
+}
+
+.throw-reason {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.55rem;
+  color: #c8e7da;
+  font-size: 0.68rem;
+}
+
+.throw-reason strong {
+  color: #ffe8a8;
+}
+
+.throw-reason span {
+  font-variant-numeric: tabular-nums;
+}
+
 .anchors {
   display: flex;
   flex-wrap: wrap;

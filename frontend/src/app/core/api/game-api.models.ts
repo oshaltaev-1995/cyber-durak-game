@@ -26,12 +26,21 @@ export interface TrumpState {
   readonly trump_suit: Suit | null;
 }
 
+export type ThrowInReasonType = 'same_rank' | 'existing_value' | 'table_total' | 'arithmetic_mean';
+
+export interface ThrowInReason {
+  readonly type: ThrowInReasonType;
+  readonly target_value: number | null;
+  readonly expression: string | null;
+}
+
 export interface AttackPacket {
   readonly attack_cards: readonly GameCard[];
   readonly attack_value: number;
   readonly defense_cards: readonly GameCard[];
   readonly defense_value: number | null;
   readonly closed: boolean;
+  readonly throw_in_reasons: readonly ThrowInReason[];
 }
 
 export interface TableArithmetic {

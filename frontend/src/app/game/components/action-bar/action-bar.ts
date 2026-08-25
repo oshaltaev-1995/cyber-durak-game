@@ -4,6 +4,7 @@ import {
   CARD_ACTIONS,
   GameCard,
   HumanActionType,
+  SUIT_SYMBOLS,
 } from '../../../core/api/game-api.models';
 
 @Component({
@@ -24,14 +25,25 @@ export class ActionBarComponent {
     return this.selectedCards().reduce((total, card) => total + card.effective_value, 0);
   }
 
-  protected selectionExpression(): string {
+  protected cardLabel(card: GameCard): string {
+    return `${card.rank}${SUIT_SYMBOLS[card.suit]}`;
+  }
+
+  protected selectionValuesExpression(): string {
     const cards = this.selectedCards();
     if (cards.length === 0) {
       return 'Выберите одну или несколько карт';
     }
-    const codes = cards.map((card) => card.code).join(' + ');
     const values = cards.map((card) => card.effective_value).join(' + ');
-    return `${codes} · ${values} = ${this.selectedTotal()}`;
+    return `${values} = ${this.selectedTotal()}`;
+  }
+
+  protected selectionAriaLabel(): string {
+    const cards = this.selectedCards();
+    if (cards.length === 0) {
+      return 'Карты не выбраны';
+    }
+    return `Выбрано ${cards.length}: ${cards.map((card) => this.cardLabel(card)).join(', ')}. Сумма ${this.selectedTotal()}`;
   }
 
   protected actionDisabled(action: HumanActionType): boolean {

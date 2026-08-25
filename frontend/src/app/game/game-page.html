@@ -1,4 +1,4 @@
-<div class="game-shell">
+<div class="game-shell" [class.complete]="game()?.phase === 'complete'">
   <header class="topbar">
     <a class="brand" href="/" aria-label="Kiba — главная">
       <span class="brand-mark" aria-hidden="true">K</span>
@@ -58,26 +58,31 @@
         <div class="error-message in-game" role="alert">{{ error }}</div>
       }
 
-      <app-game-table
-        [packets]="currentGame.packets"
-        [arithmetic]="currentGame.table_arithmetic"
-        [activeAttackValue]="currentGame.active_attack_value"
-        [directAnchors]="currentGame.direct_anchor_cards"
-      />
-
       @if (currentGame.phase === 'complete') {
         <section class="result-panel" aria-live="polite">
           <span>Игра окончена</span>
           <h2>{{ resultTitle(currentGame) }}</h2>
           <button type="button" [disabled]="pending()" (click)="startNewGame()">Сыграть ещё</button>
         </section>
-      } @else {
-        <app-hand
-          [cards]="currentGame.human_hand"
-          [selectedCodes]="selectedCodes()"
-          [disabled]="pending()"
-          (cardSelected)="toggleCard($event)"
-        />
+      }
+
+      <app-game-table
+        [packets]="currentGame.packets"
+        [arithmetic]="currentGame.table_arithmetic"
+        [activeAttackValue]="currentGame.active_attack_value"
+        [directAnchors]="currentGame.direct_anchor_cards"
+        [final]="currentGame.phase === 'complete'"
+      />
+
+      <app-hand
+        class="player-hand-region"
+        [cards]="currentGame.human_hand"
+        [selectedCodes]="selectedCodes()"
+        [disabled]="pending() || currentGame.phase === 'complete'"
+        (cardSelected)="toggleCard($event)"
+      />
+
+      @if (currentGame.phase !== 'complete') {
         <div class="action-dock">
           <app-action-bar
             [actions]="currentGame.available_actions"
