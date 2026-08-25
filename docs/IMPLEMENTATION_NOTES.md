@@ -237,6 +237,18 @@ bout.trump_snapshot
 
 for every card calculation during that bout.
 
+### 7.1 New-game bootstrap
+
+Callers start a fresh 36-card MVP match through `create_new_game(rng=...)`. The factory creates the
+canonical deck, shuffles a mutable copy, selects either seat as initial attacker with equal
+probability, and delegates the round-robin deal to `GameState.deal`. It returns a
+`READY_FOR_BOUT` immutable state and does not start the first bout automatically.
+
+The optional random source is a standard-library `random.Random` instance. Tests inject a seeded
+instance for reproducible hands, draw pile, and initial attacker. Default local play receives a new
+standard-library generator rather than depending on global mutable random state. A future
+authoritative multiplayer layer can own and replace this source without changing the rules engine.
+
 ---
 
 ## 8. Arithmetic engine
@@ -626,4 +638,3 @@ When implementation and documentation disagree:
 4. Existing code should be changed to match the above unless a deliberate spec update is made first.
 
 Any rule change discovered during playtesting should be documented before or together with the code change.
-

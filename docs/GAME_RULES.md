@@ -33,10 +33,21 @@ using two physical decks remain future scope and must not invent values for rank
 ## 3. Initial deal
 
 - Each player receives **7 cards**.
+- For the two-participant digital MVP, cards are dealt round-robin in the order Seat ONE, Seat TWO,
+  repeated until both participants have seven cards.
 - The remaining deck stays face-up with its top card visible.
 - The visible top card determines the trump state for the bout.
 - The visible top card remains physically at the front of the draw pile and is the next card drawn
   when refill begins; it is not removed as a separate trump card.
+
+### 3.1 Digital MVP new-match decision
+
+For a fresh digital 36-card MVP match, all 36 cards are shuffled before the initial deal. The first
+attacker is then selected randomly with equal probability between Seat ONE and Seat TWO.
+
+This first-attacker selection is a **digital MVP product decision**, not a reconstructed rule from
+the original childhood game. It does not use the dealt cards, lowest trump, or any other card-based
+selection rule.
 
 ---
 

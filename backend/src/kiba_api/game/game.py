@@ -1,5 +1,6 @@
 """Immutable two-participant game orchestration around the bout rules."""
 
+import random
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
@@ -202,6 +203,15 @@ class GameState:
 def create_36_card_deck() -> tuple[Card, ...]:
     """Create clubs through spades, each ordered from Six through Ace."""
     return tuple(Card(rank=rank, suit=suit) for suit in Suit for rank in _STANDARD_36_RANKS)
+
+
+def create_new_game(rng: random.Random | None = None) -> GameState:
+    """Shuffle and deal a fresh 36-card MVP game with a random first attacker."""
+    random_source = rng if rng is not None else random.Random()
+    shuffled_deck = list(create_36_card_deck())
+    random_source.shuffle(shuffled_deck)
+    initial_attacker = random_source.choice((Seat.ONE, Seat.TWO))
+    return GameState.deal(shuffled_deck, initial_attacker=initial_attacker)
 
 
 def start_game_bout(state: GameState) -> GameState:
