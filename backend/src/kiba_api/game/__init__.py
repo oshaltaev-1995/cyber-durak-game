@@ -14,6 +14,14 @@ from kiba_api.game.attack import (
     analyze_initial_attack,
     is_legal_initial_attack,
 )
+from kiba_api.game.bot import (
+    BotAction,
+    BotActionError,
+    BotActionType,
+    BotErrorCode,
+    choose_bot_action,
+    play_bot_turn,
+)
 from kiba_api.game.bout import (
     AttackPacket,
     BoutActionError,
@@ -70,6 +78,10 @@ __all__ = [
     "BoutOutcome",
     "BoutPhase",
     "BoutState",
+    "BotAction",
+    "BotActionError",
+    "BotActionType",
+    "BotErrorCode",
     "Card",
     "GameActionError",
     "GameErrorCode",
@@ -93,6 +105,7 @@ __all__ = [
     "analyze_transfer",
     "analyze_throw_in",
     "cards_have_same_rank",
+    "choose_bot_action",
     "create_36_card_deck",
     "create_new_game",
     "find_exact_value_subsets",
@@ -113,6 +126,7 @@ __all__ = [
     "play_game_throw_in",
     "play_game_transfer",
     "play_initial_attack",
+    "play_bot_turn",
     "play_throw_in",
     "play_transfer",
     "summarize_table_arithmetic",

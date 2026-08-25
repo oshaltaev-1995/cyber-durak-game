@@ -326,6 +326,26 @@ Do not start with machine learning.
 
 Start with deterministic search / heuristics.
 
+### 10.1 Baseline policy
+
+The baseline bot is an isolated deterministic policy in `game/bot.py`. Given the same immutable
+`GameState` and bot seat, it returns the same explicit `BotAction`. `play_bot_turn` chooses and
+applies exactly one action through the existing authoritative game transitions; it does not edit
+hands or bout state and does not hide a recursive game loop.
+
+Candidate ordering uses effective values from the fixed bout trump snapshot. Initial attacks only
+need single-card candidates because every single card is legal and all card values are positive, so
+no multi-card candidate can improve the policy's primary lowest-total criterion. For defense,
+transfer, and throw-ins, a value-indexed dynamic program retains one preferred subset for each
+reachable effective total. This avoids power-set growth after TAKE creates a large hand. Every
+retained candidate is still submitted to the authoritative `GameState` action before the bot may
+choose it.
+
+The baseline prioritizes the cheapest legal defense and defends before transferring. It transfers
+only when no defense exists and an exact legal transfer survives bout limits; otherwise it takes.
+After defense it chooses the cheapest legal throw-in or finishes as bito when none exists. This is a
+legality-and-completion baseline, not an optimal or difficulty-ranked strategy.
+
 Possible bot priorities:
 
 ### Defense
