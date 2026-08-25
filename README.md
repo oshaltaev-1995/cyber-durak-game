@@ -1,9 +1,9 @@
 # Cyber Durak / Kiba
 
-Cyber Durak is a planned browser-based shedding card game with a custom arithmetic ruleset. Its
-historical gameplay codename is **Kiba**. Phase 0 is complete: the repository contains the Angular
-frontend and FastAPI backend foundations, automated checks, and a local Docker Compose setup. It is
-still a pre-gameplay build; the rules engine, bot, and multiplayer features are not implemented.
+Cyber Durak is a browser-based shedding card game with a custom arithmetic ruleset. Its historical
+gameplay codename is **Kiba**. The backend now contains the complete two-player 36-card rules engine,
+a deterministic baseline bot, and an Alpha process-local human-versus-bot REST session layer. The
+Angular project remains a tested foundation; the playable card-table UI is the next separate phase.
 
 ## Repository structure
 
@@ -31,7 +31,7 @@ Start the services in separate terminals:
 ```bash
 cd backend
 uv sync
-uv run uvicorn kiba_api.main:app --reload
+uv run uvicorn --app-dir src kiba_api.main:app --reload
 ```
 
 ```bash
@@ -46,6 +46,20 @@ Open the frontend at <http://localhost:4200>. The backend health check is availa
 ```json
 {"status":"ok"}
 ```
+
+Create and inspect an Alpha human-versus-bot game with:
+
+```bash
+curl -X POST http://localhost:8000/api/games
+curl http://localhost:8000/api/games/<game_id>
+```
+
+Submit one of `INITIAL_ATTACK`, `DEFEND`, `TRANSFER`, `THROW_IN`, `TAKE`, or `BITO` to
+`POST /api/games/<game_id>/actions`. Card actions use stable codes such as `6C`, `10H`, `QS`, `KD`,
+and `AC`. Interactive OpenAPI documentation is available at <http://localhost:8000/docs>.
+
+Alpha sessions are held only in backend process memory and are lost when the backend restarts. The
+API sends the human hand and public table state, but never sends bot cards or hidden draw-pile order.
 
 ## Checks
 
@@ -84,7 +98,7 @@ The frontend is exposed on port 4200 and the backend on port 8000. Source direct
 into the containers, so both development servers reload when their source files change. Stop the
 stack with `docker compose down`.
 
-No database or environment file is required in this bootstrap phase.
+No database or environment file is required for the process-local Alpha session layer.
 
 ## Authoritative specifications
 

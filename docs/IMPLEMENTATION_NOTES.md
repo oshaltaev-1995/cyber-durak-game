@@ -346,6 +346,27 @@ only when no defense exists and an exact legal transfer survives bout limits; ot
 After defense it chooses the cheapest legal throw-in or finishes as bito when none exists. This is a
 legality-and-completion baseline, not an optimal or difficulty-ranked strategy.
 
+### 10.2 Alpha human-versus-bot sessions and REST boundary
+
+The Phase 3C1 application layer lives outside `kiba_api.game`. A process-local `GameSessionService`
+owns opaque game identifiers, the current immutable `GameState` reference, and the fixed Alpha seat
+mapping: the human is Seat ONE and the baseline bot is Seat TWO. It automatically starts ready
+bouts and applies one authoritative bot action at a time until the human owns the next decision or
+the game completes. Human actions and bot actions both delegate to the existing `GameState` and
+`BoutState` transitions; the application and HTTP layers do not duplicate legality rules.
+
+`InMemoryGameSessionStore` uses a repository lock for creation and lookup plus a per-session lock
+for transitions, preventing two requests from applying to the same state snapshot. Sessions are
+process-local and are lost whenever the backend restarts. This is intentional for Alpha; no
+database, restart recovery, or distributed locking is provided.
+
+The FastAPI boundary exposes `POST /api/games`, `GET /api/games/{game_id}`, and
+`POST /api/games/{game_id}/actions`. Requests use canonical normal-card codes such as `6C`, `10H`,
+`QS`, `KD`, and `AC`. Pydantic schemas explicitly translate domain snapshots: the human receives
+their ordered hand and public table state, while the bot hand is represented only by a count and
+the draw pile only by a count plus its single exposed top card. Bot cards, future draw-pile order,
+and random-generator state never enter the response schema.
+
 Possible bot priorities:
 
 ### Defense
