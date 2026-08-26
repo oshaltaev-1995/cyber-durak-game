@@ -27,36 +27,42 @@
     </main>
   } @else if (game(); as currentGame) {
     <main class="game-board">
-      <section class="game-meta">
-        <app-trump-indicator
-          [trump]="currentGame.trump"
-          [exposedCard]="currentGame.exposed_top_card"
-          [drawPileCount]="currentGame.draw_pile_count"
-        />
-        <div class="bot-panel" aria-label="Карты бота">
-          <div class="bot-avatar" aria-hidden="true">BOT</div>
-          <div>
-            <span>Соперник</span>
-            <strong>Бот · {{ currentGame.bot_hand_count }} карт</strong>
-            @if (currentGame.bot_hand_count > 0) {
-              <div class="card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
-            }
-          </div>
+      <section class="opponent-zone" aria-label="Карты бота">
+        @if (currentGame.bot_hand_count > 0) {
+          <div class="opponent-card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
+        }
+        <div class="bot-avatar" aria-hidden="true">BOT</div>
+        <div class="opponent-copy">
+          <span>Соперник</span>
+          <strong>Бот · {{ currentGame.bot_hand_count }} карт</strong>
         </div>
       </section>
 
-      <div class="status-banner" aria-live="polite">
-        <span class="status-dot" aria-hidden="true"></span>
-        <strong>{{ statusText() }}</strong>
-        <small>
-          Атака {{ currentGame.total_attack_card_count ?? 0 }} / лимит
-          {{ currentGame.attack_card_limit ?? '—' }}
-        </small>
-      </div>
+      <section class="table-stage" aria-label="Игровое поле">
+        <aside class="draw-zone" aria-label="Колода и козырь">
+          <app-trump-indicator
+            [trump]="currentGame.trump"
+            [exposedCard]="currentGame.exposed_top_card"
+            [drawPileCount]="currentGame.draw_pile_count"
+          />
+        </aside>
 
-      @if (errorMessage(); as error) {
-        <div class="error-message in-game" role="alert">{{ error }}</div>
-      }
+        <app-game-table
+          class="center-table"
+          [packets]="currentGame.packets"
+          [arithmetic]="currentGame.table_arithmetic"
+          [activeAttackValue]="currentGame.active_attack_value"
+          [directAnchors]="currentGame.direct_anchor_cards"
+          [final]="currentGame.phase === 'complete'"
+        />
+
+        <aside class="discard-zone" aria-label="Бито, сброшенные карты">
+          <span class="pile-label">Бито</span>
+          <div class="discard-stack" aria-hidden="true"><i></i><i></i><i></i></div>
+          <strong>{{ currentGame.discard_count }}</strong>
+          <small>карт</small>
+        </aside>
+      </section>
 
       @if (currentGame.phase === 'complete') {
         <section class="result-panel" aria-live="polite">
@@ -64,15 +70,20 @@
           <h2>{{ resultTitle(currentGame) }}</h2>
           <button type="button" [disabled]="pending()" (click)="startNewGame()">Сыграть ещё</button>
         </section>
+      } @else {
+        <div class="status-banner" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <strong>{{ statusText() }}</strong>
+          <small>
+            Атака {{ currentGame.total_attack_card_count ?? 0 }} / лимит
+            {{ currentGame.attack_card_limit ?? '—' }}
+          </small>
+        </div>
       }
 
-      <app-game-table
-        [packets]="currentGame.packets"
-        [arithmetic]="currentGame.table_arithmetic"
-        [activeAttackValue]="currentGame.active_attack_value"
-        [directAnchors]="currentGame.direct_anchor_cards"
-        [final]="currentGame.phase === 'complete'"
-      />
+      @if (errorMessage(); as error) {
+        <div class="error-message in-game" role="alert">{{ error }}</div>
+      }
 
       <app-hand
         class="player-hand-region"

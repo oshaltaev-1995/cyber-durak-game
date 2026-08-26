@@ -1,18 +1,67 @@
 .trump-panel {
-  display: flex;
-  gap: 0.8rem;
-  align-items: center;
-  min-width: 0;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  background: rgb(4 38 31 / 65%);
-}
-
-.trump-panel > div:last-child {
   display: grid;
   gap: 0.2rem;
   min-width: 0;
+  height: 100%;
+  align-content: center;
+  justify-items: center;
+  padding: 0.45rem 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: rgb(4 38 31 / 65%);
+  text-align: center;
+}
+
+.pile-visual {
+  position: relative;
+  width: 4.2rem;
+  height: 5.55rem;
+}
+
+.pile-visual app-playing-card {
+  position: absolute;
+  z-index: 2;
+  top: 0.2rem;
+  left: 0.2rem;
+  transform: rotate(-5deg);
+}
+
+.deck-stack {
+  position: absolute;
+  inset: 0;
+}
+
+.deck-stack i {
+  position: absolute;
+  inset: 0.3rem 0.15rem 0.1rem 0.35rem;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 0.58rem;
+  background: repeating-linear-gradient(45deg, #173e38 0 4px, #28564e 4px 8px);
+}
+
+.deck-stack i:nth-child(1) {
+  transform: translate(0.2rem, -0.15rem) rotate(5deg);
+}
+
+.deck-stack i:nth-child(2) {
+  transform: translate(0.35rem, 0.05rem) rotate(8deg);
+}
+
+.deck-stack i:nth-child(3) {
+  transform: translate(0.5rem, 0.2rem) rotate(11deg);
+}
+
+.deck-count {
+  display: grid;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  margin-top: -0.35rem;
+  place-items: center;
+  border-radius: 999px;
+  color: #05251e;
+  background: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 900;
 }
 
 .label {
@@ -25,15 +74,15 @@
 
 strong {
   color: var(--text-strong);
-  font-size: 1rem;
+  max-width: 100%;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 small {
-  overflow: hidden;
   color: var(--text-muted);
-  font-size: 0.7rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.58rem;
 }
 
 .empty-deck {
@@ -46,4 +95,14 @@ small {
   border-radius: 0.58rem;
   color: var(--text-muted);
   font-size: 1.5rem;
+}
+
+@media (min-width: 48rem) {
+  .trump-panel {
+    padding: 0.75rem 0.5rem;
+  }
+
+  strong {
+    font-size: 0.82rem;
+  }
 }

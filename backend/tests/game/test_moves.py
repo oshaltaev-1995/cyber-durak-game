@@ -206,6 +206,44 @@ def test_mixed_rank_selection_does_not_qualify_as_same_rank() -> None:
     assert ThrowInReason.SAME_RANK not in analysis.reasons
 
 
+def test_mixed_direct_anchor_ranks_do_not_authorize_one_mixed_selection() -> None:
+    """Characterize the unresolved mixed-anchor throw-in interpretation."""
+    attack = card(Rank.SIX)
+    defense_seven = card(Rank.SEVEN, Suit.HEARTS)
+    defense_jack = card(Rank.JACK, Suit.DIAMONDS)
+    table = [attack, defense_seven, defense_jack]
+    direct_anchors = [defense_seven, defense_jack]
+
+    selected_seven = analyze_throw_in(
+        [card(Rank.SEVEN, Suit.SPADES)],
+        table,
+        direct_anchors,
+        NO_TRUMP,
+    )
+    selected_jack = analyze_throw_in(
+        [card(Rank.JACK, Suit.HEARTS)],
+        table,
+        direct_anchors,
+        NO_TRUMP,
+    )
+    selected_together = analyze_throw_in(
+        [card(Rank.SEVEN, Suit.SPADES), card(Rank.JACK, Suit.HEARTS)],
+        table,
+        direct_anchors,
+        NO_TRUMP,
+    )
+
+    assert selected_seven.reasons == frozenset(
+        {ThrowInReason.SAME_RANK, ThrowInReason.EXISTING_VALUE}
+    )
+    assert selected_jack.reasons == frozenset(
+        {ThrowInReason.SAME_RANK, ThrowInReason.EXISTING_VALUE}
+    )
+    assert selected_together.selected_value == 19
+    assert selected_together.reasons == frozenset()
+    assert selected_together.legal is False
+
+
 def test_jokers_share_the_same_rank_for_throw_ins() -> None:
     table = [joker(JokerColor.RED), card(Rank.SIX)]
     analysis = analyze_throw_in(

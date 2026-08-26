@@ -120,11 +120,38 @@ describe('GamePageComponent', () => {
       (fixture.nativeElement as HTMLElement).querySelectorAll('app-hand .playing-card'),
     ).toHaveLength(3);
     expect(text).toContain('Бот · 6 карт');
-    expect(text).toContain('в колоде 21');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.draw-zone .deck-count')?.textContent,
+    ).toContain('21');
     expect(text).toContain('♥ и все 7');
     expect(text).toContain('Ходить');
     expect(text).not.toContain('Скрытая карта бота');
     expect(text).not.toContain('Порядок колоды');
+  });
+
+  it('renders the opponent, public draw pile, center table, and bito as distinct table zones', () => {
+    create(makeGame({ discard_count: 16 }));
+    const element = fixture.nativeElement as HTMLElement;
+    const stage = element.querySelector('.table-stage') as HTMLElement;
+
+    expect(element.querySelector('.opponent-zone')?.textContent).toContain('Бот · 6 карт');
+    expect(element.querySelectorAll('.opponent-zone .opponent-card-backs i')).toHaveLength(3);
+    expect(stage.querySelector('.draw-zone .deck-count')?.textContent).toContain('21');
+    expect(stage.querySelectorAll('.draw-zone app-playing-card')).toHaveLength(1);
+    expect(stage.querySelector(':scope > app-game-table.center-table')).not.toBeNull();
+    expect(stage.querySelector('.discard-zone')?.textContent).toContain('Бито');
+    expect(stage.querySelector('.discard-zone')?.textContent).toContain('16');
+    expect(stage.textContent).not.toContain('Порядок колоды');
+  });
+
+  it('keeps the turn status next to the player interaction region', () => {
+    create();
+    const element = fixture.nativeElement as HTMLElement;
+    const status = element.querySelector('.status-banner') as HTMLElement;
+    const hand = element.querySelector('.player-hand-region') as HTMLElement;
+
+    expect(status.textContent).toContain('Ваш ход');
+    expect(status.compareDocumentPosition(hand) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   });
 
   it('selects cards, sends canonical codes, and clears selection after success', () => {
