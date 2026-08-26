@@ -7,7 +7,6 @@ from enum import StrEnum
 from fractions import Fraction
 
 from kiba_api.game.arithmetic import (
-    cards_have_same_rank,
     matches_exact_value,
     summarize_table_arithmetic,
 )
@@ -136,11 +135,8 @@ def _has_represented_same_rank(
     selected: tuple[Card, ...],
     direct_anchors: tuple[Card, ...],
 ) -> bool:
-    selection_shares_rank = len(selected) == 1 or cards_have_same_rank(selected)
-    if not selection_shares_rank:
-        return False
-    selected_rank = selected[0].rank
-    return any(card.rank is selected_rank for card in direct_anchors)
+    direct_anchor_ranks = {card.rank for card in direct_anchors}
+    return bool(selected) and all(card.rank in direct_anchor_ranks for card in selected)
 
 
 def _validate_direct_anchors(

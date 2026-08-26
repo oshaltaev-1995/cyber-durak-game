@@ -206,8 +206,7 @@ def test_mixed_rank_selection_does_not_qualify_as_same_rank() -> None:
     assert ThrowInReason.SAME_RANK not in analysis.reasons
 
 
-def test_mixed_direct_anchor_ranks_do_not_authorize_one_mixed_selection() -> None:
-    """Characterize the unresolved mixed-anchor throw-in interpretation."""
+def test_each_selected_rank_may_match_a_different_direct_anchor() -> None:
     attack = card(Rank.SIX)
     defense_seven = card(Rank.SEVEN, Suit.HEARTS)
     defense_jack = card(Rank.JACK, Suit.DIAMONDS)
@@ -240,8 +239,75 @@ def test_mixed_direct_anchor_ranks_do_not_authorize_one_mixed_selection() -> Non
         {ThrowInReason.SAME_RANK, ThrowInReason.EXISTING_VALUE}
     )
     assert selected_together.selected_value == 19
-    assert selected_together.reasons == frozenset()
-    assert selected_together.legal is False
+    assert selected_together.reasons == frozenset({ThrowInReason.SAME_RANK})
+    assert selected_together.legal is True
+
+
+@pytest.mark.parametrize(
+    "selection",
+    [
+        [card(Rank.SEVEN, Suit.SPADES)],
+        [card(Rank.JACK, Suit.HEARTS)],
+        [card(Rank.SEVEN, Suit.SPADES), card(Rank.JACK, Suit.HEARTS)],
+        [card(Rank.SEVEN, Suit.SPADES), card(Rank.SEVEN, Suit.DIAMONDS)],
+        [card(Rank.JACK, Suit.HEARTS), card(Rank.JACK, Suit.SPADES)],
+        [
+            card(Rank.SEVEN, Suit.SPADES),
+            card(Rank.SEVEN, Suit.DIAMONDS),
+            card(Rank.JACK, Suit.HEARTS),
+        ],
+        [
+            card(Rank.SEVEN, Suit.SPADES),
+            card(Rank.JACK, Suit.HEARTS),
+            card(Rank.JACK, Suit.SPADES),
+        ],
+    ],
+)
+def test_same_rank_reason_accepts_selections_drawn_from_all_anchor_ranks(
+    selection: list[Card],
+) -> None:
+    attack = card(Rank.SIX)
+    direct_anchors = [
+        card(Rank.SEVEN, Suit.HEARTS),
+        card(Rank.JACK, Suit.DIAMONDS),
+    ]
+
+    analysis = analyze_throw_in(
+        selection,
+        [attack, *direct_anchors],
+        direct_anchors,
+        NO_TRUMP,
+    )
+
+    assert ThrowInReason.SAME_RANK in analysis.reasons
+
+
+@pytest.mark.parametrize(
+    "selection",
+    [
+        [card(Rank.SEVEN), card(Rank.NINE)],
+        [card(Rank.JACK), card(Rank.NINE)],
+        [card(Rank.NINE)],
+        [card(Rank.SIX, Suit.SPADES)],
+    ],
+)
+def test_same_rank_reason_rejects_any_rank_absent_from_direct_anchors(
+    selection: list[Card],
+) -> None:
+    attack = card(Rank.SIX)
+    direct_anchors = [
+        card(Rank.SEVEN, Suit.HEARTS),
+        card(Rank.JACK, Suit.DIAMONDS),
+    ]
+
+    analysis = analyze_throw_in(
+        selection,
+        [attack, *direct_anchors],
+        direct_anchors,
+        NO_TRUMP,
+    )
+
+    assert ThrowInReason.SAME_RANK not in analysis.reasons
 
 
 def test_jokers_share_the_same_rank_for_throw_ins() -> None:

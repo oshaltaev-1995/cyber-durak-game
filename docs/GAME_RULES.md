@@ -372,6 +372,13 @@ contribute to the table total and arithmetic mean. Those covered attacking cards
 independently authorize same-rank or existing-value throw-ins. The bout layer determines which
 cards belong to the current active response context and are direct anchors at each step.
 
+When the current direct anchors contain several ranks, one throw-in action may contain any mix of
+those anchored ranks. Every selected card's rank must be represented among the current direct
+anchors; the selected cards do not all need to share one rank. For example, if the latest defense
+cards are `7 + J`, then `7`, `J`, `7 + J`, `7 + 7`, and `7 + 7 + J` may qualify through the
+same-rank mechanism, while a selection containing an unanchored `9` does not qualify through that
+mechanism.
+
 Example:
 
 `J(12)` is covered by `K(18)`.

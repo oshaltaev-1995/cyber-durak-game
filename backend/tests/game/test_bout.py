@@ -423,6 +423,38 @@ def test_throw_in_composes_all_confirmed_reason_types(
     assert thrown.transfer_open is False
 
 
+def test_throw_in_may_combine_ranks_from_multiple_latest_defense_cards() -> None:
+    state = play_initial_attack(
+        start_bout(seat_one_hand_count=4, seat_two_hand_count=4),
+        Seat.ONE,
+        [card(Rank.SIX)],
+    )
+    defended = play_defense(
+        state,
+        Seat.TWO,
+        [card(Rank.SEVEN, Suit.CLUBS), card(Rank.JACK, Suit.CLUBS)],
+    )
+    selection = [
+        card(Rank.SEVEN, Suit.DIAMONDS),
+        card(Rank.JACK, Suit.DIAMONDS),
+    ]
+
+    analysis = analyze_throw_in(
+        selection,
+        defended.table_cards,
+        defended.direct_anchor_cards,
+        defended.trump_state,
+    )
+    thrown = play_throw_in(defended, Seat.ONE, selection)
+
+    assert analysis.reasons == frozenset({ThrowInReason.SAME_RANK})
+    assert thrown.phase is BoutPhase.WAITING_FOR_DEFENDER_RESPONSE
+    assert thrown.active_packet is not None
+    assert thrown.active_packet.attack_cards == tuple(selection)
+    assert thrown.active_packet.attack_value == 19
+    assert thrown.total_attack_card_count == 3
+
+
 def test_illegal_throw_in_is_rejected() -> None:
     state = covered_jack()
 
