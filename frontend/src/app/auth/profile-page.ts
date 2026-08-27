@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { CurrentUser } from '../core/auth/auth.models';
 import { AuthService } from '../core/auth/auth.service';
-import { MatchStatistics } from '../core/profile/profile.models';
+import { MatchStatistics, ProgressionSummary } from '../core/profile/profile.models';
 import { ProfileService } from '../core/profile/profile.service';
 
 @Component({
@@ -26,6 +26,9 @@ export class ProfilePageComponent implements OnInit {
   protected readonly statistics = signal<MatchStatistics | null>(null);
   protected readonly statisticsPending = signal(false);
   protected readonly statisticsError = signal(false);
+  protected readonly progression = signal<ProgressionSummary | null>(null);
+  protected readonly progressionPending = signal(false);
+  protected readonly progressionError = signal(false);
   protected readonly form = new FormGroup({
     display_name: new FormControl('', {
       nonNullable: true,
@@ -38,12 +41,14 @@ export class ProfilePageComponent implements OnInit {
     if (current !== null) {
       this.loadUser(current);
       this.loadStatistics();
+      this.loadProgression();
       return;
     }
     this.auth.refresh().subscribe((user) => {
       if (user !== null) {
         this.loadUser(user);
         this.loadStatistics();
+        this.loadProgression();
       }
     });
   }
@@ -103,6 +108,18 @@ export class ProfilePageComponent implements OnInit {
       .subscribe({
         next: (statistics) => this.statistics.set(statistics),
         error: () => this.statisticsError.set(true),
+      });
+  }
+
+  private loadProgression(): void {
+    this.progressionPending.set(true);
+    this.progressionError.set(false);
+    this.profile
+      .getProgression()
+      .pipe(finalize(() => this.progressionPending.set(false)))
+      .subscribe({
+        next: (progression) => this.progression.set(progression),
+        error: () => this.progressionError.set(true),
       });
   }
 

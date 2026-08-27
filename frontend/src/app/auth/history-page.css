@@ -18,6 +18,12 @@
   margin-bottom: 1.25rem;
 }
 
+.history-heading nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
 .kicker {
   color: var(--accent);
   font-size: 0.72rem;

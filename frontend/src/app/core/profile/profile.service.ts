@@ -1,7 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { MatchHistoryResponse, MatchStatistics } from './profile.models';
+import {
+  Achievement,
+  MatchHistoryResponse,
+  MatchStatistics,
+  ProgressionSummary,
+} from './profile.models';
 
 @Injectable({ providedIn: 'root' })
 export class ProfileService {
@@ -15,5 +20,13 @@ export class ProfileService {
     return this.http.get<MatchHistoryResponse>('/api/matches', {
       params: { limit, offset },
     });
+  }
+
+  getProgression(): Observable<ProgressionSummary> {
+    return this.http.get<ProgressionSummary>('/api/progression');
+  }
+
+  getAchievements(): Observable<readonly Achievement[]> {
+    return this.http.get<readonly Achievement[]>('/api/achievements');
   }
 }

@@ -1,12 +1,18 @@
 """Process-local human-versus-bot session orchestration."""
 
+from __future__ import annotations
+
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from threading import RLock
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
+
+if TYPE_CHECKING:
+    from kiba_api.persistence.progression import ProgressionAward
 
 from kiba_api.game import (
     BotActionError,
@@ -87,6 +93,7 @@ class GameSession:
     max_transfer_target: int = 0
     arithmetic_mean_throw_in_count: int = 0
     completion_persisted: bool = False
+    progression_award: ProgressionAward | None = None
 
     def __post_init__(self) -> None:
         if not self.game_id:
@@ -184,7 +191,7 @@ class InMemoryGameSessionStore:
 
 _GameFactory = Callable[[], GameState]
 _BotTurn = Callable[[GameState, Seat], GameState]
-_CompletionRecorder = Callable[[GameSession], None]
+_CompletionRecorder = Callable[[GameSession], "ProgressionAward | None"]
 _Clock = Callable[[], datetime]
 
 
@@ -286,8 +293,12 @@ class GameSessionService:
             or self._completion_recorder is None
         ):
             return
-        self._completion_recorder(session)
-        record.session = replace(session, completion_persisted=True)
+        progression_award = self._completion_recorder(session)
+        record.session = replace(
+            session,
+            completion_persisted=True,
+            progression_award=progression_award,
+        )
 
     def _advance_to_human_or_complete(
         self,

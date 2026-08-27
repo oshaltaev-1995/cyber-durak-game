@@ -67,6 +67,8 @@ Everything else depends on this.
 - no account required; optional profile identity is available without gating play
 - authenticated completed matches have private history and lightweight statistics; guest matches
   remain unsaved
+- authenticated completed matches grant exactly-once XP, derived levels, and a small Alpha
+  achievement catalogue; guest play remains registration-free and does not persist progression
 
 ### Alpha 2
 
@@ -94,7 +96,7 @@ Only after the core game is proven:
 - rating / ELO
 - richer match analytics and replay history
 - leaderboards
-- achievements
+- richer achievements and achievement notifications
 - daily challenges
 - private tournaments
 - replays
@@ -241,7 +243,7 @@ A strong early signal would be:
 Not in Alpha 1:
 
 - account-gated gameplay
-- XP, levels or achievements
+- progression that changes gameplay strength
 - payments
 - ads
 - marketplace
@@ -252,5 +254,29 @@ Not in Alpha 1:
 - clans
 - native mobile apps
 - elaborate 3D graphics
+
+### 11.1 Alpha progression values
+
+Authenticated completed matches grant base XP from the persisted human result:
+
+- win: 100 XP;
+- draw: 50 XP;
+- loss: 25 XP.
+
+Level is derived from total XP with the threshold `50 × (level - 1)²`; it is not stored as mutable
+account state. The Alpha achievement bonuses are:
+
+- `FIRST_MATCH`: 25 XP;
+- `FIRST_WIN`: 50 XP;
+- `TEN_GAMES`: 100 XP;
+- `TEN_WINS`: 150 XP;
+- `WIN_STREAK_3`: 100 XP;
+- `SNOWBALL_36`: 75 XP;
+- `AVALANCHE_72`: 150 XP;
+- `ARITHMETIC_MEAN`: 75 XP.
+
+XP, levels, and achievements are profile metadata only. They do not affect shuffle, hands, trump,
+card values, available moves, or bot strength. Cosmetic rewards may be evaluated later, but Alpha
+has no currency, shop, battle pass, or gameplay advantage.
 
 The project should prove the game before becoming a platform.

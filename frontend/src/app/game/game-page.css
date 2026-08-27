@@ -356,6 +356,75 @@ button:disabled {
   font-weight: 780;
 }
 
+.result-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem 1rem;
+}
+
+.result-progression {
+  display: grid;
+  width: min(100%, 34rem);
+  gap: 0.35rem;
+  margin: 1rem auto;
+  padding: 0.85rem;
+  border: 1px solid rgb(73 229 190 / 25%);
+  border-radius: 0.85rem;
+  background: rgb(3 15 15 / 38%);
+}
+
+.result-progression > strong {
+  color: var(--accent);
+  font-size: 1.6rem;
+}
+
+.result-progression > span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.new-achievements {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgb(255 255 255 / 10%);
+  text-align: left;
+}
+
+.new-achievements > small {
+  color: var(--accent);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.new-achievements article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.55rem;
+  border-radius: 0.65rem;
+  background: rgb(73 229 190 / 7%);
+}
+
+.new-achievements article strong,
+.new-achievements article small {
+  display: block;
+}
+
+.new-achievements article small {
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+}
+
+.new-achievements article b {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
 .player-hand-region {
   min-width: 0;
 }

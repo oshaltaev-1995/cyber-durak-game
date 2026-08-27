@@ -50,6 +50,16 @@ class User(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    xp_ledger_entries: Mapped[list[XPLedgerEntry]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    achievements: Mapped[list[UserAchievement]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class AuthSession(Base):
@@ -135,4 +145,81 @@ Index(
     "ix_completed_matches_user_completed_at",
     CompletedMatch.user_id,
     CompletedMatch.completed_at,
+)
+
+
+class XPLedgerEntry(Base):
+    """Append-only XP award protected by a stable per-user source key."""
+
+    __tablename__ = "xp_ledger"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="positive_amount"),
+        CheckConstraint(
+            "source_type IN ('MATCH', 'ACHIEVEMENT')",
+            name="valid_source_type",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    source_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_match_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("completed_matches.id", ondelete="SET NULL"),
+    )
+    achievement_code: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    user: Mapped[User] = relationship(back_populates="xp_ledger_entries")
+
+
+Index("ix_xp_ledger_user_id", XPLedgerEntry.user_id)
+Index("ix_xp_ledger_source_match_id", XPLedgerEntry.source_match_id)
+Index(
+    "uq_xp_ledger_user_source_key",
+    XPLedgerEntry.user_id,
+    XPLedgerEntry.source_key,
+    unique=True,
+)
+
+
+class UserAchievement(Base):
+    """One exactly-once achievement unlock for an account."""
+
+    __tablename__ = "user_achievements"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    achievement_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    unlocked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    unlocked_match_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("completed_matches.id", ondelete="SET NULL"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    user: Mapped[User] = relationship(back_populates="achievements")
+
+
+Index("ix_user_achievements_user_id", UserAchievement.user_id)
+Index("ix_user_achievements_unlocked_match_id", UserAchievement.unlocked_match_id)
+Index(
+    "uq_user_achievements_user_code",
+    UserAchievement.user_id,
+    UserAchievement.achievement_code,
+    unique=True,
 )

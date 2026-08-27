@@ -55,10 +55,29 @@ export interface GameResult {
   readonly winner_seat: Seat | null;
 }
 
+export interface AchievementAward {
+  readonly code: string;
+  readonly title: string;
+  readonly description: string;
+  readonly bonus_xp: number;
+}
+
+export interface ProgressionAward {
+  readonly base_xp: number;
+  readonly achievement_bonus_xp: number;
+  readonly total_awarded_xp: number;
+  readonly new_achievements: readonly AchievementAward[];
+  readonly total_xp: number;
+  readonly level: number;
+  readonly next_level_xp: number;
+  readonly xp_needed_for_next_level: number;
+}
+
 export interface GameResponse {
   readonly game_id: string;
   readonly account_associated: boolean;
   readonly result_saved: boolean;
+  readonly progression_award: ProgressionAward | null;
   readonly phase: GamePhase;
   readonly result: GameResult | null;
   readonly human_seat: Seat;

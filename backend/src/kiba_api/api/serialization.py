@@ -4,9 +4,11 @@ from fractions import Fraction
 
 from kiba_api.api.cards import card_to_code
 from kiba_api.api.schemas import (
+    AchievementAwardResponse,
     CardResponse,
     GameResponse,
     PacketResponse,
+    ProgressionAwardResponse,
     ResultResponse,
     TableArithmeticResponse,
     ThrowInReasonResponse,
@@ -66,6 +68,7 @@ def serialize_game_session(session: GameSession) -> GameResponse:
         game_id=session.game_id,
         account_associated=session.user_id is not None,
         result_saved=session.completion_persisted,
+        progression_award=_serialize_progression_award(session),
         phase=state.phase.value,
         result=_serialize_result(session),
         human_seat=session.human_seat.value,
@@ -231,6 +234,30 @@ def _serialize_result(session: GameSession) -> ResultResponse | None:
         outcome="WIN",
         winner="HUMAN" if result.winner is session.human_seat else "BOT",
         winner_seat=result.winner.value if result.winner is not None else None,
+    )
+
+
+def _serialize_progression_award(session: GameSession) -> ProgressionAwardResponse | None:
+    award = session.progression_award
+    if award is None:
+        return None
+    return ProgressionAwardResponse(
+        base_xp=award.base_xp,
+        achievement_bonus_xp=award.achievement_bonus_xp,
+        total_awarded_xp=award.total_awarded_xp,
+        new_achievements=[
+            AchievementAwardResponse(
+                code=achievement.code.value,
+                title=achievement.title,
+                description=achievement.description,
+                bonus_xp=achievement.bonus_xp,
+            )
+            for achievement in award.new_achievements
+        ],
+        total_xp=award.summary.total_xp,
+        level=award.summary.level,
+        next_level_xp=award.summary.next_level_xp,
+        xp_needed_for_next_level=award.summary.xp_needed_for_next_level,
     )
 
 

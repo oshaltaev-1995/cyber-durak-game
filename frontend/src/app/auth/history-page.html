@@ -7,7 +7,10 @@
         <p>Завершённые игры против бота · {{ total() }}</p>
       }
     </div>
-    <a class="secondary-action" routerLink="/profile">К профилю</a>
+    <nav aria-label="Разделы профиля">
+      <a class="secondary-action" routerLink="/profile">Статистика</a>
+      <a class="secondary-action" routerLink="/profile/achievements">Достижения</a>
+    </nav>
   </header>
 
   @if (!auth.currentUser() && !pending()) {

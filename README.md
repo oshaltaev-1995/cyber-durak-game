@@ -3,8 +3,9 @@
 Cyber Durak is a browser-based shedding card game with a custom arithmetic ruleset. Its historical
 gameplay codename is **Kiba**. The repository contains the complete two-player 36-card rules engine,
 a deterministic baseline bot, an Alpha process-local REST game-session layer, optional persistent
-account identity with completed-match history/statistics, and a responsive playable Angular
-human-versus-bot table. Registration is never required to play; guest results are not persisted.
+account identity with completed-match history, statistics, XP, derived levels and achievements, and
+a responsive playable Angular human-versus-bot table. Registration is never required to play;
+guest results and progression are not persisted.
 
 ## Repository structure
 
@@ -70,6 +71,8 @@ The product shell provides these routes:
 - **Профиль** (`/profile`) allows an authenticated player to update their display name or log out.
 - **История партий** (`/profile/history`) shows private completed-match summaries for an
   authenticated player.
+- **Достижения** (`/profile/achievements`) shows the server-owned catalogue and private unlocks;
+  the profile also shows ledger-derived XP and level progress.
 
 Click **Играть** to create a new game, select cards by tapping or clicking them, and use the actions
 offered below the hand. Rules and Tutorial remain available from the compact navigation during a
@@ -92,7 +95,9 @@ and `AC`. Interactive OpenAPI documentation is available at <http://localhost:18
 Alpha sessions are held only in backend process memory and are lost when the backend restarts. The
 API sends the human hand and public table state, but never sends bot cards or hidden draw-pile order.
 User accounts, opaque auth sessions, and compact summaries of completed authenticated matches are
-stored in PostgreSQL and survive backend restart. Active games are deliberately not persisted.
+stored in PostgreSQL and survive backend restart. Exactly-once XP ledger entries and achievement
+unlocks are also persistent; level is derived from total ledger XP. Active games are deliberately
+not persisted.
 Games started as a guest stay guest games even if the player signs in before completion; games
 started while signed in retain that original account association through logout. Guest matches are
 never retroactively claimed.
@@ -107,7 +112,14 @@ GET   /api/auth/me
 PATCH /api/profile
 GET   /api/stats
 GET   /api/matches?limit=20&offset=0
+GET   /api/progression
+GET   /api/achievements
 ```
+
+Only authenticated completed matches grant persistent progression. Base awards are 100 XP for a
+win, 50 XP for a draw, and 25 XP for a loss; achievement bonuses are added once when their
+server-defined condition is first met. XP, levels, and achievements do not affect any gameplay
+rule or bot behavior.
 
 Authentication uses an HTTP-only same-site cookie. For local HTTP development `Secure` is disabled;
 set `KIBA_AUTH_COOKIE_SECURE=true` behind production HTTPS. Copy `.env.example` only as a starting

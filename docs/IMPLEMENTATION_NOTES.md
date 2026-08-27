@@ -459,6 +459,34 @@ PostgreSQL. Backend restart therefore destroys active matches. Phase 4B provides
 facts that later progression may consume, but adds no XP, levels, achievements, or placeholder
 schema.
 
+### 10.6 Persistent progression
+
+Phase 4C derives account progression only from authoritative `completed_matches`. An append-only
+`xp_ledger` records base match awards and achievement bonuses with a unique `(user_id, source_key)`
+constraint; `user_achievements` has a unique `(user_id, achievement_code)` constraint. These
+database constraints are the final retry/idempotency protection. No mutable total-XP, level,
+games-played, or wins aggregate is stored.
+
+`ProgressionService.synchronize(user_id)` processes completed matches oldest-first by completion
+time, creation time, and stable match ID. It backfills missing base XP, reconstructs chronological
+counts and win streaks, records the first match satisfying each static achievement definition, and
+writes its bonus XP in the same transaction. Repeated synchronization converges without duplicate
+awards, including for authenticated matches completed before Phase 4C. Levels and current progress
+are calculated from ledger total with the integer-safe threshold `50 × (level - 1)²`.
+
+After a new authenticated terminal match is persisted, the completion callback synchronizes that
+user and attaches a replay-safe award summary to the process-local completed session. The result
+response may therefore show server-confirmed base XP, newly unlocked achievement XP, total XP, and
+level without letting Angular calculate awards. Repeated result GETs can display the same summary
+but cannot create ledger rows. Guests skip match persistence and progression entirely.
+
+The static Alpha catalogue lives in backend code and `/api/achievements` returns its metadata plus
+per-user unlock state; Angular does not maintain a second catalogue. `/api/progression` returns the
+ledger-derived level summary after retroactive synchronization. XP and achievements cannot change
+gameplay. Cosmetic rewards, currencies, quests, seasons, leaderboards, multiplayer achievements,
+admin configuration, and notifications outside result/profile remain deferred; Phase 4D may later
+attach cosmetic unlocks without changing the progression ledger.
+
 Docker Compose keeps PostgreSQL on its private service network and applies `alembic upgrade head`
 before FastAPI starts. Production deployment must supply external database credentials, HTTPS with
 Secure cookies, explicit trusted origins, robust distributed rate limiting, email verification,

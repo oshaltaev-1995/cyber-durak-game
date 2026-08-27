@@ -93,10 +93,29 @@ class ResultResponse(BaseModel):
     winner_seat: str | None
 
 
+class AchievementAwardResponse(BaseModel):
+    code: str
+    title: str
+    description: str
+    bonus_xp: int
+
+
+class ProgressionAwardResponse(BaseModel):
+    base_xp: int
+    achievement_bonus_xp: int
+    total_awarded_xp: int
+    new_achievements: list[AchievementAwardResponse]
+    total_xp: int
+    level: int
+    next_level_xp: int
+    xp_needed_for_next_level: int
+
+
 class GameResponse(BaseModel):
     game_id: str
     account_associated: bool
     result_saved: bool
+    progression_award: ProgressionAwardResponse | None
     phase: str
     result: ResultResponse | None
     human_seat: str

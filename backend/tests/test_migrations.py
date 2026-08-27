@@ -47,9 +47,14 @@ def test_initial_migration_upgrades_and_downgrades_clean_database(
     command.upgrade(config, "head")
 
     inspector = inspect(engine)
-    assert {"alembic_version", "users", "auth_sessions", "completed_matches"} == set(
-        inspector.get_table_names()
-    )
+    assert {
+        "alembic_version",
+        "users",
+        "auth_sessions",
+        "completed_matches",
+        "xp_ledger",
+        "user_achievements",
+    } == set(inspector.get_table_names())
     assert {"normalized_email"} in [
         set(constraint["column_names"]) for constraint in inspector.get_unique_constraints("users")
     ]
@@ -66,9 +71,27 @@ def test_initial_migration_upgrades_and_downgrades_clean_database(
     assert {"user_id", "completed_at"} in [
         set(index["column_names"]) for index in inspector.get_indexes("completed_matches")
     ]
+    assert {"user_id", "source_key"} in [
+        set(index["column_names"])
+        for index in inspector.get_indexes("xp_ledger")
+        if index["unique"]
+    ]
+    assert {"user_id", "achievement_code"} in [
+        set(index["column_names"])
+        for index in inspector.get_indexes("user_achievements")
+        if index["unique"]
+    ]
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM users")) == 1
         assert connection.scalar(text("SELECT count(*) FROM auth_sessions")) == 1
+
+    command.downgrade(config, "20260827_0002")
+    downgraded_tables = set(inspect(engine).get_table_names())
+    assert "completed_matches" in downgraded_tables
+    assert "xp_ledger" not in downgraded_tables
+    assert "user_achievements" not in downgraded_tables
+    command.upgrade(config, "head")
+    assert {"xp_ledger", "user_achievements"}.issubset(inspect(engine).get_table_names())
 
     command.downgrade(config, "base")
 

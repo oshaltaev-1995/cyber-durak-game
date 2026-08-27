@@ -83,7 +83,40 @@
           <h2>{{ resultTitle(currentGame) }}</h2>
           @if (currentGame.result_saved) {
             <p class="result-history-note">Результат сохранён в статистике.</p>
-            <a class="result-history-link" routerLink="/profile/history">Открыть историю</a>
+            @if (currentGame.progression_award; as award) {
+              <section class="result-progression" aria-label="Полученный прогресс">
+                <strong>+{{ award.total_awarded_xp }} XP</strong>
+                <span>
+                  За партию {{ award.base_xp }} XP
+                  @if (award.achievement_bonus_xp > 0) {
+                    · достижения +{{ award.achievement_bonus_xp }} XP
+                  }
+                </span>
+                <span>
+                  Уровень {{ award.level }} · до следующего {{ award.xp_needed_for_next_level }} XP
+                </span>
+                @if (award.new_achievements.length > 0) {
+                  <div class="new-achievements">
+                    <small>Новые достижения</small>
+                    @for (achievement of award.new_achievements; track achievement.code) {
+                      <article>
+                        <span aria-hidden="true">🏅</span>
+                        <div>
+                          <strong>{{ achievement.title }}</strong>
+                          <small>{{ achievement.description }}</small>
+                        </div>
+                        <b>+{{ achievement.bonus_xp }} XP</b>
+                      </article>
+                    }
+                  </div>
+                }
+              </section>
+            }
+            <div class="result-links">
+              <a class="result-history-link" routerLink="/profile">Открыть профиль</a>
+              <a class="result-history-link" routerLink="/profile/history">Открыть историю</a>
+              <a class="result-history-link" routerLink="/profile/achievements">Достижения</a>
+            </div>
           } @else if (!currentGame.account_associated) {
             @if (auth.currentUser()) {
               <p class="result-history-note">

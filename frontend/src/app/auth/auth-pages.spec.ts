@@ -5,7 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { CurrentUser, LoginRequest, RegisterRequest } from '../core/auth/auth.models';
 import { AuthService } from '../core/auth/auth.service';
-import { MatchStatistics } from '../core/profile/profile.models';
+import { MatchStatistics, ProgressionSummary } from '../core/profile/profile.models';
 import { ProfileService } from '../core/profile/profile.service';
 import { LoginPageComponent } from './login-page';
 import { ProfilePageComponent } from './profile-page';
@@ -43,9 +43,24 @@ const statistics: MatchStatistics = {
   arithmetic_mean_throw_ins: 2,
 };
 
+const progression: ProgressionSummary = {
+  total_xp: 675,
+  level: 4,
+  level_start_xp: 450,
+  next_level_xp: 800,
+  xp_into_level: 225,
+  xp_needed_for_next_level: 125,
+  progress_fraction: 225 / 350,
+  achievements_unlocked: 3,
+  achievements_total: 8,
+};
+
 describe('account pages', () => {
   let auth: AuthStub;
-  let profile: { getStatistics: ReturnType<typeof vi.fn> };
+  let profile: {
+    getStatistics: ReturnType<typeof vi.fn>;
+    getProgression: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     auth = {
@@ -57,7 +72,10 @@ describe('account pages', () => {
       logout: vi.fn(() => of(undefined)),
       updateDisplayName: vi.fn((name) => of({ ...user, display_name: name })),
     };
-    profile = { getStatistics: vi.fn(() => of(statistics)) };
+    profile = {
+      getStatistics: vi.fn(() => of(statistics)),
+      getProgression: vi.fn(() => of(progression)),
+    };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -150,7 +168,14 @@ describe('account pages', () => {
     expect(text).toContain('58,3%');
     expect(text).toContain('История партий');
     expect(profile.getStatistics).toHaveBeenCalledOnce();
-    expect(text).not.toContain('XP');
+    expect(profile.getProgression).toHaveBeenCalledOnce();
+    expect(text).toContain('Уровень 4');
+    expect(text).toContain('675 XP');
+    expect(text).toContain('До следующего уровня: 125 XP');
+    expect(text).toContain('Достижения: 3 / 8');
+    const progress = (fixture.nativeElement as HTMLElement).querySelector('progress');
+    expect(progress?.getAttribute('value')).toBe('225');
+    expect(progress?.getAttribute('max')).toBe('350');
 
     input(fixture, 'display_name', 'Новое имя');
     (fixture.nativeElement as HTMLElement)
@@ -181,6 +206,17 @@ describe('account pages', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Не удалось загрузить статистику');
     expect(text).toContain('Сохранить');
+  });
+
+  it('shows a progression loading failure independently', () => {
+    auth.currentUser.set(user);
+    profile.getProgression.mockReturnValue(throwError(() => new Error('offline')));
+    const fixture = TestBed.createComponent(ProfilePageComponent);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Не удалось загрузить прогресс');
+    expect(text).toContain('Статистика');
   });
 
   it('logs out and shows guest profile choices', () => {

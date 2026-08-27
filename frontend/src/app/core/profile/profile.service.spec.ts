@@ -30,4 +30,18 @@ describe('ProfileService', () => {
     expect(request.request.method).toBe('GET');
     request.flush({ items: [], total: 0, limit: 10, offset: 20 });
   });
+
+  it('loads derived progression', () => {
+    service.getProgression().subscribe();
+    const request = http.expectOne('/api/progression');
+    expect(request.request.method).toBe('GET');
+    request.flush({ total_xp: 0, level: 1 });
+  });
+
+  it('loads the authoritative achievement catalogue', () => {
+    service.getAchievements().subscribe();
+    const request = http.expectOne('/api/achievements');
+    expect(request.request.method).toBe('GET');
+    request.flush([]);
+  });
 });

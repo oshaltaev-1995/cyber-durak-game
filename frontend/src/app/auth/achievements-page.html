@@ -1,0 +1,45 @@
+<main class="achievements-page" aria-labelledby="achievements-title">
+  <header>
+    <div>
+      <span class="kicker">Профиль</span>
+      <h1 id="achievements-title">Достижения</h1>
+      <p>Цели не влияют на силу карт или правила игры.</p>
+    </div>
+    <nav aria-label="Разделы профиля">
+      <a routerLink="/profile">Статистика</a>
+      <a routerLink="/profile/history">История</a>
+      <a routerLink="/profile/achievements">Достижения</a>
+    </nav>
+  </header>
+
+  @if (!auth.currentUser() && !pending()) {
+    <section class="empty-state">
+      <strong>Достижения доступны после входа.</strong>
+      <span>Играть без регистрации по-прежнему можно.</span>
+      <a routerLink="/login">Войти</a>
+      <a routerLink="/play">Играть без входа</a>
+    </section>
+  } @else if (pending()) {
+    <p class="status" role="status">Загружаем достижения…</p>
+  } @else if (error()) {
+    <p class="error" role="alert">Не удалось загрузить достижения.</p>
+  } @else {
+    <ol class="achievement-list">
+      @for (achievement of achievements(); track achievement.code) {
+        <li class="achievement" [class.unlocked]="achievement.unlocked">
+          <span class="badge" aria-hidden="true">{{ achievement.unlocked ? '🏅' : '◇' }}</span>
+          <div>
+            <strong>{{ achievement.title }}</strong>
+            <p>{{ achievement.description }}</p>
+            @if (achievement.unlocked_at; as date) {
+              <time [attr.datetime]="date">Получено {{ unlockedAt(date) }}</time>
+            } @else {
+              <span class="locked-label">Пока не получено</span>
+            }
+          </div>
+          <span class="bonus">+{{ achievement.bonus_xp }} XP</span>
+        </li>
+      }
+    </ol>
+  }
+</main>

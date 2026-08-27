@@ -9,10 +9,11 @@ from kiba_api.api.auth import router as auth_router
 from kiba_api.api.cards import CardCodeError
 from kiba_api.api.games import router as games_router
 from kiba_api.api.history import router as history_router
+from kiba_api.api.progression import router as progression_router
 from kiba_api.auth import AuthError, AuthErrorCode, AuthRateLimiter
 from kiba_api.config import Settings
 from kiba_api.game import BoutActionError, GameActionError
-from kiba_api.persistence import Database, MatchHistoryService
+from kiba_api.persistence import Database, MatchHistoryService, ProgressionService
 from kiba_api.sessions import GameSessionService, SessionActionError, SessionNotFoundError
 
 
@@ -27,12 +28,20 @@ def create_app(
     application = FastAPI(title="Kiba API", version="0.1.0")
     resolved_database = database or Database(resolved_settings.database_url)
     match_history_service = MatchHistoryService(resolved_database)
+    progression_service = ProgressionService(resolved_database)
+
+    def record_completion(session):
+        match_history_service.record_completed_match(session)
+        match = match_history_service.get_match_by_game_session(session.game_id)
+        return progression_service.synchronize_for_match(session.user_id, match.id)
+
     application.state.game_service = game_service or GameSessionService(
-        completion_recorder=match_history_service.record_completed_match
+        completion_recorder=record_completion
     )
     application.state.settings = resolved_settings
     application.state.database = resolved_database
     application.state.match_history_service = match_history_service
+    application.state.progression_service = progression_service
     application.state.auth_rate_limiter = AuthRateLimiter(
         resolved_settings.auth_rate_limit_attempts,
         resolved_settings.auth_rate_limit_window_seconds,
@@ -40,6 +49,7 @@ def create_app(
     application.include_router(auth_router)
     application.include_router(games_router)
     application.include_router(history_router)
+    application.include_router(progression_router)
 
     @application.get("/health", tags=["system"])
     def health() -> dict[str, str]:

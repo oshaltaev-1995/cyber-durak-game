@@ -178,6 +178,16 @@ class MatchHistoryService:
                 or 0
             )
 
+    def get_match_by_game_session(self, game_session_id: str) -> CompletedMatch:
+        """Return the authoritative row for a stable process-local game identifier."""
+        with self._database.session() as database_session:
+            match = database_session.scalar(
+                select(CompletedMatch).where(CompletedMatch.game_session_id == game_session_id)
+            )
+        if match is None:
+            raise LookupError(game_session_id)
+        return match
+
 
 def _for_user(user_id: UUID) -> Select[tuple[CompletedMatch]]:
     return select(CompletedMatch).where(CompletedMatch.user_id == user_id)

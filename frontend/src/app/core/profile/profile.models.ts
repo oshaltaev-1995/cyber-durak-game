@@ -39,3 +39,24 @@ export interface MatchHistoryResponse {
   readonly limit: number;
   readonly offset: number;
 }
+
+export interface ProgressionSummary {
+  readonly total_xp: number;
+  readonly level: number;
+  readonly level_start_xp: number;
+  readonly next_level_xp: number;
+  readonly xp_into_level: number;
+  readonly xp_needed_for_next_level: number;
+  readonly progress_fraction: number;
+  readonly achievements_unlocked: number;
+  readonly achievements_total: number;
+}
+
+export interface Achievement {
+  readonly code: string;
+  readonly title: string;
+  readonly description: string;
+  readonly bonus_xp: number;
+  readonly unlocked: boolean;
+  readonly unlocked_at: string | null;
+}

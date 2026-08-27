@@ -31,6 +31,7 @@ const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
   game_id: 'game-1',
   account_associated: false,
   result_saved: false,
+  progression_award: null,
   phase: 'bout_active',
   result: null,
   human_seat: 'one',
@@ -424,6 +425,50 @@ describe('GamePageComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Результат сохранён в статистике');
     expect(text).toContain('Открыть историю');
+  });
+
+  it('shows server-confirmed XP, level, and multiple new achievements', () => {
+    create(
+      makeGame({
+        phase: 'complete',
+        result: { outcome: 'WIN', winner: 'HUMAN', winner_seat: 'one' },
+        account_associated: true,
+        result_saved: true,
+        progression_award: {
+          base_xp: 100,
+          achievement_bonus_xp: 75,
+          total_awarded_xp: 175,
+          total_xp: 175,
+          level: 2,
+          next_level_xp: 200,
+          xp_needed_for_next_level: 25,
+          new_achievements: [
+            {
+              code: 'FIRST_MATCH',
+              title: 'Первая партия',
+              description: 'Сыграть первую партию.',
+              bonus_xp: 25,
+            },
+            {
+              code: 'FIRST_WIN',
+              title: 'Первая победа',
+              description: 'Выиграть первую партию.',
+              bonus_xp: 50,
+            },
+          ],
+        },
+        available_actions: [],
+      }),
+    );
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('+175 XP');
+    expect(text).toContain('За партию 100 XP');
+    expect(text).toContain('достижения +75 XP');
+    expect(text).toContain('Уровень 2');
+    expect(text).toContain('до следующего 25 XP');
+    expect(text).toContain('Первая партия');
+    expect(text).toContain('Первая победа');
   });
 
   it('tells guests that only future games can be saved', () => {
