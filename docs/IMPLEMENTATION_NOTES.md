@@ -480,12 +480,34 @@ response may therefore show server-confirmed base XP, newly unlocked achievement
 level without letting Angular calculate awards. Repeated result GETs can display the same summary
 but cannot create ledger rows. Guests skip match persistence and progression entirely.
 
-The static Alpha catalogue lives in backend code and `/api/achievements` returns its metadata plus
-per-user unlock state; Angular does not maintain a second catalogue. `/api/progression` returns the
-ledger-derived level summary after retroactive synchronization. XP and achievements cannot change
-gameplay. Cosmetic rewards, currencies, quests, seasons, leaderboards, multiplayer achievements,
-admin configuration, and notifications outside result/profile remain deferred; Phase 4D may later
-attach cosmetic unlocks without changing the progression ledger.
+The static Alpha achievement catalogue lives in backend code and `/api/achievements` returns its
+metadata plus per-user unlock state; Angular does not maintain a second catalogue.
+`/api/progression` returns the ledger-derived level summary after retroactive synchronization. XP
+and achievements cannot change gameplay. Currencies, quests, seasons, leaderboards, multiplayer
+achievements, and admin configuration remain deferred.
+
+### 10.7 Cosmetic progression rewards
+
+Phase 4D keeps the cosmetic catalogue as static backend code. Definitions contain stable codes,
+one of the three categories (`CARD_BACK`, `TABLE_THEME`, `PROFILE_FRAME`), presentation metadata,
+and a default, level, or canonical-achievement requirement. The frontend consumes this catalogue
+from `GET /api/cosmetics`; it does not own an independent unlock table.
+
+`user_cosmetic_unlocks` permanently records each earned non-default cosmetic behind a unique
+`(user_id, cosmetic_code)` constraint. `CosmeticService.synchronize` first converges the existing
+XP/achievement progression, then backfills every currently satisfied level and achievement reward.
+Repeated progression, achievement, cosmetic, and completed-result reads remain idempotent. A
+one-row `user_cosmetic_loadout` stores the current choices, while default cosmetics require no
+unlock rows. `PATCH /api/profile/cosmetics` accepts only known category-correct codes and verifies
+the account's unlock before equipping.
+
+The application session captures a presentation-only loadout snapshot when a new authenticated
+game is created; guests receive the classic defaults. The snapshot is serialized beside public
+game state and never enters `GameState` or `BoutState`. Angular applies card backs and table themes
+through CSS custom properties/classes, and profile frames through the account presentation layer.
+A completed authenticated session may include newly inserted cosmetic definitions in its
+server-confirmed progression delta. No CSS strings, hidden cards, currency, inventory economy, or
+gameplay decisions cross this boundary.
 
 Docker Compose keeps PostgreSQL on its private service network and applies `alembic upgrade head`
 before FastAPI starts. Production deployment must supply external database credentials, HTTPS with

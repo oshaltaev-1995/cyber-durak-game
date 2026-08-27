@@ -5,7 +5,11 @@ import { Router, provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { CurrentUser, LoginRequest, RegisterRequest } from '../core/auth/auth.models';
 import { AuthService } from '../core/auth/auth.service';
-import { MatchStatistics, ProgressionSummary } from '../core/profile/profile.models';
+import {
+  DEFAULT_COSMETIC_LOADOUT,
+  MatchStatistics,
+  ProgressionSummary,
+} from '../core/profile/profile.models';
 import { ProfileService } from '../core/profile/profile.service';
 import { LoginPageComponent } from './login-page';
 import { ProfilePageComponent } from './profile-page';
@@ -60,6 +64,7 @@ describe('account pages', () => {
   let profile: {
     getStatistics: ReturnType<typeof vi.fn>;
     getProgression: ReturnType<typeof vi.fn>;
+    currentLoadout: ReturnType<typeof signal>;
   };
 
   beforeEach(() => {
@@ -75,6 +80,7 @@ describe('account pages', () => {
     profile = {
       getStatistics: vi.fn(() => of(statistics)),
       getProgression: vi.fn(() => of(progression)),
+      currentLoadout: signal(DEFAULT_COSMETIC_LOADOUT),
     };
     TestBed.configureTestingModule({
       providers: [
@@ -195,6 +201,20 @@ describe('account pages', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Пока нет сыгранных партий');
     expect(text).toContain('Играть');
+  });
+
+  it('renders the equipped profile frame without changing identity data', () => {
+    auth.currentUser.set(user);
+    profile.currentLoadout.set({
+      ...DEFAULT_COSMETIC_LOADOUT,
+      profile_frame_code: 'WINNER_FRAME',
+    });
+    const fixture = TestBed.createComponent(ProfilePageComponent);
+    fixture.detectChanges();
+
+    const title = (fixture.nativeElement as HTMLElement).querySelector('.profile-title');
+    expect(title?.classList.contains('frame-winner')).toBe(true);
+    expect(title?.textContent).toContain('Игрок');
   });
 
   it('shows a statistics loading failure without hiding profile controls', () => {

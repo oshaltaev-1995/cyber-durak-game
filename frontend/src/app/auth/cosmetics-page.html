@@ -1,0 +1,143 @@
+<main class="cosmetics-page" aria-labelledby="cosmetics-title">
+  <header>
+    <div>
+      <span class="kicker">Профиль</span>
+      <h1 id="cosmetics-title">Оформление</h1>
+      <p>Визуальные награды не меняют карты, правила или силу бота.</p>
+    </div>
+    <nav aria-label="Разделы профиля">
+      <a routerLink="/profile">Статистика</a>
+      <a routerLink="/profile/history">История</a>
+      <a routerLink="/profile/achievements">Достижения</a>
+      <a routerLink="/profile/cosmetics">Оформление</a>
+    </nav>
+  </header>
+
+  @if (!auth.currentUser() && !pending()) {
+    <section class="empty-state">
+      <strong>Оформление доступно после входа.</strong>
+      <span>Гости всегда играют с классическим видом.</span>
+      <a routerLink="/login">Войти</a>
+      <a routerLink="/play">Играть без входа</a>
+    </section>
+  } @else if (pending()) {
+    <p class="status" role="status">Загружаем оформление…</p>
+  } @else if (catalogue()) {
+    @if (error(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+    <section class="catalogue-section" aria-labelledby="backs-title">
+      <div class="section-heading">
+        <span aria-hidden="true">🎴</span>
+        <div>
+          <h2 id="backs-title">Рубашки</h2>
+          <p>Скрытые карты бота и колода.</p>
+        </div>
+      </div>
+      <div class="cosmetic-grid">
+        @for (item of cardBacks(); track item.code) {
+          <article
+            class="cosmetic-card"
+            [class.locked]="!item.unlocked"
+            [class.equipped]="item.equipped"
+          >
+            <div
+              class="preview card-back-preview"
+              [class]="'preview card-back-preview cosmetic-' + item.code.toLowerCase()"
+              aria-hidden="true"
+            >
+              <i></i>
+            </div>
+            <div class="cosmetic-copy">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.description }}</p>
+              <small>{{ unlockLabel(item) }}</small>
+            </div>
+            <button
+              type="button"
+              [disabled]="!item.unlocked || item.equipped || equipping() !== null"
+              (click)="equip(item)"
+            >
+              {{ item.equipped ? 'Выбрано' : item.unlocked ? 'Выбрать' : 'Закрыто' }}
+            </button>
+          </article>
+        }
+      </div>
+    </section>
+
+    <section class="catalogue-section" aria-labelledby="tables-title">
+      <div class="section-heading">
+        <span aria-hidden="true">▦</span>
+        <div>
+          <h2 id="tables-title">Столы</h2>
+          <p>Цвет и фактура игрового поля.</p>
+        </div>
+      </div>
+      <div class="cosmetic-grid">
+        @for (item of tables(); track item.code) {
+          <article
+            class="cosmetic-card"
+            [class.locked]="!item.unlocked"
+            [class.equipped]="item.equipped"
+          >
+            <div
+              [class]="'preview table-preview cosmetic-' + item.code.toLowerCase()"
+              aria-hidden="true"
+            >
+              <i></i><i></i><i></i>
+            </div>
+            <div class="cosmetic-copy">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.description }}</p>
+              <small>{{ unlockLabel(item) }}</small>
+            </div>
+            <button
+              type="button"
+              [disabled]="!item.unlocked || item.equipped || equipping() !== null"
+              (click)="equip(item)"
+            >
+              {{ item.equipped ? 'Выбрано' : item.unlocked ? 'Выбрать' : 'Закрыто' }}
+            </button>
+          </article>
+        }
+      </div>
+    </section>
+
+    <section class="catalogue-section" aria-labelledby="frames-title">
+      <div class="section-heading">
+        <span aria-hidden="true">◇</span>
+        <div>
+          <h2 id="frames-title">Рамки</h2>
+          <p>Акцент вокруг имени в профиле.</p>
+        </div>
+      </div>
+      <div class="cosmetic-grid">
+        @for (item of frames(); track item.code) {
+          <article
+            class="cosmetic-card"
+            [class.locked]="!item.unlocked"
+            [class.equipped]="item.equipped"
+          >
+            <div [class]="'preview frame-preview cosmetic-' + item.code.toLowerCase()">
+              <span>Игрок</span>
+            </div>
+            <div class="cosmetic-copy">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.description }}</p>
+              <small>{{ unlockLabel(item) }}</small>
+            </div>
+            <button
+              type="button"
+              [disabled]="!item.unlocked || item.equipped || equipping() !== null"
+              (click)="equip(item)"
+            >
+              {{ item.equipped ? 'Выбрано' : item.unlocked ? 'Выбрать' : 'Закрыто' }}
+            </button>
+          </article>
+        }
+      </div>
+    </section>
+  } @else if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+</main>

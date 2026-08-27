@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { LoginPageComponent } from './auth/login-page';
 import { AchievementsPageComponent } from './auth/achievements-page';
+import { CosmeticsPageComponent } from './auth/cosmetics-page';
 import { HistoryPageComponent } from './auth/history-page';
 import { ProfilePageComponent } from './auth/profile-page';
 import { RegisterPageComponent } from './auth/register-page';
@@ -23,5 +24,6 @@ export const routes: Routes = [
     component: AchievementsPageComponent,
     title: 'Достижения — Kiba',
   },
+  { path: 'profile/cosmetics', component: CosmeticsPageComponent, title: 'Оформление — Kiba' },
   { path: '**', redirectTo: '' },
 ];

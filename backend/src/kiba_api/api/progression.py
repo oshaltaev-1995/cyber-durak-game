@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from kiba_api.api.auth import CurrentUser
+from kiba_api.api.cosmetics import CosmeticDependency
 from kiba_api.persistence import ProgressionService, ProgressionSummary
 
 router = APIRouter(tags=["progression"])
@@ -44,9 +45,12 @@ ProgressionDependency = Annotated[ProgressionService, Depends(get_progression_se
 def get_progression(
     user: CurrentUser,
     service: ProgressionDependency,
+    cosmetics: CosmeticDependency,
 ) -> ProgressionResponse:
     """Synchronize historical matches and return derived account progression."""
-    return _serialize_summary(service.synchronize(user.id))
+    summary = service.synchronize(user.id)
+    cosmetics.synchronize(user.id)
+    return _serialize_summary(summary)
 
 
 @router.get(
@@ -57,9 +61,11 @@ def get_progression(
 def get_achievements(
     user: CurrentUser,
     service: ProgressionDependency,
+    cosmetics: CosmeticDependency,
 ) -> list[AchievementResponse]:
     """Return the authoritative catalogue with current account unlock state."""
     service.synchronize(user.id)
+    cosmetics.synchronize(user.id)
     return [
         AchievementResponse(
             code=state.definition.code.value,

@@ -1,13 +1,21 @@
 <main class="auth-card profile-card" aria-labelledby="profile-title">
   @if (auth.currentUser(); as user) {
     <span class="kicker">Профиль</span>
-    <h1 id="profile-title">{{ user.display_name }}</h1>
+    <h1
+      id="profile-title"
+      class="profile-title"
+      [class.frame-level-2]="profile.currentLoadout().profile_frame_code === 'LEVEL_2_FRAME'"
+      [class.frame-winner]="profile.currentLoadout().profile_frame_code === 'WINNER_FRAME'"
+    >
+      {{ user.display_name }}
+    </h1>
     <p class="account-meta">{{ user.email }} · в Kiba с {{ joinedAt(user) }}</p>
 
     <nav class="profile-navigation" aria-label="Разделы профиля">
       <a routerLink="/profile">Статистика</a>
       <a routerLink="/profile/history">История</a>
       <a routerLink="/profile/achievements">Достижения</a>
+      <a routerLink="/profile/cosmetics">Оформление</a>
     </nav>
 
     <form [formGroup]="form" (ngSubmit)="save()">

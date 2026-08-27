@@ -1,5 +1,7 @@
 """FastAPI application entrypoint."""
 
+from dataclasses import replace
+
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -7,13 +9,21 @@ from fastapi.responses import JSONResponse
 
 from kiba_api.api.auth import router as auth_router
 from kiba_api.api.cards import CardCodeError
+from kiba_api.api.cosmetics import router as cosmetics_router
 from kiba_api.api.games import router as games_router
 from kiba_api.api.history import router as history_router
 from kiba_api.api.progression import router as progression_router
 from kiba_api.auth import AuthError, AuthErrorCode, AuthRateLimiter
 from kiba_api.config import Settings
 from kiba_api.game import BoutActionError, GameActionError
-from kiba_api.persistence import Database, MatchHistoryService, ProgressionService
+from kiba_api.persistence import (
+    CosmeticAward,
+    CosmeticError,
+    CosmeticService,
+    Database,
+    MatchHistoryService,
+    ProgressionService,
+)
 from kiba_api.sessions import GameSessionService, SessionActionError, SessionNotFoundError
 
 
@@ -29,11 +39,24 @@ def create_app(
     resolved_database = database or Database(resolved_settings.database_url)
     match_history_service = MatchHistoryService(resolved_database)
     progression_service = ProgressionService(resolved_database)
+    cosmetic_service = CosmeticService(resolved_database, progression_service)
 
     def record_completion(session):
         match_history_service.record_completed_match(session)
         match = match_history_service.get_match_by_game_session(session.game_id)
-        return progression_service.synchronize_for_match(session.user_id, match.id)
+        award = progression_service.synchronize_for_match(session.user_id, match.id)
+        cosmetic_sync = cosmetic_service.synchronize(session.user_id)
+        return replace(
+            award,
+            new_cosmetics=tuple(
+                CosmeticAward(
+                    code=definition.code.value,
+                    category=definition.category.value,
+                    title=definition.title,
+                )
+                for definition in cosmetic_sync.new_unlocks
+            ),
+        )
 
     application.state.game_service = game_service or GameSessionService(
         completion_recorder=record_completion
@@ -42,6 +65,7 @@ def create_app(
     application.state.database = resolved_database
     application.state.match_history_service = match_history_service
     application.state.progression_service = progression_service
+    application.state.cosmetic_service = cosmetic_service
     application.state.auth_rate_limiter = AuthRateLimiter(
         resolved_settings.auth_rate_limit_attempts,
         resolved_settings.auth_rate_limit_window_seconds,
@@ -50,6 +74,7 @@ def create_app(
     application.include_router(games_router)
     application.include_router(history_router)
     application.include_router(progression_router)
+    application.include_router(cosmetics_router)
 
     @application.get("/health", tags=["system"])
     def health() -> dict[str, str]:
@@ -92,6 +117,10 @@ def create_app(
             AuthErrorCode.INVALID_CSRF_ORIGIN: 403,
         }
         return _error_response(status_codes[error.code], error.code.value)
+
+    @application.exception_handler(CosmeticError)
+    async def invalid_cosmetic(_request: Request, error: CosmeticError) -> JSONResponse:
+        return _error_response(409, error.code.value)
 
     @application.exception_handler(RequestValidationError)
     async def invalid_request(_request: Request, error: RequestValidationError) -> JSONResponse:

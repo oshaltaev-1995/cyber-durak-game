@@ -6,6 +6,8 @@ import { App } from './app';
 import { routes } from './app.routes';
 import { GameApiService } from './core/api/game-api.service';
 import { AuthService } from './core/auth/auth.service';
+import { DEFAULT_COSMETIC_LOADOUT } from './core/profile/profile.models';
+import { ProfileService } from './core/profile/profile.service';
 
 describe('App', () => {
   const currentUser = signal<{
@@ -25,6 +27,14 @@ describe('App', () => {
         {
           provide: AuthService,
           useValue: { currentUser, initialized: signal(true), refresh: () => of(null) },
+        },
+        {
+          provide: ProfileService,
+          useValue: {
+            currentLoadout: signal(DEFAULT_COSMETIC_LOADOUT),
+            getCosmetics: () => of({ items: [], loadout: DEFAULT_COSMETIC_LOADOUT }),
+            resetCosmetics: vi.fn(),
+          },
         },
       ],
     }).compileComponents();

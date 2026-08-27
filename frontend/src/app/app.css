@@ -60,6 +60,17 @@ nav .account-link {
   white-space: nowrap;
 }
 
+nav .account-link.frame-level-2 {
+  border-color: #79b9a8;
+  box-shadow: inset 0 0 0 1px rgb(121 185 168 / 28%);
+}
+
+nav .account-link.frame-winner {
+  border-color: #f1d27a;
+  color: #f5de99;
+  box-shadow: 0 0 0.65rem rgb(241 210 122 / 20%);
+}
+
 nav a:hover,
 nav a.active {
   color: var(--text-strong);

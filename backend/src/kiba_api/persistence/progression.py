@@ -114,12 +114,20 @@ class AchievementState:
 
 
 @dataclass(frozen=True, slots=True)
+class CosmeticAward:
+    code: str
+    category: str
+    title: str
+
+
+@dataclass(frozen=True, slots=True)
 class ProgressionAward:
     base_xp: int
     achievement_bonus_xp: int
     total_awarded_xp: int
     new_achievements: tuple[AchievementDefinition, ...]
     summary: ProgressionSummary
+    new_cosmetics: tuple[CosmeticAward, ...] = ()
 
 
 @dataclass(slots=True)

@@ -36,7 +36,10 @@
   inset: 0.3rem 0.15rem 0.1rem 0.35rem;
   border: 1px solid rgb(255 255 255 / 30%);
   border-radius: 0.58rem;
-  background: repeating-linear-gradient(45deg, #173e38 0 4px, #28564e 4px 8px);
+  background: var(
+    --card-back-background,
+    repeating-linear-gradient(45deg, #173e38 0 4px, #28564e 4px 8px)
+  );
 }
 
 .deck-stack i:nth-child(1) {

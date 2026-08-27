@@ -75,6 +75,18 @@ class SessionActionError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
+class GameAppearance:
+    """Presentation-only cosmetic codes captured when a session starts."""
+
+    card_back_code: str = "CLASSIC"
+    table_theme_code: str = "CLASSIC_TABLE"
+    profile_frame_code: str = "NO_FRAME"
+
+
+DEFAULT_GAME_APPEARANCE = GameAppearance()
+
+
+@dataclass(frozen=True, slots=True)
 class GameSession:
     """An immutable public snapshot of one process-local game session."""
 
@@ -82,6 +94,7 @@ class GameSession:
     state: GameState
     human_seat: Seat = Seat.ONE
     bot_seat: Seat = Seat.TWO
+    appearance: GameAppearance = DEFAULT_GAME_APPEARANCE
     last_bout: BoutState | None = None
     user_id: UUID | None = None
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -104,6 +117,8 @@ class GameSession:
             raise TypeError("human_seat and bot_seat must be Seat values")
         if self.human_seat is self.bot_seat:
             raise ValueError("human and bot seats must differ")
+        if not isinstance(self.appearance, GameAppearance):
+            raise TypeError("appearance must be a GameAppearance")
         if self.last_bout is not None and not isinstance(self.last_bout, BoutState):
             raise TypeError("last_bout must be a BoutState or None")
         if self.user_id is not None and not isinstance(self.user_id, UUID):
@@ -151,6 +166,7 @@ class InMemoryGameSessionStore:
         user_id: UUID | None = None,
         started_at: datetime | None = None,
         initial_attacker: Seat | None = None,
+        appearance: GameAppearance = DEFAULT_GAME_APPEARANCE,
     ) -> GameSession:
         """Store a new human Seat.ONE versus bot Seat.TWO session."""
         with self._lock:
@@ -164,6 +180,7 @@ class InMemoryGameSessionStore:
                 user_id=user_id,
                 started_at=started_at or datetime.now(UTC),
                 initial_attacker=initial_attacker,
+                appearance=appearance,
             )
             self._records[game_id] = _SessionRecord(session=session)
             return session
@@ -219,7 +236,12 @@ class GameSessionService:
         self._completion_recorder = completion_recorder
         self._clock = clock
 
-    def create_game(self, *, user_id: UUID | None = None) -> GameSession:
+    def create_game(
+        self,
+        *,
+        user_id: UUID | None = None,
+        appearance: GameAppearance = DEFAULT_GAME_APPEARANCE,
+    ) -> GameSession:
         """Create, normalize, and store a fresh human-versus-bot game."""
         initial_state = self._game_factory()
         initial_attacker = initial_state.current_attacker
@@ -230,6 +252,7 @@ class GameSessionService:
             user_id=user_id,
             started_at=self._clock(),
             initial_attacker=initial_attacker,
+            appearance=appearance,
         )
         if state.phase is GamePhase.COMPLETE:
             with self._store.locked_record(session.game_id) as record:

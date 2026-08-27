@@ -1,4 +1,4 @@
-"""Account, authentication-session, and completed-match models."""
+"""Account, match, progression, and cosmetic persistence models."""
 
 from __future__ import annotations
 
@@ -56,6 +56,16 @@ class User(Base):
         passive_deletes=True,
     )
     achievements: Mapped[list[UserAchievement]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    cosmetic_unlocks: Mapped[list[UserCosmeticUnlock]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    cosmetic_loadout: Mapped[UserCosmeticLoadout | None] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -223,3 +233,63 @@ Index(
     UserAchievement.achievement_code,
     unique=True,
 )
+
+
+class UserCosmeticUnlock(Base):
+    """One permanent progression-earned cosmetic unlock for an account."""
+
+    __tablename__ = "user_cosmetic_unlocks"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('LEVEL', 'ACHIEVEMENT')",
+            name="valid_source_type",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    cosmetic_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    unlocked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    source_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    user: Mapped[User] = relationship(back_populates="cosmetic_unlocks")
+
+
+Index("ix_user_cosmetic_unlocks_user_id", UserCosmeticUnlock.user_id)
+Index(
+    "uq_user_cosmetic_unlocks_user_code",
+    UserCosmeticUnlock.user_id,
+    UserCosmeticUnlock.cosmetic_code,
+    unique=True,
+)
+
+
+class UserCosmeticLoadout(Base):
+    """One account's currently equipped presentation-only cosmetics."""
+
+    __tablename__ = "user_cosmetic_loadout"
+
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    card_back_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    table_theme_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    profile_frame_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    user: Mapped[User] = relationship(back_populates="cosmetic_loadout")

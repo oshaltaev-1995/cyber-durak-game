@@ -54,6 +54,8 @@ def test_initial_migration_upgrades_and_downgrades_clean_database(
         "completed_matches",
         "xp_ledger",
         "user_achievements",
+        "user_cosmetic_unlocks",
+        "user_cosmetic_loadout",
     } == set(inspector.get_table_names())
     assert {"normalized_email"} in [
         set(constraint["column_names"]) for constraint in inspector.get_unique_constraints("users")
@@ -81,17 +83,26 @@ def test_initial_migration_upgrades_and_downgrades_clean_database(
         for index in inspector.get_indexes("user_achievements")
         if index["unique"]
     ]
+    assert {"user_id", "cosmetic_code"} in [
+        set(index["column_names"])
+        for index in inspector.get_indexes("user_cosmetic_unlocks")
+        if index["unique"]
+    ]
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM users")) == 1
         assert connection.scalar(text("SELECT count(*) FROM auth_sessions")) == 1
 
-    command.downgrade(config, "20260827_0002")
+    command.downgrade(config, "20260827_0003")
     downgraded_tables = set(inspect(engine).get_table_names())
     assert "completed_matches" in downgraded_tables
-    assert "xp_ledger" not in downgraded_tables
-    assert "user_achievements" not in downgraded_tables
+    assert "xp_ledger" in downgraded_tables
+    assert "user_achievements" in downgraded_tables
+    assert "user_cosmetic_unlocks" not in downgraded_tables
+    assert "user_cosmetic_loadout" not in downgraded_tables
     command.upgrade(config, "head")
-    assert {"xp_ledger", "user_achievements"}.issubset(inspect(engine).get_table_names())
+    assert {"user_cosmetic_unlocks", "user_cosmetic_loadout"}.issubset(
+        inspect(engine).get_table_names()
+    )
 
     command.downgrade(config, "base")
 

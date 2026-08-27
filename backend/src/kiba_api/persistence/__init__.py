@@ -1,5 +1,20 @@
 """PostgreSQL persistence primitives for accounts and match history."""
 
+from kiba_api.persistence.cosmetics import (
+    COSMETICS,
+    DEFAULT_COSMETIC_LOADOUT,
+    CosmeticCatalogueState,
+    CosmeticCategory,
+    CosmeticCode,
+    CosmeticDefinition,
+    CosmeticError,
+    CosmeticErrorCode,
+    CosmeticLoadout,
+    CosmeticService,
+    CosmeticState,
+    CosmeticSyncResult,
+    CosmeticUnlockType,
+)
 from kiba_api.persistence.database import Base, Database
 from kiba_api.persistence.matches import (
     MatchHistoryService,
@@ -12,6 +27,8 @@ from kiba_api.persistence.models import (
     CompletedMatch,
     User,
     UserAchievement,
+    UserCosmeticLoadout,
+    UserCosmeticUnlock,
     XPLedgerEntry,
 )
 from kiba_api.persistence.progression import (
@@ -19,6 +36,7 @@ from kiba_api.persistence.progression import (
     AchievementCode,
     AchievementDefinition,
     AchievementState,
+    CosmeticAward,
     ProgressionAward,
     ProgressionService,
     ProgressionSummary,
@@ -36,6 +54,20 @@ __all__ = [
     "AchievementCode",
     "AchievementDefinition",
     "AchievementState",
+    "COSMETICS",
+    "DEFAULT_COSMETIC_LOADOUT",
+    "CosmeticAward",
+    "CosmeticCatalogueState",
+    "CosmeticCategory",
+    "CosmeticCode",
+    "CosmeticDefinition",
+    "CosmeticError",
+    "CosmeticErrorCode",
+    "CosmeticLoadout",
+    "CosmeticService",
+    "CosmeticState",
+    "CosmeticSyncResult",
+    "CosmeticUnlockType",
     "MatchHistoryService",
     "MatchOutcome",
     "MatchStatistics",
@@ -45,6 +77,8 @@ __all__ = [
     "ProgressionSummary",
     "User",
     "UserAchievement",
+    "UserCosmeticLoadout",
+    "UserCosmeticUnlock",
     "XPLedgerEntry",
     "level_from_total_xp",
     "progression_from_total_xp",

@@ -8,7 +8,13 @@
     <a routerLink="/tutorial" routerLinkActive="active">Обучение</a>
     <a routerLink="/rules" routerLinkActive="active">Правила</a>
     @if (auth.currentUser(); as user) {
-      <a class="account-link" routerLink="/profile" routerLinkActive="active">
+      <a
+        class="account-link"
+        [class.frame-level-2]="profile.currentLoadout().profile_frame_code === 'LEVEL_2_FRAME'"
+        [class.frame-winner]="profile.currentLoadout().profile_frame_code === 'WINNER_FRAME'"
+        routerLink="/profile"
+        routerLinkActive="active"
+      >
         {{ user.display_name }}
       </a>
     } @else {

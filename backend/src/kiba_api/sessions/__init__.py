@@ -1,6 +1,7 @@
 """Human-versus-bot application-session orchestration."""
 
 from kiba_api.sessions.service import (
+    GameAppearance,
     GameSession,
     GameSessionService,
     HumanActionType,
@@ -12,6 +13,7 @@ from kiba_api.sessions.service import (
 
 __all__ = [
     "GameSession",
+    "GameAppearance",
     "GameSessionService",
     "HumanActionType",
     "InMemoryGameSessionStore",

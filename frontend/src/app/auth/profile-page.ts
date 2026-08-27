@@ -18,7 +18,7 @@ import { ProfileService } from '../core/profile/profile.service';
 export class ProfilePageComponent implements OnInit {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
-  private readonly profile = inject(ProfileService);
+  protected readonly profile = inject(ProfileService);
 
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);

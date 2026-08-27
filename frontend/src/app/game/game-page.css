@@ -4,12 +4,15 @@
 }
 
 .game-shell {
+  --game-background:
+    radial-gradient(circle at 50% 25%, rgb(38 130 103 / 26%), transparent 30rem),
+    linear-gradient(145deg, #09291f, #071b19 60%, #07131b);
+  --table-surface: rgb(4 24 21 / 35%);
+  --card-back-background: repeating-linear-gradient(45deg, #163e3a 0 3px, #24514b 3px 6px);
   min-height: calc(100dvh - 4rem);
   padding: 0.75rem 0.75rem 12rem;
   color: var(--text-strong);
-  background:
-    radial-gradient(circle at 50% 25%, rgb(38 130 103 / 26%), transparent 30rem),
-    linear-gradient(145deg, #09291f, #071b19 60%, #07131b);
+  background: var(--game-background);
 }
 
 .game-shell.complete {
@@ -199,7 +202,7 @@ button:disabled {
   margin-right: -0.85rem;
   border: 1px solid rgb(255 255 255 / 28%);
   border-radius: 0.2rem;
-  background: repeating-linear-gradient(45deg, #163e3a 0 3px, #24514b 3px 6px);
+  background: var(--card-back-background);
 }
 
 .table-stage {
@@ -213,7 +216,7 @@ button:disabled {
   padding: 0.65rem;
   border: 1px solid rgb(138 207 179 / 12%);
   border-radius: 1.35rem;
-  background: rgb(4 24 21 / 35%);
+  background: var(--table-surface);
 }
 
 .draw-zone {
@@ -270,7 +273,7 @@ button:disabled {
   inset: 0.2rem 0.35rem 0.25rem 0.2rem;
   border: 1px solid rgb(255 255 255 / 28%);
   border-radius: 0.35rem;
-  background: repeating-linear-gradient(-45deg, #23463f 0 3px, #315a51 3px 6px);
+  background: var(--card-back-background);
   box-shadow: 0 0.3rem 0.65rem rgb(0 0 0 / 22%);
 }
 
@@ -384,7 +387,8 @@ button:disabled {
   font-size: 0.78rem;
 }
 
-.new-achievements {
+.new-achievements,
+.new-cosmetics {
   display: grid;
   gap: 0.45rem;
   margin-top: 0.5rem;
@@ -393,14 +397,16 @@ button:disabled {
   text-align: left;
 }
 
-.new-achievements > small {
+.new-achievements > small,
+.new-cosmetics > small {
   color: var(--accent);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.new-achievements article {
+.new-achievements article,
+.new-cosmetics article {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.6rem;
@@ -411,11 +417,14 @@ button:disabled {
 }
 
 .new-achievements article strong,
-.new-achievements article small {
+.new-achievements article small,
+.new-cosmetics article strong,
+.new-cosmetics article small {
   display: block;
 }
 
-.new-achievements article small {
+.new-achievements article small,
+.new-cosmetics article small {
   margin-top: 0.15rem;
   color: var(--text-muted);
 }
@@ -423,6 +432,10 @@ button:disabled {
 .new-achievements article b {
   color: var(--accent);
   white-space: nowrap;
+}
+
+.new-cosmetics article {
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .player-hand-region {

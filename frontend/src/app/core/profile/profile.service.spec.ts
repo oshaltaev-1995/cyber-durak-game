@@ -44,4 +44,35 @@ describe('ProfileService', () => {
     expect(request.request.method).toBe('GET');
     request.flush([]);
   });
+
+  it('loads cosmetic catalogue and updates the current loadout', () => {
+    service.getCosmetics().subscribe();
+    const request = http.expectOne('/api/cosmetics');
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      items: [],
+      loadout: {
+        card_back_code: 'LEVEL_3_BACK',
+        table_theme_code: 'NIGHT_TABLE',
+        profile_frame_code: 'LEVEL_2_FRAME',
+      },
+    });
+    expect(service.currentLoadout().table_theme_code).toBe('NIGHT_TABLE');
+  });
+
+  it('equips a cosmetic and retains server-confirmed loadout', () => {
+    service.equipCosmetics({ card_back_code: 'SNOWBALL_BACK' }).subscribe();
+    const request = http.expectOne('/api/profile/cosmetics');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ card_back_code: 'SNOWBALL_BACK' });
+    request.flush({
+      items: [],
+      loadout: {
+        card_back_code: 'SNOWBALL_BACK',
+        table_theme_code: 'CLASSIC_TABLE',
+        profile_frame_code: 'NO_FRAME',
+      },
+    });
+    expect(service.currentLoadout().card_back_code).toBe('SNOWBALL_BACK');
+  });
 });

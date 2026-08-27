@@ -32,6 +32,11 @@ const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
   account_associated: false,
   result_saved: false,
   progression_award: null,
+  cosmetics: {
+    card_back_code: 'CLASSIC',
+    table_theme_code: 'CLASSIC_TABLE',
+    profile_frame_code: 'NO_FRAME',
+  },
   phase: 'bout_active',
   result: null,
   human_seat: 'one',
@@ -456,6 +461,7 @@ describe('GamePageComponent', () => {
               bonus_xp: 50,
             },
           ],
+          new_cosmetics: [],
         },
         available_actions: [],
       }),
@@ -469,6 +475,59 @@ describe('GamePageComponent', () => {
     expect(text).toContain('до следующего 25 XP');
     expect(text).toContain('Первая партия');
     expect(text).toContain('Первая победа');
+  });
+
+  it('applies server-provided card-back and table-theme variants', () => {
+    create(
+      makeGame({
+        cosmetics: {
+          card_back_code: 'SNOWBALL_BACK',
+          table_theme_code: 'MATHEMATICIAN_TABLE',
+          profile_frame_code: 'NO_FRAME',
+        },
+      }),
+    );
+
+    const shell = (fixture.nativeElement as HTMLElement).querySelector('.game-shell');
+    expect(shell?.classList.contains('back-snowball')).toBe(true);
+    expect(shell?.classList.contains('table-mathematician')).toBe(true);
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.opponent-card-backs'),
+    ).not.toBeNull();
+  });
+
+  it('shows server-confirmed newly unlocked cosmetics on the result', () => {
+    create(
+      makeGame({
+        phase: 'complete',
+        result: { outcome: 'WIN', winner: 'HUMAN', winner_seat: 'one' },
+        account_associated: true,
+        result_saved: true,
+        available_actions: [],
+        progression_award: {
+          base_xp: 100,
+          achievement_bonus_xp: 75,
+          total_awarded_xp: 175,
+          total_xp: 650,
+          level: 4,
+          next_level_xp: 800,
+          xp_needed_for_next_level: 150,
+          new_achievements: [],
+          new_cosmetics: [
+            {
+              code: 'SNOWBALL_BACK',
+              category: 'CARD_BACK',
+              title: 'Снежный ком',
+            },
+          ],
+        },
+      }),
+    );
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Новая награда');
+    expect(text).toContain('Снежный ком');
+    expect(text).toContain('Новое оформление открыто');
   });
 
   it('tells guests that only future games can be saved', () => {

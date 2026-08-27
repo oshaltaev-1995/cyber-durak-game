@@ -42,3 +42,40 @@ textarea,
 select {
   font: inherit;
 }
+
+/* Presentation-only game variants live globally to keep component styles focused. */
+.game-shell.back-dark {
+  --card-back-background: repeating-linear-gradient(135deg, #091f27 0 4px, #15353d 4px 8px);
+}
+
+.game-shell.back-snowball {
+  --card-back-background:
+    radial-gradient(circle at 30% 30%, #ecfbf7 0 0.18rem, transparent 0.2rem),
+    radial-gradient(circle at 72% 68%, #a7ddd3 0 0.24rem, transparent 0.26rem), #17433d;
+}
+
+.game-shell.back-avalanche {
+  --card-back-background:
+    linear-gradient(145deg, transparent 45%, rgb(230 251 247 / 65%) 46% 52%, transparent 53%),
+    repeating-linear-gradient(45deg, #163b46 0 5px, #205763 5px 10px);
+}
+
+.game-shell.table-night {
+  --game-background:
+    radial-gradient(circle at 50% 20%, rgb(38 87 113 / 19%), transparent 30rem),
+    linear-gradient(145deg, #071b23, #06151c 62%, #050e15);
+  --table-surface: rgb(5 23 30 / 58%);
+}
+
+.game-shell.table-mathematician {
+  --game-background:
+    linear-gradient(rgb(101 205 178 / 5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(101 205 178 / 5%) 1px, transparent 1px),
+    radial-gradient(circle at 50% 25%, rgb(38 130 103 / 23%), transparent 30rem),
+    linear-gradient(145deg, #09291f, #071b19 60%, #07131b);
+  background-size:
+    2.25rem 2.25rem,
+    2.25rem 2.25rem,
+    auto,
+    auto;
+}

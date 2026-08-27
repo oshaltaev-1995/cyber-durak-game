@@ -60,3 +60,46 @@ export interface Achievement {
   readonly unlocked: boolean;
   readonly unlocked_at: string | null;
 }
+
+export type CosmeticCategory = 'CARD_BACK' | 'TABLE_THEME' | 'PROFILE_FRAME';
+export type CosmeticUnlockType = 'DEFAULT' | 'LEVEL' | 'ACHIEVEMENT';
+
+export interface CosmeticLoadout {
+  readonly card_back_code: string;
+  readonly table_theme_code: string;
+  readonly profile_frame_code: string;
+}
+
+export const DEFAULT_COSMETIC_LOADOUT: CosmeticLoadout = {
+  card_back_code: 'CLASSIC',
+  table_theme_code: 'CLASSIC_TABLE',
+  profile_frame_code: 'NO_FRAME',
+};
+
+export interface CosmeticUnlock {
+  readonly type: CosmeticUnlockType;
+  readonly requirement: number | string | null;
+  readonly achievement_title: string | null;
+}
+
+export interface CosmeticItem {
+  readonly code: string;
+  readonly category: CosmeticCategory;
+  readonly title: string;
+  readonly description: string;
+  readonly unlocked: boolean;
+  readonly equipped: boolean;
+  readonly unlock: CosmeticUnlock;
+  readonly unlocked_at: string | null;
+}
+
+export interface CosmeticsResponse {
+  readonly items: readonly CosmeticItem[];
+  readonly loadout: CosmeticLoadout;
+}
+
+export interface CosmeticEquipRequest {
+  readonly card_back_code?: string;
+  readonly table_theme_code?: string;
+  readonly profile_frame_code?: string;
+}

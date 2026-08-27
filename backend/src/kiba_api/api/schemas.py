@@ -100,6 +100,12 @@ class AchievementAwardResponse(BaseModel):
     bonus_xp: int
 
 
+class CosmeticAwardResponse(BaseModel):
+    code: str
+    category: str
+    title: str
+
+
 class ProgressionAwardResponse(BaseModel):
     base_xp: int
     achievement_bonus_xp: int
@@ -109,6 +115,13 @@ class ProgressionAwardResponse(BaseModel):
     level: int
     next_level_xp: int
     xp_needed_for_next_level: int
+    new_cosmetics: list[CosmeticAwardResponse]
+
+
+class CosmeticLoadoutResponse(BaseModel):
+    card_back_code: str
+    table_theme_code: str
+    profile_frame_code: str
 
 
 class GameResponse(BaseModel):
@@ -116,6 +129,7 @@ class GameResponse(BaseModel):
     account_associated: bool
     result_saved: bool
     progression_award: ProgressionAwardResponse | None
+    cosmetics: CosmeticLoadoutResponse
     phase: str
     result: ResultResponse | None
     human_seat: str

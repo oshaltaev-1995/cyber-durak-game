@@ -69,6 +69,8 @@ Everything else depends on this.
   remain unsaved
 - authenticated completed matches grant exactly-once XP, derived levels, and a small Alpha
   achievement catalogue; guest play remains registration-free and does not persist progression
+- authenticated progression unlocks a small visual-only Alpha catalogue of card backs, table
+  themes, and profile frames; guests use the default appearance
 
 ### Alpha 2
 
@@ -101,8 +103,7 @@ Only after the core game is proven:
 - private tournaments
 - replays
 - spectator mode
-- custom tables
-- card backs
+- richer custom tables and card backs
 - avatars
 - seasonal cosmetics
 - optional 54-card mode
@@ -275,8 +276,22 @@ account state. The Alpha achievement bonuses are:
 - `AVALANCHE_72`: 150 XP;
 - `ARITHMETIC_MEAN`: 75 XP.
 
-XP, levels, and achievements are profile metadata only. They do not affect shuffle, hands, trump,
-card values, available moves, or bot strength. Cosmetic rewards may be evaluated later, but Alpha
-has no currency, shop, battle pass, or gameplay advantage.
+XP, levels, achievements, and cosmetic choices are profile metadata only. They do not affect
+shuffle, hands, trump, card values, available moves, or bot strength. Alpha has no currency, shop,
+battle pass, purchases, or gameplay advantage.
+
+### 11.2 Alpha cosmetic catalogue
+
+The visual-only Alpha catalogue is deliberately small and backend-owned:
+
+- card backs: `CLASSIC`, Level 3 `LEVEL_3_BACK`, `SNOWBALL_BACK` for `SNOWBALL_36`, and
+  `AVALANCHE_BACK` for `AVALANCHE_72`;
+- table themes: `CLASSIC_TABLE`, Level 4 `NIGHT_TABLE`, and `MATHEMATICIAN_TABLE` for
+  `ARITHMETIC_MEAN`;
+- profile frames: `NO_FRAME`, Level 2 `LEVEL_2_FRAME`, and `WINNER_FRAME` for `TEN_WINS`.
+
+Default cosmetics remain available to every player. Authenticated unlocks are permanent and
+loadouts persist; guests always use the classic defaults. Cosmetics are rewards from the existing
+level/achievement system, not an economy.
 
 The project should prove the game before becoming a platform.

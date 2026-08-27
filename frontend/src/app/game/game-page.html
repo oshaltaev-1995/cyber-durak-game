@@ -1,4 +1,12 @@
-<div class="game-shell" [class.complete]="game()?.phase === 'complete'">
+<div
+  class="game-shell"
+  [class.complete]="game()?.phase === 'complete'"
+  [class.back-dark]="game()?.cosmetics?.card_back_code === 'LEVEL_3_BACK'"
+  [class.back-snowball]="game()?.cosmetics?.card_back_code === 'SNOWBALL_BACK'"
+  [class.back-avalanche]="game()?.cosmetics?.card_back_code === 'AVALANCHE_BACK'"
+  [class.table-night]="game()?.cosmetics?.table_theme_code === 'NIGHT_TABLE'"
+  [class.table-mathematician]="game()?.cosmetics?.table_theme_code === 'MATHEMATICIAN_TABLE'"
+>
   @if (game() === null) {
     <main class="welcome">
       <div class="welcome-copy">
@@ -110,12 +118,27 @@
                     }
                   </div>
                 }
+                @if (award.new_cosmetics.length > 0) {
+                  <div class="new-cosmetics">
+                    <small>Новая награда</small>
+                    @for (cosmetic of award.new_cosmetics; track cosmetic.code) {
+                      <article>
+                        <span aria-hidden="true">🎴</span>
+                        <div>
+                          <strong>{{ cosmetic.title }}</strong>
+                          <small>Новое оформление открыто</small>
+                        </div>
+                      </article>
+                    }
+                  </div>
+                }
               </section>
             }
             <div class="result-links">
               <a class="result-history-link" routerLink="/profile">Открыть профиль</a>
               <a class="result-history-link" routerLink="/profile/history">Открыть историю</a>
               <a class="result-history-link" routerLink="/profile/achievements">Достижения</a>
+              <a class="result-history-link" routerLink="/profile/cosmetics">Оформление</a>
             </div>
           } @else if (!currentGame.account_associated) {
             @if (auth.currentUser()) {

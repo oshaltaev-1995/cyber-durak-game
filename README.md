@@ -4,8 +4,9 @@ Cyber Durak is a browser-based shedding card game with a custom arithmetic rules
 gameplay codename is **Kiba**. The repository contains the complete two-player 36-card rules engine,
 a deterministic baseline bot, an Alpha process-local REST game-session layer, optional persistent
 account identity with completed-match history, statistics, XP, derived levels and achievements, and
-a responsive playable Angular human-versus-bot table. Registration is never required to play;
-guest results and progression are not persisted.
+persistent visual cosmetic rewards, plus a responsive playable Angular human-versus-bot table.
+Registration is never required to play; guest results and progression are not persisted, and guests
+always use the classic appearance.
 
 ## Repository structure
 
@@ -73,6 +74,8 @@ The product shell provides these routes:
   authenticated player.
 - **Достижения** (`/profile/achievements`) shows the server-owned catalogue and private unlocks;
   the profile also shows ledger-derived XP and level progress.
+- **Оформление** (`/profile/cosmetics`) shows unlocked card backs, table themes, and profile frames
+  and lets an authenticated player equip them.
 
 Click **Играть** to create a new game, select cards by tapping or clicking them, and use the actions
 offered below the hand. Rules and Tutorial remain available from the compact navigation during a
@@ -114,12 +117,15 @@ GET   /api/stats
 GET   /api/matches?limit=20&offset=0
 GET   /api/progression
 GET   /api/achievements
+GET   /api/cosmetics
+PATCH /api/profile/cosmetics
 ```
 
 Only authenticated completed matches grant persistent progression. Base awards are 100 XP for a
 win, 50 XP for a draw, and 25 XP for a loss; achievement bonuses are added once when their
-server-defined condition is first met. XP, levels, and achievements do not affect any gameplay
-rule or bot behavior.
+server-defined condition is first met. Level and achievement milestones may permanently unlock
+optional card backs, table themes, and profile frames. Progression and cosmetics do not affect any
+gameplay rule or bot behavior; there is no currency, shop, or purchase flow.
 
 Authentication uses an HTTP-only same-site cookie. For local HTTP development `Secure` is disabled;
 set `KIBA_AUTH_COOKIE_SECURE=true` behind production HTTPS. Copy `.env.example` only as a starting

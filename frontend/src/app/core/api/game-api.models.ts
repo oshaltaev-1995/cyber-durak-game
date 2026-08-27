@@ -71,6 +71,19 @@ export interface ProgressionAward {
   readonly level: number;
   readonly next_level_xp: number;
   readonly xp_needed_for_next_level: number;
+  readonly new_cosmetics: readonly CosmeticAward[];
+}
+
+export interface CosmeticAward {
+  readonly code: string;
+  readonly category: 'CARD_BACK' | 'TABLE_THEME' | 'PROFILE_FRAME';
+  readonly title: string;
+}
+
+export interface GameCosmetics {
+  readonly card_back_code: string;
+  readonly table_theme_code: string;
+  readonly profile_frame_code: string;
 }
 
 export interface GameResponse {
@@ -78,6 +91,7 @@ export interface GameResponse {
   readonly account_associated: boolean;
   readonly result_saved: boolean;
   readonly progression_award: ProgressionAward | null;
+  readonly cosmetics: GameCosmetics;
   readonly phase: GamePhase;
   readonly result: GameResult | null;
   readonly human_seat: Seat;

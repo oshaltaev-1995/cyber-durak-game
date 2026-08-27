@@ -341,6 +341,7 @@ def test_completed_game_response_contains_server_confirmed_progression_delta(
         "level": 2,
         "next_level_xp": 200,
         "xp_needed_for_next_level": 25,
+        "new_cosmetics": [],
     }
     service.get_game(session.game_id)
     service.get_game(session.game_id)

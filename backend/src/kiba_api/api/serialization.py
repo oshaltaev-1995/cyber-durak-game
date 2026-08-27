@@ -6,6 +6,8 @@ from kiba_api.api.cards import card_to_code
 from kiba_api.api.schemas import (
     AchievementAwardResponse,
     CardResponse,
+    CosmeticAwardResponse,
+    CosmeticLoadoutResponse,
     GameResponse,
     PacketResponse,
     ProgressionAwardResponse,
@@ -69,6 +71,11 @@ def serialize_game_session(session: GameSession) -> GameResponse:
         account_associated=session.user_id is not None,
         result_saved=session.completion_persisted,
         progression_award=_serialize_progression_award(session),
+        cosmetics=CosmeticLoadoutResponse(
+            card_back_code=session.appearance.card_back_code,
+            table_theme_code=session.appearance.table_theme_code,
+            profile_frame_code=session.appearance.profile_frame_code,
+        ),
         phase=state.phase.value,
         result=_serialize_result(session),
         human_seat=session.human_seat.value,
@@ -258,6 +265,14 @@ def _serialize_progression_award(session: GameSession) -> ProgressionAwardRespon
         level=award.summary.level,
         next_level_xp=award.summary.next_level_xp,
         xp_needed_for_next_level=award.summary.xp_needed_for_next_level,
+        new_cosmetics=[
+            CosmeticAwardResponse(
+                code=cosmetic.code,
+                category=cosmetic.category,
+                title=cosmetic.title,
+            )
+            for cosmetic in award.new_cosmetics
+        ],
     )
 
 
