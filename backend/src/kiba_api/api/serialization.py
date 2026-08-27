@@ -34,7 +34,7 @@ from kiba_api.game import (
     is_trump,
     summarize_table_arithmetic,
 )
-from kiba_api.sessions import GameSession, HumanActionType
+from kiba_api.sessions import GameSession, acting_seat, available_actions_for
 
 _SUIT_ORDER = {suit: index for index, suit in enumerate(Suit)}
 _RANK_ORDER = {rank: index for index, rank in enumerate(Rank)}
@@ -55,7 +55,7 @@ def serialize_game_session(session: GameSession) -> GameResponse:
     table_trump_state = bout.trump_state if bout is not None else trump_state
     table_cards = bout.table_cards if bout is not None else ()
     summary = summarize_table_arithmetic(table_cards, table_trump_state)
-    actor = _acting_seat(session)
+    actor = acting_seat(state)
 
     packet_responses = _serialize_packets(bout, table_trump_state) if bout else []
     active_packet = bout.active_packet if bout is not None else None
@@ -126,7 +126,7 @@ def serialize_game_session(session: GameSession) -> GameResponse:
         ),
         required_actor=_actor_label(actor, session),
         required_seat=(actor.value if actor is not None else None),
-        available_actions=_available_human_actions(session, actor),
+        available_actions=list(available_actions_for(state, session.human_seat)),
     )
 
 
@@ -276,46 +276,10 @@ def _serialize_progression_award(session: GameSession) -> ProgressionAwardRespon
     )
 
 
-def _acting_seat(session: GameSession) -> Seat | None:
-    state = session.state
-    if state.phase is GamePhase.COMPLETE:
-        return None
-    if state.phase is GamePhase.READY_FOR_BOUT:
-        return state.current_attacker
-    bout = state.active_bout
-    if bout is None:
-        raise ValueError("an active game requires an active bout")
-    if bout.phase is BoutPhase.WAITING_FOR_DEFENDER_RESPONSE:
-        return bout.defender
-    return bout.attacker
-
-
 def _actor_label(actor: Seat | None, session: GameSession) -> str | None:
     if actor is None:
         return None
     return "HUMAN" if actor is session.human_seat else "BOT"
-
-
-def _available_human_actions(
-    session: GameSession,
-    actor: Seat | None,
-) -> list[HumanActionType]:
-    if actor is not session.human_seat:
-        return []
-    bout = session.state.active_bout
-    if bout is None:
-        return [HumanActionType.INITIAL_ATTACK]
-    if bout.phase is BoutPhase.WAITING_FOR_INITIAL_ATTACK:
-        return [HumanActionType.INITIAL_ATTACK]
-    if bout.phase is BoutPhase.WAITING_FOR_DEFENDER_RESPONSE:
-        actions = [HumanActionType.DEFEND]
-        if bout.transfer_open:
-            actions.append(HumanActionType.TRANSFER)
-        actions.append(HumanActionType.TAKE)
-        return actions
-    if bout.phase is BoutPhase.WAITING_FOR_ATTACKER_DECISION:
-        return [HumanActionType.THROW_IN, HumanActionType.BITO]
-    return []
 
 
 def _format_fraction(value: Fraction | None) -> str | None:

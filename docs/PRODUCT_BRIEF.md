@@ -80,10 +80,19 @@ Everything else depends on this.
 - join with nickname
 - no mandatory registration
 - reconnect support
+- authoritative two-participant WebSocket gameplay
+- participant-specific state that never exposes the opponent hand or future draw order
 
 Example flow:
 
 `Create Game → Copy Link → Friend Opens → Nickname → Play`
+
+The first Alpha 2 backend increment is deliberately process-local: it provides private room
+creation/join, guest or optional-account display identity, reconnect credentials, authoritative
+two-seat action routing, and complete WIN/DRAW matches through REST plus WebSocket. Active rooms are
+lost on backend restart. The Angular friend-room UI, matchmaking, rating, chat, spectators,
+persistent active rooms, multiplayer match history/progression, and distributed room infrastructure
+remain later work.
 
 ---
 

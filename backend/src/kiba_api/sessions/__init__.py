@@ -1,10 +1,16 @@
-"""Human-versus-bot application-session orchestration."""
+"""Application-session orchestration helpers."""
 
+from kiba_api.sessions.actions import (
+    HumanActionType,
+    acting_seat,
+    apply_game_action,
+    available_actions_for,
+    remember_resolved_bout,
+)
 from kiba_api.sessions.service import (
     GameAppearance,
     GameSession,
     GameSessionService,
-    HumanActionType,
     InMemoryGameSessionStore,
     SessionActionError,
     SessionErrorCode,
@@ -20,4 +26,8 @@ __all__ = [
     "SessionActionError",
     "SessionErrorCode",
     "SessionNotFoundError",
+    "acting_seat",
+    "apply_game_action",
+    "available_actions_for",
+    "remember_resolved_bout",
 ]

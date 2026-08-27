@@ -97,7 +97,7 @@ def verify_csrf_origin(request: Request, settings: SettingsDependency) -> None:
             raise AuthError(AuthErrorCode.INVALID_CSRF_ORIGIN)
         return
     request_origin = f"{request.url.scheme}://{request.headers.get('host', '')}".rstrip("/")
-    if not _is_trusted_origin(candidate, request_origin, settings):
+    if not is_trusted_origin(candidate, request_origin, settings):
         raise AuthError(AuthErrorCode.INVALID_CSRF_ORIGIN)
 
 
@@ -225,7 +225,8 @@ def _origin_from_url(value: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
-def _is_trusted_origin(candidate: str, request_origin: str, settings: Settings) -> bool:
+def is_trusted_origin(candidate: str, request_origin: str, settings: Settings) -> bool:
+    """Return whether an HTTP/WebSocket browser origin is trusted for this server."""
     normalized = candidate.rstrip("/")
     if normalized in {*settings.csrf_trusted_origins, request_origin}:
         return True

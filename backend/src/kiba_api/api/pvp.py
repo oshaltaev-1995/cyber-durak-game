@@ -1,0 +1,349 @@
+"""REST invitation flow and authoritative WebSocket transport for private rooms."""
+
+from __future__ import annotations
+
+import json
+from contextlib import suppress
+from threading import RLock
+from typing import Annotated
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
+from pydantic import ValidationError
+
+from kiba_api.api.auth import OptionalCurrentUser, is_trusted_origin
+from kiba_api.api.cards import CardCodeError, parse_card_codes
+from kiba_api.api.pvp_schemas import (
+    RoomIdentityRequest,
+    RoomJoinResponse,
+    RoomStatusResponse,
+    WebSocketActionMessage,
+    WebSocketAuthMessage,
+    WebSocketPingMessage,
+)
+from kiba_api.api.pvp_serialization import (
+    serialize_pvp_state,
+    serialize_room_join,
+    serialize_room_status,
+)
+from kiba_api.auth import AuthError
+from kiba_api.game import GamePhase
+from kiba_api.pvp import (
+    PvPActionError,
+    PvPError,
+    PvPErrorCode,
+    PvPParticipant,
+    PvPRoom,
+    PvPRoomService,
+    normalize_guest_nickname,
+)
+
+router = APIRouter(prefix="/api/pvp/rooms", tags=["private multiplayer"])
+
+
+class _MessageTooLarge(ValueError):
+    pass
+
+
+class PvPConnectionHub:
+    """Track live sockets separately from immutable room/game snapshots."""
+
+    def __init__(self) -> None:
+        self._connections: dict[str, dict[str, tuple[str, WebSocket]]] = {}
+        self._lock = RLock()
+
+    def register(
+        self,
+        invite_code: str,
+        participant_id: str,
+        connection_id: str,
+        websocket: WebSocket,
+    ) -> WebSocket | None:
+        with self._lock:
+            participants = self._connections.setdefault(invite_code, {})
+            previous = participants.get(participant_id)
+            participants[participant_id] = (connection_id, websocket)
+            return previous[1] if previous is not None else None
+
+    def unregister(self, invite_code: str, participant_id: str, connection_id: str) -> None:
+        with self._lock:
+            participants = self._connections.get(invite_code)
+            if participants is None:
+                return
+            current = participants.get(participant_id)
+            if current is not None and current[0] == connection_id:
+                participants.pop(participant_id, None)
+            if not participants:
+                self._connections.pop(invite_code, None)
+
+    def connections(self, invite_code: str) -> tuple[tuple[str, WebSocket], ...]:
+        with self._lock:
+            participants = self._connections.get(invite_code, {})
+            return tuple(
+                (participant_id, value[1]) for participant_id, value in participants.items()
+            )
+
+
+def get_pvp_service(request: Request) -> PvPRoomService:
+    return request.app.state.pvp_service
+
+
+def get_pvp_hub(request: Request) -> PvPConnectionHub:
+    return request.app.state.pvp_hub
+
+
+PvPServiceDependency = Annotated[PvPRoomService, Depends(get_pvp_service)]
+PvPHubDependency = Annotated[PvPConnectionHub, Depends(get_pvp_hub)]
+
+
+@router.post("", response_model=RoomJoinResponse, status_code=201, summary="Create a private room")
+async def create_room(
+    payload: RoomIdentityRequest,
+    service: PvPServiceDependency,
+    user: OptionalCurrentUser,
+) -> RoomJoinResponse:
+    """Create a guest-friendly invitation and assign its creator to Seat.ONE."""
+    display_name = user.display_name if user is not None else _guest_name(payload.nickname)
+    room, participant = service.create_room(
+        display_name,
+        user_id=user.id if user is not None else None,
+    )
+    return serialize_room_join(room, participant)
+
+
+@router.post(
+    "/{invite_code}/join",
+    response_model=RoomJoinResponse,
+    summary="Join a private room",
+)
+async def join_room(
+    invite_code: str,
+    payload: RoomIdentityRequest,
+    service: PvPServiceDependency,
+    hub: PvPHubDependency,
+    user: OptionalCurrentUser,
+) -> RoomJoinResponse:
+    """Assign Seat.TWO, initialize one game, and wake any connected creator."""
+    display_name = user.display_name if user is not None else _guest_name(payload.nickname)
+    room, participant = service.join_room(
+        invite_code,
+        display_name,
+        user_id=user.id if user is not None else None,
+    )
+    await _broadcast_event(room, hub, "OPPONENT_CONNECTED", exclude=participant.participant_id)
+    await _broadcast_state(room, hub)
+    return serialize_room_join(room, participant)
+
+
+@router.get("/{invite_code}", response_model=RoomStatusResponse, summary="Get room status")
+def get_room_status(invite_code: str, service: PvPServiceDependency) -> RoomStatusResponse:
+    """Return invitation status without private cards or reconnect credentials."""
+    return serialize_room_status(service.get_room(invite_code))
+
+
+@router.websocket("/{invite_code}/ws")
+async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
+    """Authenticate a participant then process versioned authoritative actions."""
+    service: PvPRoomService = websocket.app.state.pvp_service
+    hub: PvPConnectionHub = websocket.app.state.pvp_hub
+    if not _websocket_origin_allowed(websocket):
+        await websocket.close(code=4403)
+        return
+
+    await websocket.accept()
+    connection_id = uuid4().hex
+    participant_id: str | None = None
+    reconnect_token: str | None = None
+    try:
+        try:
+            auth = WebSocketAuthMessage.model_validate(await _receive_payload(websocket))
+            reconnect_token = auth.credential
+            registration = service.connect(invite_code, reconnect_token, connection_id)
+        except (ValidationError, PvPError, _MessageTooLarge, json.JSONDecodeError, TypeError):
+            await websocket.send_json(_error_message("ERROR", PvPErrorCode.INVALID_CREDENTIAL))
+            await websocket.close(code=4401)
+            return
+
+        participant_id = registration.participant.participant_id
+        replaced = hub.register(invite_code, participant_id, connection_id, websocket)
+        if replaced is not None and replaced is not websocket:
+            with suppress(RuntimeError, WebSocketDisconnect):
+                await replaced.close(code=4001, reason="connection replaced")
+        await _send_state(websocket, registration.room, registration.participant)
+        await _broadcast_event(
+            registration.room,
+            hub,
+            "OPPONENT_CONNECTED",
+            exclude=participant_id,
+        )
+        await _broadcast_state(registration.room, hub, exclude=participant_id)
+
+        while True:
+            try:
+                payload = await _receive_payload(websocket)
+            except _MessageTooLarge:
+                await websocket.send_json(_error_message("ERROR", PvPErrorCode.MESSAGE_TOO_LARGE))
+                continue
+            except (json.JSONDecodeError, TypeError):
+                await websocket.send_json(
+                    _error_message("ERROR", PvPErrorCode.ILLEGAL_ACTION, "invalid_json")
+                )
+                continue
+            message_type = payload.get("type") if isinstance(payload, dict) else None
+            if message_type == "PING":
+                try:
+                    WebSocketPingMessage.model_validate(payload)
+                    room = service.get_room(invite_code)
+                    await websocket.send_json({"type": "PONG", "version": room.version})
+                except (ValidationError, PvPError):
+                    await websocket.send_json(_error_message("ERROR", PvPErrorCode.ROOM_NOT_FOUND))
+                continue
+            if message_type != "ACTION":
+                await websocket.send_json(
+                    _error_message("ERROR", PvPErrorCode.ILLEGAL_ACTION, "invalid_message")
+                )
+                continue
+
+            try:
+                message = WebSocketActionMessage.model_validate(payload)
+                try:
+                    websocket.app.state.pvp_action_rate_limiter.check(
+                        f"{invite_code}:{participant_id}"
+                    )
+                except AuthError:
+                    await websocket.send_json(
+                        _error_message("ACTION_REJECTED", PvPErrorCode.RATE_LIMITED)
+                    )
+                    continue
+                cards = parse_card_codes(message.cards)
+                room = service.play_action(
+                    invite_code,
+                    reconnect_token,
+                    message.action,
+                    cards,
+                    expected_version=message.version,
+                )
+            except ValidationError:
+                await websocket.send_json(
+                    _error_message(
+                        "ACTION_REJECTED",
+                        PvPErrorCode.ILLEGAL_ACTION,
+                        "invalid_request",
+                    )
+                )
+                continue
+            except CardCodeError as error:
+                await websocket.send_json(
+                    _error_message("ACTION_REJECTED", PvPErrorCode.ILLEGAL_ACTION, error.code.value)
+                )
+                continue
+            except PvPActionError as error:
+                await websocket.send_json(
+                    _error_message("ACTION_REJECTED", error.code, error.domain_code)
+                )
+                continue
+            except PvPError as error:
+                await websocket.send_json(_error_message("ACTION_REJECTED", error.code))
+                continue
+
+            await _broadcast_state(room, hub)
+            if room.state is not None and room.state.phase is GamePhase.COMPLETE:
+                await _broadcast_complete(room, hub)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if participant_id is not None:
+            hub.unregister(invite_code, participant_id, connection_id)
+            try:
+                room = service.disconnect(invite_code, participant_id, connection_id)
+            except PvPError:
+                room = None
+            if room is not None:
+                await _broadcast_event(room, hub, "OPPONENT_DISCONNECTED", exclude=participant_id)
+                await _broadcast_state(room, hub, exclude=participant_id)
+
+
+def _guest_name(nickname: str | None) -> str:
+    return normalize_guest_nickname(nickname)
+
+
+def _websocket_origin_allowed(websocket: WebSocket) -> bool:
+    origin = websocket.headers.get("origin")
+    if origin is None:
+        return True
+    scheme = "https" if websocket.url.scheme == "wss" else "http"
+    request_origin = f"{scheme}://{websocket.headers.get('host', '')}".rstrip("/")
+    return is_trusted_origin(origin, request_origin, websocket.app.state.settings)
+
+
+async def _receive_payload(websocket: WebSocket) -> dict:
+    text = await websocket.receive_text()
+    if len(text.encode("utf-8")) > websocket.app.state.settings.pvp_max_websocket_message_bytes:
+        raise _MessageTooLarge
+    value = json.loads(text)
+    if not isinstance(value, dict):
+        raise TypeError("WebSocket messages must be JSON objects")
+    return value
+
+
+async def _send_state(
+    websocket: WebSocket,
+    room: PvPRoom,
+    participant: PvPParticipant,
+) -> None:
+    state = serialize_pvp_state(room, participant)
+    await websocket.send_json({"type": "STATE", "state": state.model_dump(mode="json")})
+
+
+async def _broadcast_state(
+    room: PvPRoom,
+    hub: PvPConnectionHub,
+    *,
+    exclude: str | None = None,
+) -> None:
+    for participant_id, websocket in hub.connections(room.invite_code):
+        if participant_id == exclude:
+            continue
+        try:
+            participant = room.participant_by_id(participant_id)
+            await _send_state(websocket, room, participant)
+        except (PvPError, RuntimeError, WebSocketDisconnect):
+            continue
+
+
+async def _broadcast_event(
+    room: PvPRoom,
+    hub: PvPConnectionHub,
+    event_type: str,
+    *,
+    exclude: str | None = None,
+) -> None:
+    for participant_id, websocket in hub.connections(room.invite_code):
+        if participant_id == exclude:
+            continue
+        try:
+            await websocket.send_json({"type": event_type, "version": room.version})
+        except (RuntimeError, WebSocketDisconnect):
+            continue
+
+
+async def _broadcast_complete(room: PvPRoom, hub: PvPConnectionHub) -> None:
+    for participant_id, websocket in hub.connections(room.invite_code):
+        try:
+            participant = room.participant_by_id(participant_id)
+            state = serialize_pvp_state(room, participant)
+            await websocket.send_json(
+                {"type": "GAME_COMPLETE", "state": state.model_dump(mode="json")}
+            )
+        except (PvPError, RuntimeError, WebSocketDisconnect):
+            continue
+
+
+def _error_message(message_type: str, code: PvPErrorCode, domain_code: str | None = None) -> dict:
+    return {
+        "type": message_type,
+        "error": {
+            "code": code.value,
+            "domain_code": domain_code,
+        },
+    }

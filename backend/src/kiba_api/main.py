@@ -13,6 +13,8 @@ from kiba_api.api.cosmetics import router as cosmetics_router
 from kiba_api.api.games import router as games_router
 from kiba_api.api.history import router as history_router
 from kiba_api.api.progression import router as progression_router
+from kiba_api.api.pvp import PvPConnectionHub
+from kiba_api.api.pvp import router as pvp_router
 from kiba_api.auth import AuthError, AuthErrorCode, AuthRateLimiter
 from kiba_api.config import Settings
 from kiba_api.game import BoutActionError, GameActionError
@@ -24,12 +26,14 @@ from kiba_api.persistence import (
     MatchHistoryService,
     ProgressionService,
 )
+from kiba_api.pvp import PvPError, PvPErrorCode, PvPRoomService
 from kiba_api.sessions import GameSessionService, SessionActionError, SessionNotFoundError
 
 
 def create_app(
     game_service: GameSessionService | None = None,
     *,
+    pvp_service: PvPRoomService | None = None,
     database: Database | None = None,
     settings: Settings | None = None,
 ) -> FastAPI:
@@ -61,6 +65,8 @@ def create_app(
     application.state.game_service = game_service or GameSessionService(
         completion_recorder=record_completion
     )
+    application.state.pvp_service = pvp_service or PvPRoomService()
+    application.state.pvp_hub = PvPConnectionHub()
     application.state.settings = resolved_settings
     application.state.database = resolved_database
     application.state.match_history_service = match_history_service
@@ -70,11 +76,16 @@ def create_app(
         resolved_settings.auth_rate_limit_attempts,
         resolved_settings.auth_rate_limit_window_seconds,
     )
+    application.state.pvp_action_rate_limiter = AuthRateLimiter(
+        resolved_settings.pvp_action_rate_limit_attempts,
+        resolved_settings.pvp_action_rate_limit_window_seconds,
+    )
     application.include_router(auth_router)
     application.include_router(games_router)
     application.include_router(history_router)
     application.include_router(progression_router)
     application.include_router(cosmetics_router)
+    application.include_router(pvp_router)
 
     @application.get("/health", tags=["system"])
     def health() -> dict[str, str]:
@@ -121,6 +132,24 @@ def create_app(
     @application.exception_handler(CosmeticError)
     async def invalid_cosmetic(_request: Request, error: CosmeticError) -> JSONResponse:
         return _error_response(409, error.code.value)
+
+    @application.exception_handler(PvPError)
+    async def invalid_pvp_action(_request: Request, error: PvPError) -> JSONResponse:
+        status_codes = {
+            PvPErrorCode.ROOM_NOT_FOUND: 404,
+            PvPErrorCode.INVITE_EXPIRED: 410,
+            PvPErrorCode.INVALID_NICKNAME: 422,
+            PvPErrorCode.INVALID_CREDENTIAL: 401,
+            PvPErrorCode.ROOM_FULL: 409,
+            PvPErrorCode.GAME_NOT_READY: 409,
+            PvPErrorCode.GAME_COMPLETE: 409,
+            PvPErrorCode.WRONG_TURN: 409,
+            PvPErrorCode.ILLEGAL_ACTION: 409,
+            PvPErrorCode.STALE_VERSION: 409,
+            PvPErrorCode.RATE_LIMITED: 429,
+            PvPErrorCode.MESSAGE_TOO_LARGE: 413,
+        }
+        return _error_response(status_codes[error.code], error.code.value)
 
     @application.exception_handler(RequestValidationError)
     async def invalid_request(_request: Request, error: RequestValidationError) -> JSONResponse:

@@ -29,6 +29,9 @@ class Settings:
     auth_session_days: int = 30
     auth_rate_limit_attempts: int = 10
     auth_rate_limit_window_seconds: int = 60
+    pvp_action_rate_limit_attempts: int = 120
+    pvp_action_rate_limit_window_seconds: int = 1
+    pvp_max_websocket_message_bytes: int = 16_384
     csrf_trusted_origins: tuple[str, ...] = DEFAULT_CSRF_ORIGINS
 
     @classmethod
@@ -46,6 +49,15 @@ class Settings:
                     "KIBA_AUTH_RATE_LIMIT_WINDOW_SECONDS",
                     "60",
                 )
+            ),
+            pvp_action_rate_limit_attempts=int(
+                os.getenv("KIBA_PVP_ACTION_RATE_LIMIT_ATTEMPTS", "120")
+            ),
+            pvp_action_rate_limit_window_seconds=int(
+                os.getenv("KIBA_PVP_ACTION_RATE_LIMIT_WINDOW_SECONDS", "1")
+            ),
+            pvp_max_websocket_message_bytes=int(
+                os.getenv("KIBA_PVP_MAX_WEBSOCKET_MESSAGE_BYTES", "16384")
             ),
             csrf_trusted_origins=(
                 tuple(item.strip().rstrip("/") for item in origins.split(",") if item.strip())

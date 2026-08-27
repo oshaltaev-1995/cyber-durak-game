@@ -509,6 +509,46 @@ A completed authenticated session may include newly inserted cosmetic definition
 server-confirmed progression delta. No CSS strings, hidden cards, currency, inventory economy, or
 gameplay decisions cross this boundary.
 
+### 10.8 Process-local private multiplayer rooms
+
+Phase 5A adds a separate `kiba_api.pvp` application layer; it does not extend the bot session or put
+transport concerns into `kiba_api.game`. An `InMemoryPvPRoomStore` holds immutable room snapshots
+behind a repository lock and one transition lock per room. A room assigns its creator to Seat ONE,
+its joiner to Seat TWO, and creates exactly one existing `GameState` when the second participant
+joins. Ready bouts are started automatically by the application layer, while every card action,
+TAKE, and BITO still delegates to the shared authoritative `GameState`/`BoutState` transitions. No
+bot policy is imported or invoked by a private room.
+
+`POST /api/pvp/rooms` creates an opaque invite, `POST /api/pvp/rooms/{invite_code}/join` claims the
+second seat, and `GET /api/pvp/rooms/{invite_code}` returns non-secret invitation status. Guest
+requests require a trimmed visible nickname of 1–24 Unicode characters; authenticated requests use
+the account display name. Creation and join responses return a participant ID and a cryptographically
+random reconnect credential once. The credential is then sent in the first WebSocket `AUTH` message
+to `/api/pvp/rooms/{invite_code}/ws`; it is never put in `GameState`, a database row, public state,
+application logs, or a URL query string.
+
+Every accepted WebSocket `ACTION` applies under the room lock, increments a monotonically increasing
+room version once, and broadcasts a full participant-specific `STATE`. Client actions include the
+version they observed, so stale submissions are rejected without mutation. Each view contains only
+the requesting participant's cards, the opponent's hand count, the exposed top draw card, public
+table/packet/arithmetic facts, and that participant's available actions. Opponent cards, future draw
+order, reconnect credentials, and RNG state never cross the serializer boundary. `PING`/`PONG`,
+connection notifications, structured rejections, complete-state messages, a bounded action rate,
+and a bounded JSON message size keep the Alpha protocol explicit without changing gameplay rules.
+
+Live sockets are tracked outside immutable room snapshots by an API connection hub. A reconnect with
+the same credential restores the latest version and replaces an older socket for that participant.
+Disconnect is neither a forfeit nor a bot takeover, and a connected actor may continue while the
+opponent is temporarily offline. Browser origins use the same trusted local/same-origin policy as
+authentication, and the Angular development proxy forwards WebSocket upgrades under `/api`.
+
+Rooms remain backend-process memory only. Lazy cleanup expires inactive waiting rooms after 30
+minutes, completed rooms after 15 minutes, and fully disconnected active rooms after two hours;
+connected rooms are never removed by cleanup. Backend restart still destroys every active private
+room and reconnect credential. Phase 5A intentionally writes no multiplayer match history, XP, or
+achievement rows and adds no database migration. Persistent/resumable rooms and multi-worker room
+coordination require a later shared-state architecture.
+
 Docker Compose keeps PostgreSQL on its private service network and applies `alembic upgrade head`
 before FastAPI starts. Production deployment must supply external database credentials, HTTPS with
 Secure cookies, explicit trusted origins, robust distributed rate limiting, email verification,

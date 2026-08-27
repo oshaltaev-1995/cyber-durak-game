@@ -4,7 +4,9 @@ Cyber Durak is a browser-based shedding card game with a custom arithmetic rules
 gameplay codename is **Kiba**. The repository contains the complete two-player 36-card rules engine,
 a deterministic baseline bot, an Alpha process-local REST game-session layer, optional persistent
 account identity with completed-match history, statistics, XP, derived levels and achievements, and
-persistent visual cosmetic rewards, plus a responsive playable Angular human-versus-bot table.
+persistent visual cosmetic rewards, plus a responsive playable Angular human-versus-bot table. The
+Alpha 2 backend also provides process-local private two-player rooms with authoritative WebSocket
+actions and reconnect credentials; the friend-room Angular UI is intentionally deferred.
 Registration is never required to play; guest results and progression are not persisted, and guests
 always use the classic appearance.
 
@@ -94,6 +96,28 @@ curl http://localhost:18000/api/games/<game_id>
 Submit one of `INITIAL_ATTACK`, `DEFEND`, `TRANSFER`, `THROW_IN`, `TAKE`, or `BITO` to
 `POST /api/games/<game_id>/actions`. Card actions use stable codes such as `6C`, `10H`, `QS`, `KD`,
 and `AC`. Interactive OpenAPI documentation is available at <http://localhost:18000/docs>.
+
+The Alpha 2 backend also exposes process-local private Human-vs-Human rooms:
+
+```text
+POST /api/pvp/rooms
+POST /api/pvp/rooms/{invite_code}/join
+GET  /api/pvp/rooms/{invite_code}
+WS   /api/pvp/rooms/{invite_code}/ws
+```
+
+Guest create/join requests use `{"nickname":"Игрок"}`; an authenticated account instead supplies
+its saved display name. Create and join return an opaque participant reconnect credential. A client
+opens the room WebSocket, sends that credential in an initial `AUTH` JSON message, then exchanges
+versioned `ACTION` messages and complete participant-specific `STATE` snapshots. Only the requesting
+participant's hand is sent; the opponent is a public name plus hand count, and future draw-pile order
+is never exposed. The development proxy supports both HTTP and WebSocket traffic on the same
+`/api` origin, including the documented LAN frontend URL.
+
+Private rooms, active games, connection state, and reconnect credentials are process-local and are
+lost when the backend restarts. Phase 5A provides the backend protocol only; it does not yet add the
+Angular friend-room flow. It also does not persist multiplayer match history, progression, or room
+state.
 
 Alpha sessions are held only in backend process memory and are lost when the backend restarts. The
 API sends the human hand and public table state, but never sends bot cards or hidden draw-pile order.

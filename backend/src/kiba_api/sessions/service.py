@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 from kiba_api.game import (
     BotActionError,
-    BoutPhase,
     BoutState,
     Card,
     GamePhase,
@@ -25,27 +24,15 @@ from kiba_api.game import (
     ThrowInReason,
     analyze_throw_in,
     create_new_game,
-    finish_game_bout,
     play_bot_turn,
-    play_defense,
-    play_game_defense,
-    play_game_initial_attack,
-    play_game_throw_in,
-    play_game_transfer,
     start_game_bout,
-    take_game_bout,
 )
-
-
-class HumanActionType(StrEnum):
-    """One human intent accepted by the Alpha session layer."""
-
-    INITIAL_ATTACK = "INITIAL_ATTACK"
-    DEFEND = "DEFEND"
-    TRANSFER = "TRANSFER"
-    THROW_IN = "THROW_IN"
-    TAKE = "TAKE"
-    BITO = "BITO"
+from kiba_api.sessions.actions import (
+    HumanActionType,
+    acting_seat,
+    apply_game_action,
+    remember_resolved_bout,
+)
 
 
 class SessionErrorCode(StrEnum):
@@ -279,10 +266,10 @@ class GameSessionService:
             state = session.state
             if state.phase is GamePhase.COMPLETE:
                 raise SessionActionError(SessionErrorCode.GAME_COMPLETE)
-            if _acting_seat(state) is not session.human_seat:
+            if acting_seat(state) is not session.human_seat:
                 raise SessionActionError(SessionErrorCode.NOT_HUMAN_TURN)
 
-            updated_state = _apply_human_action(
+            updated_state = apply_game_action(
                 state,
                 session.human_seat,
                 action_type,
@@ -294,7 +281,7 @@ class GameSessionService:
                 action_type,
                 selected,
             )
-            last_bout = _remember_resolved_bout(state, updated_state, session.last_bout)
+            last_bout = remember_resolved_bout(state, updated_state, session.last_bout)
             advanced_state, last_bout = self._advance_to_human_or_complete(
                 updated_state,
                 last_bout,
@@ -334,7 +321,7 @@ class GameSessionService:
                 state = start_game_bout(state)
                 continue
 
-            actor = _acting_seat(state)
+            actor = acting_seat(state)
             if actor is Seat.ONE:
                 return state, last_bout
             if actor is not Seat.TWO:
@@ -346,50 +333,10 @@ class GameSessionService:
                 state = self._bot_turn(state, Seat.TWO)
             except BotActionError as error:
                 raise RuntimeError("baseline bot could not advance an owned decision") from error
-            last_bout = _remember_resolved_bout(previous_state, state, last_bout)
+            last_bout = remember_resolved_bout(previous_state, state, last_bout)
             bot_action_count += 1
 
         return state, last_bout
-
-
-def _remember_resolved_bout(
-    previous_state: GameState,
-    updated_state: GameState,
-    current_last_bout: BoutState | None,
-) -> BoutState | None:
-    """Retain the public cards from the latest bout after game-level resolution."""
-    previous_bout = previous_state.active_bout
-    if previous_bout is not None and updated_state.active_bout is None:
-        if previous_bout.phase is BoutPhase.WAITING_FOR_DEFENDER_RESPONSE and len(
-            updated_state.discard_pile
-        ) > len(previous_state.discard_pile):
-            discarded_table = updated_state.discard_pile[len(previous_state.discard_pile) :]
-            defense_cards = discarded_table[len(previous_bout.table_cards) :]
-            if defense_cards:
-                return play_defense(previous_bout, previous_bout.defender, defense_cards)
-        return previous_bout
-    return current_last_bout
-
-
-def _apply_human_action(
-    state: GameState,
-    actor: Seat,
-    action_type: HumanActionType,
-    cards: tuple[Card, ...],
-) -> GameState:
-    if action_type is HumanActionType.INITIAL_ATTACK:
-        return play_game_initial_attack(state, actor, cards)
-    if action_type is HumanActionType.DEFEND:
-        return play_game_defense(state, actor, cards)
-    if action_type is HumanActionType.TRANSFER:
-        return play_game_transfer(state, actor, cards)
-    if action_type is HumanActionType.THROW_IN:
-        return play_game_throw_in(state, actor, cards)
-    if action_type is HumanActionType.TAKE:
-        return take_game_bout(state, actor)
-    if action_type is HumanActionType.BITO:
-        return finish_game_bout(state, actor)
-    raise TypeError("action_type must be a HumanActionType")
 
 
 def _record_accepted_human_action(
@@ -432,22 +379,3 @@ def _record_accepted_human_action(
         max_transfer_target=max_transfer_target,
         arithmetic_mean_throw_in_count=mean_throw_in_count,
     )
-
-
-def _acting_seat(state: GameState) -> Seat | None:
-    if state.phase is GamePhase.COMPLETE:
-        return None
-    if state.phase is GamePhase.READY_FOR_BOUT:
-        return state.current_attacker
-
-    bout = state.active_bout
-    if bout is None:
-        raise ValueError("an active game requires an active bout")
-    if bout.phase is BoutPhase.WAITING_FOR_DEFENDER_RESPONSE:
-        return bout.defender
-    if bout.phase in {
-        BoutPhase.WAITING_FOR_INITIAL_ATTACK,
-        BoutPhase.WAITING_FOR_ATTACKER_DECISION,
-    }:
-        return bout.attacker
-    raise ValueError("GameState cannot retain a complete active bout")
