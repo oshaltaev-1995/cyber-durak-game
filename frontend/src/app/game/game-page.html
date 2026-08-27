@@ -81,6 +81,20 @@
         <section class="result-panel" aria-live="polite">
           <span>Игра окончена</span>
           <h2>{{ resultTitle(currentGame) }}</h2>
+          @if (currentGame.result_saved) {
+            <p class="result-history-note">Результат сохранён в статистике.</p>
+            <a class="result-history-link" routerLink="/profile/history">Открыть историю</a>
+          } @else if (!currentGame.account_associated) {
+            @if (auth.currentUser()) {
+              <p class="result-history-note">
+                Эта партия началась гостевой и не сохранена. Следующие партии, начатые после входа,
+                будут сохраняться.
+              </p>
+            } @else {
+              <p class="result-history-note">Создайте аккаунт, чтобы сохранять следующие партии.</p>
+              <a class="result-history-link" routerLink="/register">Создать аккаунт</a>
+            }
+          }
           <button type="button" [disabled]="pending()" (click)="startNewGame()">Сыграть ещё</button>
         </section>
       } @else {

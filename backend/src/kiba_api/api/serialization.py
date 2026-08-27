@@ -64,6 +64,8 @@ def serialize_game_session(session: GameSession) -> GameResponse:
 
     return GameResponse(
         game_id=session.game_id,
+        account_associated=session.user_id is not None,
+        result_saved=session.completion_persisted,
         phase=state.phase.value,
         result=_serialize_result(session),
         human_seat=session.human_seat.value,

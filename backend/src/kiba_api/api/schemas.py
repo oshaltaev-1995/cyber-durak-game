@@ -95,6 +95,8 @@ class ResultResponse(BaseModel):
 
 class GameResponse(BaseModel):
     game_id: str
+    account_associated: bool
+    result_saved: bool
     phase: str
     result: ResultResponse | None
     human_seat: str

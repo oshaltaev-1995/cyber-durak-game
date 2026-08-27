@@ -5,6 +5,8 @@ import { Router, provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { CurrentUser, LoginRequest, RegisterRequest } from '../core/auth/auth.models';
 import { AuthService } from '../core/auth/auth.service';
+import { MatchStatistics } from '../core/profile/profile.models';
+import { ProfileService } from '../core/profile/profile.service';
 import { LoginPageComponent } from './login-page';
 import { ProfilePageComponent } from './profile-page';
 import { RegisterPageComponent } from './register-page';
@@ -26,8 +28,24 @@ interface AuthStub {
   updateDisplayName: ReturnType<typeof vi.fn<(name: string) => Observable<CurrentUser>>>;
 }
 
+const statistics: MatchStatistics = {
+  games_played: 12,
+  wins: 7,
+  losses: 4,
+  draws: 1,
+  win_rate: 58.33,
+  current_win_streak: 2,
+  best_win_streak: 3,
+  total_transfers: 5,
+  total_takes: 4,
+  total_throw_ins: 8,
+  highest_transfer_target: 72,
+  arithmetic_mean_throw_ins: 2,
+};
+
 describe('account pages', () => {
   let auth: AuthStub;
+  let profile: { getStatistics: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     auth = {
@@ -39,8 +57,13 @@ describe('account pages', () => {
       logout: vi.fn(() => of(undefined)),
       updateDisplayName: vi.fn((name) => of({ ...user, display_name: name })),
     };
+    profile = { getStatistics: vi.fn(() => of(statistics)) };
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: AuthService, useValue: auth }],
+      providers: [
+        provideRouter([]),
+        { provide: AuthService, useValue: auth },
+        { provide: ProfileService, useValue: profile },
+      ],
     });
   });
 
@@ -116,14 +139,17 @@ describe('account pages', () => {
     });
   });
 
-  it('renders and updates an authenticated profile without fake statistics', () => {
+  it('renders and updates an authenticated profile with persisted statistics', () => {
     auth.currentUser.set(user);
     const fixture = TestBed.createComponent(ProfilePageComponent);
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Игрок');
     expect(text).toContain(user.email);
-    expect(text).toContain('появятся в следующем этапе');
+    expect(text).toContain('Статистика');
+    expect(text).toContain('58,3%');
+    expect(text).toContain('История партий');
+    expect(profile.getStatistics).toHaveBeenCalledOnce();
     expect(text).not.toContain('XP');
 
     input(fixture, 'display_name', 'Новое имя');
@@ -133,6 +159,28 @@ describe('account pages', () => {
     fixture.detectChanges();
     expect(auth.updateDisplayName).toHaveBeenCalledWith('Новое имя');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Имя сохранено');
+  });
+
+  it('shows a useful empty match-history state for a new account', () => {
+    auth.currentUser.set(user);
+    profile.getStatistics.mockReturnValue(of({ ...statistics, games_played: 0 }));
+    const fixture = TestBed.createComponent(ProfilePageComponent);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Пока нет сыгранных партий');
+    expect(text).toContain('Играть');
+  });
+
+  it('shows a statistics loading failure without hiding profile controls', () => {
+    auth.currentUser.set(user);
+    profile.getStatistics.mockReturnValue(throwError(() => new Error('offline')));
+    const fixture = TestBed.createComponent(ProfilePageComponent);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Не удалось загрузить статистику');
+    expect(text).toContain('Сохранить');
   });
 
   it('logs out and shows guest profile choices', () => {

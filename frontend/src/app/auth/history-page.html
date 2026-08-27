@@ -1,0 +1,68 @@
+<main class="history-page" aria-labelledby="history-title">
+  <header class="history-heading">
+    <div>
+      <span class="kicker">Профиль</span>
+      <h1 id="history-title">История партий</h1>
+      @if (auth.currentUser()) {
+        <p>Завершённые игры против бота · {{ total() }}</p>
+      }
+    </div>
+    <a class="secondary-action" routerLink="/profile">К профилю</a>
+  </header>
+
+  @if (!auth.currentUser() && !pending()) {
+    <section class="empty-state">
+      <strong>История доступна после входа.</strong>
+      <span>Гостевые партии не сохраняются.</span>
+      <a class="primary-action" routerLink="/login">Войти</a>
+      <a class="secondary-action" routerLink="/play">Играть без входа</a>
+    </section>
+  } @else if (pending()) {
+    <p class="status" role="status">Загружаем партии…</p>
+  } @else if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  } @else if (matches().length === 0) {
+    <section class="empty-state">
+      <strong>Пока нет сыгранных партий.</strong>
+      <span>Завершите игру, начатую после входа в аккаунт.</span>
+      <a class="primary-action" routerLink="/play">Играть</a>
+    </section>
+  } @else {
+    <ol class="match-list">
+      @for (match of matches(); track match.id) {
+        <li class="match-card" [class]="'outcome-' + match.outcome.toLowerCase()">
+          <div class="match-result">
+            <strong>{{ outcomeLabel(match.outcome) }}</strong>
+            <span>против бота</span>
+          </div>
+          <div class="match-time">
+            <time [attr.datetime]="match.completed_at">{{ completedAt(match.completed_at) }}</time>
+            <span>{{ duration(match.duration_seconds) }}</span>
+          </div>
+          <dl>
+            <div>
+              <dt>Действия</dt>
+              <dd>{{ match.human_action_count }}</dd>
+            </div>
+            <div>
+              <dt>Переводы</dt>
+              <dd>{{ match.human_transfer_count }}</dd>
+            </div>
+            <div>
+              <dt>Брал</dt>
+              <dd>{{ match.human_take_count }}</dd>
+            </div>
+            <div>
+              <dt>Подкидывания</dt>
+              <dd>{{ match.human_throw_in_count }}</dd>
+            </div>
+            <div>
+              <dt>Макс. перевод</dt>
+              <dd>{{ match.max_transfer_target }}</dd>
+            </div>
+          </dl>
+        </li>
+      }
+    </ol>
+  }
+</main>

@@ -14,6 +14,10 @@
   box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 28%);
 }
 
+.profile-card {
+  width: min(100%, 48rem);
+}
+
 .kicker {
   color: var(--accent);
   font-size: 0.72rem;
@@ -27,11 +31,84 @@ h1 {
   font-size: clamp(1.8rem, 7vw, 2.5rem);
 }
 
+h2 {
+  margin: 0.35rem 0 0;
+}
+
 .intro,
 .account-meta,
 .future-note {
   color: var(--text-muted);
   line-height: 1.55;
+}
+
+.statistics {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.75rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid rgb(255 255 255 / 10%);
+}
+
+.section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.stats-grid div,
+.kiba-stats span,
+.empty-history {
+  padding: 0.85rem;
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 0.75rem;
+  background: rgb(3 15 15 / 38%);
+}
+
+.stats-grid dt {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.stats-grid dd {
+  margin: 0.2rem 0 0;
+  color: var(--accent);
+  font-size: 1.45rem;
+  font-weight: 850;
+}
+
+.kiba-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.kiba-stats strong {
+  margin-left: 0.25rem;
+  color: var(--text-strong);
+}
+
+.empty-history {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  color: var(--text-muted);
+}
+
+.empty-history strong {
+  color: var(--text-strong);
 }
 
 form {

@@ -57,6 +57,8 @@ export interface GameResult {
 
 export interface GameResponse {
   readonly game_id: string;
+  readonly account_associated: boolean;
+  readonly result_saved: boolean;
   readonly phase: GamePhase;
   readonly result: GameResult | null;
   readonly human_seat: Seat;

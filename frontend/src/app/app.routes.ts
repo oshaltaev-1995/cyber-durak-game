@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { LoginPageComponent } from './auth/login-page';
+import { HistoryPageComponent } from './auth/history-page';
 import { ProfilePageComponent } from './auth/profile-page';
 import { RegisterPageComponent } from './auth/register-page';
 import { GamePageComponent } from './game/game-page';
@@ -15,5 +16,6 @@ export const routes: Routes = [
   { path: 'login', component: LoginPageComponent, title: 'Войти — Kiba' },
   { path: 'register', component: RegisterPageComponent, title: 'Создать аккаунт — Kiba' },
   { path: 'profile', component: ProfilePageComponent, title: 'Профиль — Kiba' },
+  { path: 'profile/history', component: HistoryPageComponent, title: 'История партий — Kiba' },
   { path: '**', redirectTo: '' },
 ];

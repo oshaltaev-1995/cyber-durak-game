@@ -436,10 +436,28 @@ private-LAN IP origins on the documented development ports are accepted; Secure 
 requires an exact configured trusted origin.
 
 Persistent account identity and active games intentionally remain separate. A process-local
-`GameSession` may retain an optional user UUID when an authenticated account creates it, but
-`GameState`/`BoutState`, hands, deck order, and in-progress actions are not stored in PostgreSQL.
-Backend restart therefore still destroys active matches. Phase 4B may record completed match
-history and statistics; Phase 4A does not create counters, XP, achievements, or placeholder data.
+`GameSession` retains the optional user UUID captured when the game is created, plus a start time
+and a small set of accepted-human-action counters. Logging in during a guest game does not attach
+it retroactively, and logging out does not detach a game that began authenticated.
+
+Phase 4B records a compact `completed_matches` row only after the authoritative `GameState` first
+reaches `COMPLETE`, after bout resolution, refill, and WIN/DRAW evaluation. A stable opaque game ID
+has a database uniqueness constraint, while the process-local session records successful
+persistence. If a write fails, the terminal game snapshot remains authoritative and a later GET
+retries the same idempotent write without replaying an action. Guests skip this path entirely.
+
+Completed rows contain outcome from the account owner's perspective, timestamps/duration, seat and
+initial-attacker metadata, final hand counts, and bounded counters for accepted human actions,
+transfers, takes, throw-ins, highest transfer target, and arithmetic-mean throw-ins. Rejected moves
+never affect them. `/api/stats` derives totals, percentage win rate, and win streaks from match rows
+(losses and draws both break a streak); `/api/matches` returns only the current user's newest
+summaries with bounded limit/offset pagination. There is no mutable aggregate stats row and no
+replay payload, hidden hand, draw order, or RNG state in persistence.
+
+`GameState`/`BoutState`, hands, deck order, and in-progress actions are still not stored in
+PostgreSQL. Backend restart therefore destroys active matches. Phase 4B provides completed-match
+facts that later progression may consume, but adds no XP, levels, achievements, or placeholder
+schema.
 
 Docker Compose keeps PostgreSQL on its private service network and applies `alembic upgrade head`
 before FastAPI starts. Production deployment must supply external database credentials, HTTPS with

@@ -1,4 +1,4 @@
-<main class="auth-card" aria-labelledby="profile-title">
+<main class="auth-card profile-card" aria-labelledby="profile-title">
   @if (auth.currentUser(); as user) {
     <span class="kicker">Профиль</span>
     <h1 id="profile-title">{{ user.display_name }}</h1>
@@ -22,10 +22,77 @@
       </div>
     </form>
 
-    <p class="future-note">
-      Статистика, история матчей и прогресс появятся в следующем этапе. Сейчас аккаунт сохраняет
-      только вашу личность игрока.
-    </p>
+    <section class="statistics" aria-labelledby="statistics-title">
+      <div class="section-heading">
+        <div>
+          <span class="kicker">Результаты</span>
+          <h2 id="statistics-title">Статистика</h2>
+        </div>
+        <a class="secondary-action" routerLink="/profile/history">История партий</a>
+      </div>
+
+      @if (statisticsPending()) {
+        <p class="account-meta" role="status">Загружаем статистику…</p>
+      } @else if (statisticsError()) {
+        <p class="error" role="alert">Не удалось загрузить статистику.</p>
+      } @else if (statistics(); as stats) {
+        @if (stats.games_played === 0) {
+          <div class="empty-history">
+            <strong>Пока нет сыгранных партий.</strong>
+            <span>Завершите игру, начатую после входа в аккаунт.</span>
+            <a class="secondary-action" routerLink="/play">Играть</a>
+          </div>
+        } @else {
+          <dl class="stats-grid">
+            <div>
+              <dt>Игр</dt>
+              <dd>{{ stats.games_played }}</dd>
+            </div>
+            <div>
+              <dt>Побед</dt>
+              <dd>{{ stats.wins }}</dd>
+            </div>
+            <div>
+              <dt>Поражений</dt>
+              <dd>{{ stats.losses }}</dd>
+            </div>
+            <div>
+              <dt>Ничьих</dt>
+              <dd>{{ stats.draws }}</dd>
+            </div>
+            <div>
+              <dt>Процент побед</dt>
+              <dd>{{ winRate(stats.win_rate) }}%</dd>
+            </div>
+            <div>
+              <dt>Лучшая серия</dt>
+              <dd>{{ stats.best_win_streak }}</dd>
+            </div>
+            <div>
+              <dt>Текущая серия</dt>
+              <dd>{{ stats.current_win_streak }}</dd>
+            </div>
+          </dl>
+          <div class="kiba-stats" aria-label="Статистика механик Kiba">
+            <span
+              >Переводы <strong>{{ stats.total_transfers }}</strong></span
+            >
+            <span
+              >Взято <strong>{{ stats.total_takes }}</strong></span
+            >
+            <span
+              >Подкидывания <strong>{{ stats.total_throw_ins }}</strong></span
+            >
+            <span
+              >Макс. перевод <strong>{{ stats.highest_transfer_target }}</strong></span
+            >
+            <span
+              >По среднему <strong>{{ stats.arithmetic_mean_throw_ins }}</strong></span
+            >
+          </div>
+        }
+      }
+    </section>
   } @else {
     <span class="kicker">Профиль</span>
     <h1 id="profile-title">Вы играете без аккаунта</h1>

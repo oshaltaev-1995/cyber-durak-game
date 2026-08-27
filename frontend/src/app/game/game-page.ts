@@ -7,9 +7,11 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { GameCard, GameResponse, HumanActionType } from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
+import { AuthService } from '../core/auth/auth.service';
 import { ActionBarComponent } from './components/action-bar/action-bar';
 import { GameTableComponent } from './components/game-table/game-table';
 import { HandComponent } from './components/hand/hand';
@@ -29,7 +31,13 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
 
 @Component({
   selector: 'app-game-page',
-  imports: [ActionBarComponent, GameTableComponent, HandComponent, TrumpIndicatorComponent],
+  imports: [
+    ActionBarComponent,
+    GameTableComponent,
+    HandComponent,
+    RouterLink,
+    TrumpIndicatorComponent,
+  ],
   templateUrl: './game-page.html',
   styleUrl: './game-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,6 +45,7 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
 export class GamePageComponent implements OnInit {
   private readonly api = inject(GameApiService);
   private readonly session = inject(GameSessionState);
+  protected readonly auth = inject(AuthService);
 
   protected readonly game = this.session.game;
   protected readonly pending = signal(false);

@@ -65,6 +65,8 @@ Everything else depends on this.
 - short interactive rules/tutorial
 - automatic arithmetic hints
 - no account required; optional profile identity is available without gating play
+- authenticated completed matches have private history and lightweight statistics; guest matches
+  remain unsaved
 
 ### Alpha 2
 
@@ -90,7 +92,7 @@ Only after the core game is proven:
 - friends
 - matchmaking
 - rating / ELO
-- match history
+- richer match analytics and replay history
 - leaderboards
 - achievements
 - daily challenges
@@ -239,7 +241,7 @@ A strong early signal would be:
 Not in Alpha 1:
 
 - account-gated gameplay
-- saved match history, statistics, XP or achievements
+- XP, levels or achievements
 - payments
 - ads
 - marketplace

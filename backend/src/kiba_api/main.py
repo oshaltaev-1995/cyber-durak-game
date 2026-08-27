@@ -8,10 +8,11 @@ from fastapi.responses import JSONResponse
 from kiba_api.api.auth import router as auth_router
 from kiba_api.api.cards import CardCodeError
 from kiba_api.api.games import router as games_router
+from kiba_api.api.history import router as history_router
 from kiba_api.auth import AuthError, AuthErrorCode, AuthRateLimiter
 from kiba_api.config import Settings
 from kiba_api.game import BoutActionError, GameActionError
-from kiba_api.persistence import Database
+from kiba_api.persistence import Database, MatchHistoryService
 from kiba_api.sessions import GameSessionService, SessionActionError, SessionNotFoundError
 
 
@@ -24,15 +25,21 @@ def create_app(
     """Create an API application with injectable game and persistence services."""
     resolved_settings = settings or Settings.from_env()
     application = FastAPI(title="Kiba API", version="0.1.0")
-    application.state.game_service = game_service or GameSessionService()
+    resolved_database = database or Database(resolved_settings.database_url)
+    match_history_service = MatchHistoryService(resolved_database)
+    application.state.game_service = game_service or GameSessionService(
+        completion_recorder=match_history_service.record_completed_match
+    )
     application.state.settings = resolved_settings
-    application.state.database = database or Database(resolved_settings.database_url)
+    application.state.database = resolved_database
+    application.state.match_history_service = match_history_service
     application.state.auth_rate_limiter = AuthRateLimiter(
         resolved_settings.auth_rate_limit_attempts,
         resolved_settings.auth_rate_limit_window_seconds,
     )
     application.include_router(auth_router)
     application.include_router(games_router)
+    application.include_router(history_router)
 
     @application.get("/health", tags=["system"])
     def health() -> dict[str, str]:

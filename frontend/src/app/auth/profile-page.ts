@@ -5,6 +5,8 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { CurrentUser } from '../core/auth/auth.models';
 import { AuthService } from '../core/auth/auth.service';
+import { MatchStatistics } from '../core/profile/profile.models';
+import { ProfileService } from '../core/profile/profile.service';
 
 @Component({
   selector: 'app-profile-page',
@@ -16,10 +18,14 @@ import { AuthService } from '../core/auth/auth.service';
 export class ProfilePageComponent implements OnInit {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly profile = inject(ProfileService);
 
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly success = signal(false);
+  protected readonly statistics = signal<MatchStatistics | null>(null);
+  protected readonly statisticsPending = signal(false);
+  protected readonly statisticsError = signal(false);
   protected readonly form = new FormGroup({
     display_name: new FormControl('', {
       nonNullable: true,
@@ -31,11 +37,13 @@ export class ProfilePageComponent implements OnInit {
     const current = this.auth.currentUser();
     if (current !== null) {
       this.loadUser(current);
+      this.loadStatistics();
       return;
     }
     this.auth.refresh().subscribe((user) => {
       if (user !== null) {
         this.loadUser(user);
+        this.loadStatistics();
       }
     });
   }
@@ -78,8 +86,24 @@ export class ProfilePageComponent implements OnInit {
     return new Intl.DateTimeFormat('ru', { dateStyle: 'long' }).format(new Date(user.created_at));
   }
 
+  protected winRate(value: number): string {
+    return new Intl.NumberFormat('ru', { maximumFractionDigits: 1 }).format(value);
+  }
+
   private loadUser(user: CurrentUser): void {
     this.form.controls.display_name.setValue(user.display_name);
+  }
+
+  private loadStatistics(): void {
+    this.statisticsPending.set(true);
+    this.statisticsError.set(false);
+    this.profile
+      .getStatistics()
+      .pipe(finalize(() => this.statisticsPending.set(false)))
+      .subscribe({
+        next: (statistics) => this.statistics.set(statistics),
+        error: () => this.statisticsError.set(true),
+      });
   }
 
   private messageFor(error: unknown): string {

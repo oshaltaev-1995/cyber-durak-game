@@ -3,6 +3,7 @@
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
 from enum import StrEnum
 from threading import RLock
 from uuid import UUID, uuid4
@@ -15,6 +16,8 @@ from kiba_api.game import (
     GamePhase,
     GameState,
     Seat,
+    ThrowInReason,
+    analyze_throw_in,
     create_new_game,
     finish_game_bout,
     play_bot_turn,
@@ -75,6 +78,15 @@ class GameSession:
     bot_seat: Seat = Seat.TWO
     last_bout: BoutState | None = None
     user_id: UUID | None = None
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    initial_attacker: Seat | None = None
+    human_action_count: int = 0
+    human_transfer_count: int = 0
+    human_take_count: int = 0
+    human_throw_in_count: int = 0
+    max_transfer_target: int = 0
+    arithmetic_mean_throw_in_count: int = 0
+    completion_persisted: bool = False
 
     def __post_init__(self) -> None:
         if not self.game_id:
@@ -89,6 +101,25 @@ class GameSession:
             raise TypeError("last_bout must be a BoutState or None")
         if self.user_id is not None and not isinstance(self.user_id, UUID):
             raise TypeError("user_id must be a UUID or None")
+        if self.started_at.tzinfo is None:
+            raise ValueError("started_at must be timezone-aware")
+        if self.initial_attacker is not None and not isinstance(self.initial_attacker, Seat):
+            raise TypeError("initial_attacker must be a Seat or None")
+        for name in (
+            "human_action_count",
+            "human_transfer_count",
+            "human_take_count",
+            "human_throw_in_count",
+            "max_transfer_target",
+            "arithmetic_mean_throw_in_count",
+        ):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"{name} must be an int")
+            if value < 0:
+                raise ValueError(f"{name} must not be negative")
+        if not isinstance(self.completion_persisted, bool):
+            raise TypeError("completion_persisted must be a bool")
 
 
 @dataclass(slots=True)
@@ -111,6 +142,8 @@ class InMemoryGameSessionStore:
         *,
         last_bout: BoutState | None = None,
         user_id: UUID | None = None,
+        started_at: datetime | None = None,
+        initial_attacker: Seat | None = None,
     ) -> GameSession:
         """Store a new human Seat.ONE versus bot Seat.TWO session."""
         with self._lock:
@@ -122,6 +155,8 @@ class InMemoryGameSessionStore:
                 state=state,
                 last_bout=last_bout,
                 user_id=user_id,
+                started_at=started_at or datetime.now(UTC),
+                initial_attacker=initial_attacker,
             )
             self._records[game_id] = _SessionRecord(session=session)
             return session
@@ -149,6 +184,8 @@ class InMemoryGameSessionStore:
 
 _GameFactory = Callable[[], GameState]
 _BotTurn = Callable[[GameState, Seat], GameState]
+_CompletionRecorder = Callable[[GameSession], None]
+_Clock = Callable[[], datetime]
 
 
 class GameSessionService:
@@ -161,6 +198,8 @@ class GameSessionService:
         game_factory: _GameFactory = create_new_game,
         bot_turn: _BotTurn = play_bot_turn,
         bot_action_limit: int = 100,
+        completion_recorder: _CompletionRecorder | None = None,
+        clock: _Clock = lambda: datetime.now(UTC),
     ) -> None:
         if isinstance(bot_action_limit, bool) or not isinstance(bot_action_limit, int):
             raise TypeError("bot_action_limit must be an int")
@@ -170,15 +209,32 @@ class GameSessionService:
         self._game_factory = game_factory
         self._bot_turn = bot_turn
         self._bot_action_limit = bot_action_limit
+        self._completion_recorder = completion_recorder
+        self._clock = clock
 
     def create_game(self, *, user_id: UUID | None = None) -> GameSession:
         """Create, normalize, and store a fresh human-versus-bot game."""
-        state, last_bout = self._advance_to_human_or_complete(self._game_factory())
-        return self._store.create(state, last_bout=last_bout, user_id=user_id)
+        initial_state = self._game_factory()
+        initial_attacker = initial_state.current_attacker
+        state, last_bout = self._advance_to_human_or_complete(initial_state)
+        session = self._store.create(
+            state,
+            last_bout=last_bout,
+            user_id=user_id,
+            started_at=self._clock(),
+            initial_attacker=initial_attacker,
+        )
+        if state.phase is GamePhase.COMPLETE:
+            with self._store.locked_record(session.game_id) as record:
+                self._persist_completed_match(record)
+                return record.session
+        return session
 
     def get_game(self, game_id: str) -> GameSession:
         """Return a snapshot without exposing mutable repository state."""
-        return self._store.get(game_id)
+        with self._store.locked_record(game_id) as record:
+            self._persist_completed_match(record)
+            return record.session
 
     def play_human_action(
         self,
@@ -202,6 +258,12 @@ class GameSessionService:
                 action_type,
                 selected,
             )
+            session = _record_accepted_human_action(
+                session,
+                state,
+                action_type,
+                selected,
+            )
             last_bout = _remember_resolved_bout(state, updated_state, session.last_bout)
             advanced_state, last_bout = self._advance_to_human_or_complete(
                 updated_state,
@@ -212,7 +274,20 @@ class GameSessionService:
                 state=advanced_state,
                 last_bout=last_bout,
             )
+            self._persist_completed_match(record)
             return record.session
+
+    def _persist_completed_match(self, record: _SessionRecord) -> None:
+        session = record.session
+        if (
+            session.state.phase is not GamePhase.COMPLETE
+            or session.user_id is None
+            or session.completion_persisted
+            or self._completion_recorder is None
+        ):
+            return
+        self._completion_recorder(session)
+        record.session = replace(session, completion_persisted=True)
 
     def _advance_to_human_or_complete(
         self,
@@ -281,6 +356,48 @@ def _apply_human_action(
     if action_type is HumanActionType.BITO:
         return finish_game_bout(state, actor)
     raise TypeError("action_type must be a HumanActionType")
+
+
+def _record_accepted_human_action(
+    session: GameSession,
+    previous_state: GameState,
+    action_type: HumanActionType,
+    selected: tuple[Card, ...],
+) -> GameSession:
+    transfer_count = session.human_transfer_count
+    take_count = session.human_take_count
+    throw_in_count = session.human_throw_in_count
+    max_transfer_target = session.max_transfer_target
+    mean_throw_in_count = session.arithmetic_mean_throw_in_count
+
+    bout = previous_state.active_bout
+    if action_type is HumanActionType.TRANSFER:
+        transfer_count += 1
+        if bout is not None and bout.transfer_target is not None:
+            max_transfer_target = max(max_transfer_target, bout.transfer_target)
+    elif action_type is HumanActionType.TAKE:
+        take_count += 1
+    elif action_type is HumanActionType.THROW_IN:
+        throw_in_count += 1
+        if bout is not None:
+            analysis = analyze_throw_in(
+                selected,
+                bout.table_cards,
+                bout.direct_anchor_cards,
+                bout.trump_state,
+            )
+            if ThrowInReason.ARITHMETIC_MEAN in analysis.reasons:
+                mean_throw_in_count += 1
+
+    return replace(
+        session,
+        human_action_count=session.human_action_count + 1,
+        human_transfer_count=transfer_count,
+        human_take_count=take_count,
+        human_throw_in_count=throw_in_count,
+        max_transfer_target=max_transfer_target,
+        arithmetic_mean_throw_in_count=mean_throw_in_count,
+    )
 
 
 def _acting_seat(state: GameState) -> Seat | None:

@@ -1,8 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { GameCard, GameResponse } from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
+import { AuthService } from '../core/auth/auth.service';
 import { GamePageComponent } from './game-page';
 
 const card = (
@@ -26,6 +29,8 @@ const sevenHearts = card('7H', '7', 'hearts', 14, true);
 
 const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
   game_id: 'game-1',
+  account_associated: false,
+  result_saved: false,
   phase: 'bout_active',
   result: null,
   human_seat: 'one',
@@ -85,7 +90,14 @@ describe('GamePageComponent', () => {
     };
     await TestBed.configureTestingModule({
       imports: [GamePageComponent],
-      providers: [{ provide: GameApiService, useValue: api }],
+      providers: [
+        provideRouter([]),
+        { provide: GameApiService, useValue: api },
+        {
+          provide: AuthService,
+          useValue: { currentUser: signal(null), initialized: signal(true) },
+        },
+      ],
     }).compileComponents();
   });
 
@@ -396,6 +408,38 @@ describe('GamePageComponent', () => {
     clickButton('Сыграть ещё');
     expect(api.createGame).toHaveBeenCalledTimes(2);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Ваш ход');
+  });
+
+  it('shows saved history feedback for an authenticated completed game', () => {
+    create(
+      makeGame({
+        phase: 'complete',
+        result: { outcome: 'WIN', winner: 'HUMAN', winner_seat: 'one' },
+        account_associated: true,
+        result_saved: true,
+        available_actions: [],
+      }),
+    );
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Результат сохранён в статистике');
+    expect(text).toContain('Открыть историю');
+  });
+
+  it('tells guests that only future games can be saved', () => {
+    create(
+      makeGame({
+        phase: 'complete',
+        result: { outcome: 'WIN', winner: 'BOT', winner_seat: 'two' },
+        account_associated: false,
+        result_saved: false,
+        available_actions: [],
+      }),
+    );
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('сохранять следующие партии');
+    expect(text).not.toContain('Результат сохранён');
   });
 
   it('updates through several server states without triggering bot turns itself', () => {

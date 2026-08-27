@@ -344,6 +344,18 @@ button:disabled {
   text-align: center;
 }
 
+.result-history-note {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.result-history-link {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 780;
+}
+
 .player-hand-region {
   min-width: 0;
 }

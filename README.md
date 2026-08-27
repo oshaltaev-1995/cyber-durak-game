@@ -3,8 +3,8 @@
 Cyber Durak is a browser-based shedding card game with a custom arithmetic ruleset. Its historical
 gameplay codename is **Kiba**. The repository contains the complete two-player 36-card rules engine,
 a deterministic baseline bot, an Alpha process-local REST game-session layer, optional persistent
-account identity, and a responsive playable Angular human-versus-bot table. Registration is never
-required to play.
+account identity with completed-match history/statistics, and a responsive playable Angular
+human-versus-bot table. Registration is never required to play; guest results are not persisted.
 
 ## Repository structure
 
@@ -68,6 +68,8 @@ The product shell provides these routes:
 - **Правила** (`/rules`) is the complete user-facing Russian rulebook.
 - **Войти** (`/login`) and **Создать аккаунт** (`/register`) provide optional identity;
 - **Профиль** (`/profile`) allows an authenticated player to update their display name or log out.
+- **История партий** (`/profile/history`) shows private completed-match summaries for an
+  authenticated player.
 
 Click **Играть** to create a new game, select cards by tapping or clicking them, and use the actions
 offered below the hand. Rules and Tutorial remain available from the compact navigation during a
@@ -89,9 +91,11 @@ and `AC`. Interactive OpenAPI documentation is available at <http://localhost:18
 
 Alpha sessions are held only in backend process memory and are lost when the backend restarts. The
 API sends the human hand and public table state, but never sends bot cards or hidden draw-pile order.
-User accounts and opaque auth sessions are stored in PostgreSQL and survive backend restart; active
-games are deliberately not persisted. Authenticated game sessions retain only an optional user UUID
-for future completed-match recording.
+User accounts, opaque auth sessions, and compact summaries of completed authenticated matches are
+stored in PostgreSQL and survive backend restart. Active games are deliberately not persisted.
+Games started as a guest stay guest games even if the player signs in before completion; games
+started while signed in retain that original account association through logout. Guest matches are
+never retroactively claimed.
 
 The auth API consists of:
 
@@ -101,6 +105,8 @@ POST  /api/auth/login
 POST  /api/auth/logout
 GET   /api/auth/me
 PATCH /api/profile
+GET   /api/stats
+GET   /api/matches?limit=20&offset=0
 ```
 
 Authentication uses an HTTP-only same-site cookie. For local HTTP development `Secure` is disabled;
