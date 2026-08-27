@@ -7,12 +7,18 @@ import { ProfilePageComponent } from './auth/profile-page';
 import { RegisterPageComponent } from './auth/register-page';
 import { GamePageComponent } from './game/game-page';
 import { LandingPageComponent } from './landing/landing-page';
+import { PvPJoinPageComponent } from './pvp/pvp-join-page';
+import { PvPLobbyPageComponent } from './pvp/pvp-lobby-page';
+import { PvPRoomPageComponent } from './pvp/pvp-room-page';
 import { RulesPageComponent } from './rules/rules-page';
 import { TutorialPageComponent } from './tutorial/tutorial-page';
 
 export const routes: Routes = [
   { path: '', component: LandingPageComponent, title: 'Kiba — карточная игра с арифметикой' },
   { path: 'play', component: GamePageComponent, title: 'Играть — Kiba' },
+  { path: 'pvp', component: PvPLobbyPageComponent, title: 'Играть с другом — Kiba' },
+  { path: 'pvp/room/:inviteCode', component: PvPRoomPageComponent, title: 'Приватная игра — Kiba' },
+  { path: 'join/:inviteCode', component: PvPJoinPageComponent, title: 'Присоединиться — Kiba' },
   { path: 'tutorial', component: TutorialPageComponent, title: 'Обучение — Kiba' },
   { path: 'rules', component: RulesPageComponent, title: 'Правила — Kiba' },
   { path: 'login', component: LoginPageComponent, title: 'Войти — Kiba' },

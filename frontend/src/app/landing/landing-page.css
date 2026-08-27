@@ -85,6 +85,12 @@ h1 {
   background: var(--accent);
 }
 
+.landing-actions .friend-action {
+  grid-column: 1 / -1;
+  border-color: rgb(73 229 190 / 48%);
+  background: rgb(73 229 190 / 10%);
+}
+
 .landing-actions a:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 3px;

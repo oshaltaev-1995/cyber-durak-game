@@ -1,0 +1,146 @@
+<div class="game-shell" [class.complete]="state()?.game_phase === 'complete'">
+  @if (state(); as game) {
+    <main class="game-board">
+      <div class="game-utilities">
+        <span>Приватная комната · {{ game.invite_code }}</span>
+        <button class="new-game" type="button" (click)="leaveConfirmation.set(true)">Выйти</button>
+      </div>
+
+      @if (leaveConfirmation()) {
+        <section class="restart-confirmation" role="alertdialog" aria-label="Подтверждение выхода">
+          <div>
+            <strong>Выйти из комнаты?</strong><span>Игра будет ждать вашего переподключения.</span>
+          </div>
+          <button class="cancel" type="button" (click)="leaveConfirmation.set(false)">
+            Остаться
+          </button>
+          <button type="button" (click)="leave()">Выйти</button>
+        </section>
+      }
+
+      @if (game.room_phase === 'WAITING_FOR_OPPONENT') {
+        <section class="waiting-room" aria-live="polite">
+          <span class="waiting-icon" aria-hidden="true">↗</span>
+          <h1>Комната создана</h1>
+          <p>Ждём второго игрока…</p>
+          <label
+            ><span>Ссылка-приглашение</span><output>{{ inviteUrl() }}</output></label
+          >
+          <strong>Код комнаты: {{ game.invite_code }}</strong>
+          <div class="share-actions">
+            <button type="button" (click)="copyInvite()">
+              {{ copied() ? 'Ссылка скопирована' : 'Скопировать ссылку' }}
+            </button>
+            @if (canShare()) {
+              <button class="secondary" type="button" (click)="shareInvite()">Поделиться</button>
+            }
+          </div>
+          <small>Комната хранится только до перезапуска сервера.</small>
+        </section>
+      } @else {
+        <section
+          class="opponent-zone"
+          aria-label="Соперник"
+          [title]="game.opponent?.display_name ?? 'Соперник'"
+        >
+          @if ((game.opponent_hand_count ?? 0) > 0) {
+            <div class="opponent-card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
+          }
+          <div class="bot-avatar" aria-hidden="true">P2</div>
+          <div class="opponent-copy">
+            <span>Соперник</span
+            ><strong
+              >{{ game.opponent?.display_name ?? 'Подключается…' }} ·
+              {{ game.opponent_hand_count ?? 0 }} карт</strong
+            >
+          </div>
+        </section>
+
+        @if (socket.opponentDisconnected()) {
+          <div class="connection-banner warning" role="status">
+            Соперник отключился. Ждём возвращения…
+          </div>
+        } @else if (socket.status() === 'reconnecting' || socket.status() === 'disconnected') {
+          <div class="connection-banner" role="status">Переподключение…</div>
+        } @else {
+          <div class="connection-badge" role="status">Подключено</div>
+        }
+
+        <section class="table-stage" aria-label="Игровое поле">
+          <aside class="draw-zone" aria-label="Колода и козырь">
+            <app-trump-indicator
+              [trump]="game.trump"
+              [exposedCard]="game.exposed_top_card"
+              [drawPileCount]="game.draw_pile_count"
+            />
+          </aside>
+          <app-game-table
+            class="center-table"
+            [packets]="game.packets"
+            [arithmetic]="game.table_arithmetic"
+            [activeAttackValue]="game.active_attack_value"
+            [directAnchors]="game.direct_anchor_cards"
+            [final]="game.game_phase === 'complete'"
+          />
+          <aside class="discard-zone" aria-label="Бито, сброшенные карты">
+            <span class="pile-label">Бито</span>
+            <div class="discard-stack" aria-hidden="true"><i></i><i></i><i></i></div>
+            <strong>{{ game.discard_count }}</strong
+            ><small>карт</small>
+          </aside>
+        </section>
+
+        @if (game.game_phase === 'complete') {
+          <section class="result-panel" aria-live="polite">
+            <span>Игра окончена</span>
+            <h2>{{ resultTitle() }}</h2>
+            <p>Приватные партии пока не сохраняются в истории и не дают XP.</p>
+            <a class="room-again" routerLink="/pvp">Создать новую комнату</a>
+          </section>
+        } @else {
+          <div class="status-banner" aria-live="polite">
+            <span class="status-dot" aria-hidden="true"></span><strong>{{ statusText() }}</strong
+            ><small
+              >Атака {{ game.total_attack_card_count ?? 0 }} / лимит
+              {{ game.attack_card_limit ?? '—' }}</small
+            >
+          </div>
+        }
+
+        @if (errorText(); as error) {
+          <div class="error-message in-game" role="alert">{{ error }}</div>
+        }
+
+        <div class="local-player" [title]="game.you.display_name">
+          Вы · {{ game.you.display_name }}
+        </div>
+        <app-hand
+          class="player-hand-region"
+          [cards]="game.hand"
+          [selectedCodes]="selectedCodes()"
+          [disabled]="socket.actionPending() || game.game_phase === 'complete'"
+          (cardSelected)="toggleCard($event)"
+        />
+
+        @if (game.game_phase !== 'complete') {
+          <div class="action-dock">
+            <app-action-bar
+              [actions]="game.available_actions"
+              [selectedCards]="selectedCards()"
+              [pending]="socket.actionPending()"
+              (actionSelected)="submitAction($event)"
+            />
+          </div>
+        }
+      }
+    </main>
+  } @else {
+    <main class="welcome">
+      <div class="welcome-copy">
+        <span class="loading-mark" aria-hidden="true">K</span>
+        <h1>{{ statusText() }}</h1>
+        <p>Восстанавливаем ваше место и последнее состояние партии.</p>
+      </div>
+    </main>
+  }
+</div>

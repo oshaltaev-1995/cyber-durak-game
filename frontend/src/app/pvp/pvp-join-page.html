@@ -1,0 +1,43 @@
+<main class="pvp-lobby">
+  <section class="lobby-card" aria-labelledby="join-title">
+    <span class="eyebrow">Приглашение · {{ inviteCode }}</span>
+    @if (pending() && status() === null) {
+      <h1 id="join-title">Проверяем комнату…</h1>
+    } @else if (status(); as room) {
+      @if (room.room_phase === 'WAITING_FOR_OPPONENT') {
+        <h1 id="join-title">Комната от {{ room.participants[0].display_name }}</h1>
+        <p>Второе место свободно. После входа партия начнётся автоматически.</p>
+        @if (auth.currentUser(); as user) {
+          <div class="identity-note">
+            Вы войдёте как <strong>{{ user.display_name }}</strong>
+          </div>
+        } @else {
+          <label>
+            <span>Ваше имя</span>
+            <input
+              type="text"
+              maxlength="24"
+              autocomplete="nickname"
+              [ngModel]="nickname()"
+              (ngModelChange)="nickname.set($event)"
+            />
+          </label>
+        }
+        <button class="primary" type="button" [disabled]="pending()" (click)="joinRoom()">
+          Присоединиться
+        </button>
+      } @else {
+        <h1 id="join-title">Комната уже заполнена</h1>
+        <p>Попросите создателя отправить новую ссылку.</p>
+        <a routerLink="/pvp">Создать новую</a>
+      }
+    } @else {
+      <h1 id="join-title">Комната недоступна</h1>
+      <p>Ссылка могла истечь или сервер был перезапущен.</p>
+      <a routerLink="/pvp">Создать новую</a>
+    }
+    @if (error(); as message) {
+      <div class="error" role="alert">{{ message }}</div>
+    }
+  </section>
+</main>

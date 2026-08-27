@@ -87,12 +87,12 @@ Example flow:
 
 `Create Game → Copy Link → Friend Opens → Nickname → Play`
 
-The first Alpha 2 backend increment is deliberately process-local: it provides private room
-creation/join, guest or optional-account display identity, reconnect credentials, authoritative
-two-seat action routing, and complete WIN/DRAW matches through REST plus WebSocket. Active rooms are
-lost on backend restart. The Angular friend-room UI, matchmaking, rating, chat, spectators,
-persistent active rooms, multiplayer match history/progression, and distributed room infrastructure
-remain later work.
+The Alpha 2 private-room slice is deliberately process-local: it provides private room
+creation/join, a responsive Angular invite and game flow, guest or optional-account display
+identity, browser-session reconnect credentials, authoritative two-seat WebSocket action routing,
+and complete WIN/DRAW matches. Active rooms are lost on backend restart. Matchmaking, rating, chat,
+spectators, persistent active rooms, multiplayer match history/progression, and distributed room
+infrastructure remain later work.
 
 ---
 

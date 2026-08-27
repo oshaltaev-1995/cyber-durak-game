@@ -1,0 +1,48 @@
+<main class="pvp-lobby">
+  <section class="lobby-card" aria-labelledby="pvp-title">
+    <span class="eyebrow">Приватная игра</span>
+    <h1 id="pvp-title">Играть с другом</h1>
+    <p>Создайте комнату и отправьте ссылку второму игроку. Регистрация не требуется.</p>
+
+    @if (auth.currentUser(); as user) {
+      <div class="identity-note">
+        Вы войдёте как <strong>{{ user.display_name }}</strong>
+      </div>
+    } @else {
+      <label>
+        <span>Ваше имя</span>
+        <input
+          type="text"
+          maxlength="24"
+          autocomplete="nickname"
+          [ngModel]="nickname()"
+          (ngModelChange)="nickname.set($event)"
+          placeholder="Например, Алиса"
+        />
+      </label>
+    }
+    <button class="primary" type="button" [disabled]="pending()" (click)="createRoom()">
+      {{ pending() ? 'Создаём…' : 'Создать комнату' }}
+    </button>
+
+    <div class="divider"><span>или</span></div>
+    <form (ngSubmit)="openInvite()">
+      <label>
+        <span>Код комнаты</span>
+        <input
+          type="text"
+          autocomplete="off"
+          [ngModel]="inviteCode()"
+          (ngModelChange)="inviteCode.set($event)"
+          name="inviteCode"
+          placeholder="K7F9Q2"
+        />
+      </label>
+      <button type="submit">Войти по коду</button>
+    </form>
+    @if (error(); as message) {
+      <div class="error" role="alert">{{ message }}</div>
+    }
+    <a routerLink="/">Вернуться на главную</a>
+  </section>
+</main>

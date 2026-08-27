@@ -1,0 +1,112 @@
+.waiting-room {
+  display: grid;
+  width: min(100%, 38rem);
+  gap: 0.8rem;
+  justify-self: center;
+  padding: clamp(1.2rem, 5vw, 2rem);
+  border: 1px solid rgb(73 229 190 / 32%);
+  border-radius: 1.2rem;
+  background: rgb(7 31 27 / 88%);
+  text-align: center;
+}
+.waiting-room h1,
+.waiting-room p {
+  margin: 0;
+}
+.waiting-room p,
+.waiting-room small,
+.waiting-room label span {
+  color: var(--text-muted);
+}
+.waiting-icon {
+  display: grid;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #06241d;
+  background: var(--accent);
+  font-size: 1.5rem;
+}
+.waiting-room label {
+  display: grid;
+  gap: 0.4rem;
+  text-align: left;
+}
+.waiting-room output {
+  overflow-wrap: anywhere;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: rgb(0 0 0 / 18%);
+}
+.share-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.share-actions button,
+.room-again {
+  min-height: 3rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.75rem;
+  color: #06241d;
+  background: var(--accent);
+  font-weight: 780;
+  text-decoration: none;
+}
+.share-actions .secondary {
+  color: var(--text-strong);
+  border-color: var(--border);
+  background: rgb(255 255 255 / 6%);
+}
+.connection-banner,
+.connection-badge {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgb(73 229 190 / 25%);
+  border-radius: 0.7rem;
+  color: var(--accent);
+  background: rgb(9 45 37 / 70%);
+  font-size: 0.75rem;
+  text-align: center;
+}
+.connection-banner.warning {
+  color: #ffe08a;
+  border-color: rgb(255 224 138 / 28%);
+}
+.connection-badge {
+  justify-self: end;
+  padding: 0.3rem 0.6rem;
+}
+.local-player {
+  max-width: min(100%, 30rem);
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opponent-copy {
+  max-width: min(13rem, 52vw);
+  overflow: hidden;
+}
+.opponent-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.result-panel p {
+  color: var(--text-muted);
+}
+.room-again {
+  display: inline-grid;
+  place-items: center;
+}
+@media (max-width: 35rem) {
+  .share-actions {
+    grid-template-columns: 1fr;
+  }
+}

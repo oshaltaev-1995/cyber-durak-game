@@ -549,6 +549,21 @@ room and reconnect credential. Phase 5A intentionally writes no multiplayer matc
 achievement rows and adds no database migration. Persistent/resumable rooms and multi-worker room
 coordination require a later shared-state architecture.
 
+Phase 5B adds an Angular presentation/application client without changing that protocol. `/pvp`
+creates rooms, `/join/:inviteCode` handles public invite status and guest/account identity, and
+`/pvp/room/:inviteCode` presents waiting and active states using the existing Kiba table components.
+Invite URLs are constructed from `window.location.origin`, so same-origin HTTP and WebSocket proxying
+also works from LAN hostnames. A focused native-WebSocket service sends `AUTH` first, applies only
+monotonic participant-specific `STATE` snapshots, sends versioned `ACTION` messages, surfaces
+rejections/connectivity, and reconnects after transient closure. The opaque reconnect credential is
+stored only in `sessionStorage` under the invite code; it is never placed in a URL or rendered.
+
+The PvP client receives its own hand and only the opponent's public name/connection state/hand
+count. It does not model opponent cards or future draw order, does not optimistically mutate the
+table, and drives actions exclusively from server `available_actions`. PvP rooms remain guest-first
+and process-local, with no bot participation, matchmaking, chat, spectators, match persistence, XP,
+statistics, or rematch protocol. A post-match “new room” starts the invitation flow again.
+
 Docker Compose keeps PostgreSQL on its private service network and applies `alembic upgrade head`
 before FastAPI starts. Production deployment must supply external database credentials, HTTPS with
 Secure cookies, explicit trusted origins, robust distributed rate limiting, email verification,

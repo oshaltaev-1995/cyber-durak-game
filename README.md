@@ -5,8 +5,8 @@ gameplay codename is **Kiba**. The repository contains the complete two-player 3
 a deterministic baseline bot, an Alpha process-local REST game-session layer, optional persistent
 account identity with completed-match history, statistics, XP, derived levels and achievements, and
 persistent visual cosmetic rewards, plus a responsive playable Angular human-versus-bot table. The
-Alpha 2 backend also provides process-local private two-player rooms with authoritative WebSocket
-actions and reconnect credentials; the friend-room Angular UI is intentionally deferred.
+Alpha 2 also provides process-local private two-player rooms with invite links, an Angular lobby,
+authoritative WebSocket actions, and browser-session reconnect credentials.
 Registration is never required to play; guest results and progression are not persisted, and guests
 always use the classic appearance.
 
@@ -38,7 +38,7 @@ The simplest complete setup is Docker Compose because it includes PostgreSQL and
 docker compose up --build
 ```
 
-Open <http://localhost:14200>, then click **Играть**. Guest play works immediately without an
+Open <http://localhost:14200>, then choose **Играть с ботом** or **Играть с другом**. Guest play works immediately without an
 account. **Войти** in the navigation provides optional registration, login, and profile identity.
 
 To run the application services directly, first provide a PostgreSQL database URL and apply the
@@ -68,6 +68,7 @@ Open the frontend at <http://localhost:14200>. The backend health check is avail
 The product shell provides these routes:
 
 - **Играть** (`/play`) creates or resumes the current in-memory browser session;
+- **Играть с другом** (`/pvp`) creates an invite-only room; `/join/<code>` opens a shared invite;
 - **Обучение** (`/tutorial`) is a short interactive introduction to Kiba's core mechanics;
 - **Правила** (`/rules`) is the complete user-facing Russian rulebook.
 - **Войти** (`/login`) and **Создать аккаунт** (`/register`) provide optional identity;
@@ -79,7 +80,9 @@ The product shell provides these routes:
 - **Оформление** (`/profile/cosmetics`) shows unlocked card backs, table themes, and profile frames
   and lets an authenticated player equip them.
 
-Click **Играть** to create a new game, select cards by tapping or clicking them, and use the actions
+Click **Играть с ботом** to create a bot game, or **Играть с другом** to create a private room and
+copy its current-origin invite link. The invited player may join with a guest nickname or their
+account identity. Select cards by tapping or clicking them, and use the actions
 offered below the hand. Rules and Tutorial remain available from the compact navigation during a
 game; returning to Play preserves the current frontend session while the page remains open. The
 Angular development server proxies `/api` to the local backend, so both services must be running.
@@ -114,10 +117,12 @@ participant's hand is sent; the opponent is a public name plus hand count, and f
 is never exposed. The development proxy supports both HTTP and WebSocket traffic on the same
 `/api` origin, including the documented LAN frontend URL.
 
+The Angular room client stores its reconnect credential in `sessionStorage`, never in the invite
+URL, and reconnects to the participant-specific state after ordinary refresh/navigation. Invite
+links are built from the browser's current origin, so a LAN visitor receives a LAN-usable link.
 Private rooms, active games, connection state, and reconnect credentials are process-local and are
-lost when the backend restarts. Phase 5A provides the backend protocol only; it does not yet add the
-Angular friend-room flow. It also does not persist multiplayer match history, progression, or room
-state.
+lost when the backend restarts. Multiplayer match history, progression, XP, and room state are not
+persisted; there is no matchmaking or chat.
 
 Alpha sessions are held only in backend process memory and are lost when the backend restarts. The
 API sends the human hand and public table state, but never sends bot cards or hidden draw-pile order.
