@@ -64,7 +64,7 @@ Everything else depends on this.
 - New Game
 - short interactive rules/tutorial
 - automatic arithmetic hints
-- no account required
+- no account required; optional profile identity is available without gating play
 
 ### Alpha 2
 
@@ -238,7 +238,8 @@ A strong early signal would be:
 
 Not in Alpha 1:
 
-- user accounts
+- account-gated gameplay
+- saved match history, statistics, XP or achievements
 - payments
 - ads
 - marketplace
@@ -251,4 +252,3 @@ Not in Alpha 1:
 - elaborate 3D graphics
 
 The project should prove the game before becoming a platform.
-

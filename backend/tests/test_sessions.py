@@ -1,5 +1,6 @@
 import random
 from concurrent.futures import ThreadPoolExecutor
+from uuid import uuid4
 
 import pytest
 
@@ -52,6 +53,15 @@ def test_session_creation_assigns_fixed_seats_and_starts_human_bout() -> None:
     assert session.state.active_bout is not None
     assert session.state.active_bout.phase is BoutPhase.WAITING_FOR_INITIAL_ATTACK
     assert session.state.active_bout.attacker is Seat.ONE
+
+
+def test_session_creation_preserves_optional_account_association() -> None:
+    user_id = uuid4()
+    service = GameSessionService(game_factory=lambda: ready_game(attacker=Seat.ONE))
+
+    session = service.create_game(user_id=user_id)
+
+    assert session.user_id == user_id
 
 
 def test_bot_starts_and_attacks_before_session_returns_to_human() -> None:

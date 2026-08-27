@@ -1,0 +1,39 @@
+<main class="auth-card" aria-labelledby="profile-title">
+  @if (auth.currentUser(); as user) {
+    <span class="kicker">Профиль</span>
+    <h1 id="profile-title">{{ user.display_name }}</h1>
+    <p class="account-meta">{{ user.email }} · в Kiba с {{ joinedAt(user) }}</p>
+
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <label>
+        Имя игрока
+        <input type="text" formControlName="display_name" maxlength="50" />
+      </label>
+      @if (success()) {
+        <p class="success" role="status">Имя сохранено.</p>
+      }
+      @if (error(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+      <div class="form-actions">
+        <button type="submit" [disabled]="pending()">Сохранить</button>
+        <button type="button" (click)="logout()" [disabled]="pending()">Выйти</button>
+        <a class="secondary-action" routerLink="/play">Играть</a>
+      </div>
+    </form>
+
+    <p class="future-note">
+      Статистика, история матчей и прогресс появятся в следующем этапе. Сейчас аккаунт сохраняет
+      только вашу личность игрока.
+    </p>
+  } @else {
+    <span class="kicker">Профиль</span>
+    <h1 id="profile-title">Вы играете без аккаунта</h1>
+    <p class="intro">Войдите или продолжайте играть как гость — регистрация не обязательна.</p>
+    <div class="form-actions">
+      <a class="secondary-action" routerLink="/login">Войти</a>
+      <a class="secondary-action" routerLink="/register">Создать аккаунт</a>
+      <a class="secondary-action" routerLink="/play">Играть</a>
+    </div>
+  }
+</main>

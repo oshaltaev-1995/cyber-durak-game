@@ -1,8 +1,29 @@
 services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${KIBA_POSTGRES_DB:-kiba}
+      POSTGRES_USER: ${KIBA_POSTGRES_USER:-kiba}
+      POSTGRES_PASSWORD: ${KIBA_POSTGRES_PASSWORD:-kiba-local-only}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - kiba-postgres-data:/var/lib/postgresql/data
+
   backend:
     build:
       context: ./backend
-    command: uvicorn kiba_api.main:app --host 0.0.0.0 --port 8000 --reload
+    command: sh -c "alembic upgrade head && uvicorn kiba_api.main:app --host 0.0.0.0 --port 8000 --reload"
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      KIBA_DATABASE_URL: postgresql+psycopg://${KIBA_POSTGRES_USER:-kiba}:${KIBA_POSTGRES_PASSWORD:-kiba-local-only}@database:5432/${KIBA_POSTGRES_DB:-kiba}
+      KIBA_AUTH_COOKIE_SECURE: ${KIBA_AUTH_COOKIE_SECURE:-false}
+      KIBA_CSRF_TRUSTED_ORIGINS: ${KIBA_CSRF_TRUSTED_ORIGINS:-http://localhost:14200,http://127.0.0.1:14200}
     ports:
       - "127.0.0.1:18000:8000"
     volumes:
@@ -24,3 +45,4 @@ services:
 
 volumes:
   frontend-node-modules:
+  kiba-postgres-data:

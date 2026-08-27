@@ -418,6 +418,34 @@ attack, defense, throw-in, mean, transfer, or winner legality and is not a secon
 Russian Rules page is a player-facing transformation of `GAME_RULES.md`, while real match actions
 continue to use backend-provided actions and authoritative REST transitions.
 
+### 10.5 Optional account identity and persistence
+
+Phase 4A adds optional identity without placing an authentication wall in front of gameplay. The
+Angular shell checks `/api/auth/me` at startup and otherwise remains in guest state; `/play` has no
+route guard. Registration, login, logout, and display-name changes use a small root-scoped auth
+service. Browsers retain only the HTTP-only cookie managed by the backend—passwords and session
+tokens never enter frontend storage.
+
+The persistence layer uses SQLAlchemy 2.x models and Alembic migrations against PostgreSQL. `users`
+contains identity fields only, and `auth_sessions` contains a SHA-256 digest of each cryptographically
+random opaque token plus expiry/revocation metadata. Passwords use Argon2id. The session cookie is
+HTTP-only, same-site, scoped to `/`, configurable as Secure for HTTPS, and protected from browser
+cross-site mutations through Origin/Referer validation. Registration and login also have a bounded
+process-local rate limiter suitable for Alpha development. In insecure local mode, loopback and
+private-LAN IP origins on the documented development ports are accepted; Secure production mode
+requires an exact configured trusted origin.
+
+Persistent account identity and active games intentionally remain separate. A process-local
+`GameSession` may retain an optional user UUID when an authenticated account creates it, but
+`GameState`/`BoutState`, hands, deck order, and in-progress actions are not stored in PostgreSQL.
+Backend restart therefore still destroys active matches. Phase 4B may record completed match
+history and statistics; Phase 4A does not create counters, XP, achievements, or placeholder data.
+
+Docker Compose keeps PostgreSQL on its private service network and applies `alembic upgrade head`
+before FastAPI starts. Production deployment must supply external database credentials, HTTPS with
+Secure cookies, explicit trusted origins, robust distributed rate limiting, email verification,
+password reset, account deletion/data export, secrets management, and database backups.
+
 Possible bot priorities:
 
 ### Defense

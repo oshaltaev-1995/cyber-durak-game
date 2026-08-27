@@ -5,16 +5,33 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from kiba_api.api.auth import router as auth_router
 from kiba_api.api.cards import CardCodeError
 from kiba_api.api.games import router as games_router
+from kiba_api.auth import AuthError, AuthErrorCode, AuthRateLimiter
+from kiba_api.config import Settings
 from kiba_api.game import BoutActionError, GameActionError
+from kiba_api.persistence import Database
 from kiba_api.sessions import GameSessionService, SessionActionError, SessionNotFoundError
 
 
-def create_app(game_service: GameSessionService | None = None) -> FastAPI:
-    """Create an API application with an injectable process-local game service."""
+def create_app(
+    game_service: GameSessionService | None = None,
+    *,
+    database: Database | None = None,
+    settings: Settings | None = None,
+) -> FastAPI:
+    """Create an API application with injectable game and persistence services."""
+    resolved_settings = settings or Settings.from_env()
     application = FastAPI(title="Kiba API", version="0.1.0")
     application.state.game_service = game_service or GameSessionService()
+    application.state.settings = resolved_settings
+    application.state.database = database or Database(resolved_settings.database_url)
+    application.state.auth_rate_limiter = AuthRateLimiter(
+        resolved_settings.auth_rate_limit_attempts,
+        resolved_settings.auth_rate_limit_window_seconds,
+    )
+    application.include_router(auth_router)
     application.include_router(games_router)
 
     @application.get("/health", tags=["system"])
@@ -47,6 +64,17 @@ def create_app(game_service: GameSessionService | None = None) -> FastAPI:
     @application.exception_handler(BoutActionError)
     async def invalid_bout_action(_request: Request, error: BoutActionError) -> JSONResponse:
         return _error_response(409, error.code.value)
+
+    @application.exception_handler(AuthError)
+    async def invalid_auth_action(_request: Request, error: AuthError) -> JSONResponse:
+        status_codes = {
+            AuthErrorCode.EMAIL_ALREADY_REGISTERED: 409,
+            AuthErrorCode.INVALID_CREDENTIALS: 401,
+            AuthErrorCode.AUTHENTICATION_REQUIRED: 401,
+            AuthErrorCode.RATE_LIMITED: 429,
+            AuthErrorCode.INVALID_CSRF_ORIGIN: 403,
+        }
+        return _error_response(status_codes[error.code], error.code.value)
 
     @application.exception_handler(RequestValidationError)
     async def invalid_request(_request: Request, error: RequestValidationError) -> JSONResponse:

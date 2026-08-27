@@ -9,6 +9,12 @@
       <a routerLink="/tutorial">Обучение</a>
       <a routerLink="/rules">Правила</a>
     </div>
+    @if (auth.currentUser() === null) {
+      <p class="account-invite">
+        Хотите сохранять статистику и прогресс?
+        <a routerLink="/register">Создайте аккаунт</a>. Играть можно и без регистрации.
+      </p>
+    }
   </section>
   <aside class="concept" aria-label="Что особенного в Kiba">
     <span>12 + 6</span>

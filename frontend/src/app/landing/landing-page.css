@@ -44,6 +44,19 @@ h1 {
   font-size: 0.78rem;
 }
 
+.account-invite {
+  max-width: 34rem;
+  margin: 1.15rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.account-invite a {
+  color: var(--accent);
+  font-weight: 750;
+}
+
 .landing-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

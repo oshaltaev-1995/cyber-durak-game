@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from threading import RLock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from kiba_api.game import (
     BotActionError,
@@ -74,6 +74,7 @@ class GameSession:
     human_seat: Seat = Seat.ONE
     bot_seat: Seat = Seat.TWO
     last_bout: BoutState | None = None
+    user_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if not self.game_id:
@@ -86,6 +87,8 @@ class GameSession:
             raise ValueError("human and bot seats must differ")
         if self.last_bout is not None and not isinstance(self.last_bout, BoutState):
             raise TypeError("last_bout must be a BoutState or None")
+        if self.user_id is not None and not isinstance(self.user_id, UUID):
+            raise TypeError("user_id must be a UUID or None")
 
 
 @dataclass(slots=True)
@@ -102,13 +105,24 @@ class InMemoryGameSessionStore:
         self._records: dict[str, _SessionRecord] = {}
         self._lock = RLock()
 
-    def create(self, state: GameState, *, last_bout: BoutState | None = None) -> GameSession:
+    def create(
+        self,
+        state: GameState,
+        *,
+        last_bout: BoutState | None = None,
+        user_id: UUID | None = None,
+    ) -> GameSession:
         """Store a new human Seat.ONE versus bot Seat.TWO session."""
         with self._lock:
             game_id = self._id_factory()
             if not game_id or game_id in self._records:
                 raise ValueError("session id factory must produce a unique non-empty id")
-            session = GameSession(game_id=game_id, state=state, last_bout=last_bout)
+            session = GameSession(
+                game_id=game_id,
+                state=state,
+                last_bout=last_bout,
+                user_id=user_id,
+            )
             self._records[game_id] = _SessionRecord(session=session)
             return session
 
@@ -157,10 +171,10 @@ class GameSessionService:
         self._bot_turn = bot_turn
         self._bot_action_limit = bot_action_limit
 
-    def create_game(self) -> GameSession:
+    def create_game(self, *, user_id: UUID | None = None) -> GameSession:
         """Create, normalize, and store a fresh human-versus-bot game."""
         state, last_bout = self._advance_to_human_or_complete(self._game_factory())
-        return self._store.create(state, last_bout=last_bout)
+        return self._store.create(state, last_bout=last_bout, user_id=user_id)
 
     def get_game(self, game_id: str) -> GameSession:
         """Return a snapshot without exposing mutable repository state."""

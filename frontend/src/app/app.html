@@ -7,6 +7,13 @@
     <a routerLink="/play" routerLinkActive="active">Играть</a>
     <a routerLink="/tutorial" routerLinkActive="active">Обучение</a>
     <a routerLink="/rules" routerLinkActive="active">Правила</a>
+    @if (auth.currentUser(); as user) {
+      <a class="account-link" routerLink="/profile" routerLinkActive="active">
+        {{ user.display_name }}
+      </a>
+    } @else {
+      <a class="account-link" routerLink="/login" routerLinkActive="active">Войти</a>
+    }
   </nav>
 </header>
 <router-outlet />

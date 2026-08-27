@@ -51,6 +51,15 @@ nav a {
   text-decoration: none;
 }
 
+nav .account-link {
+  max-width: 9rem;
+  overflow: hidden;
+  border: 1px solid rgb(73 229 190 / 22%);
+  color: var(--accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 nav a:hover,
 nav a.active {
   color: var(--text-strong);
@@ -68,7 +77,11 @@ a:focus-visible {
   }
 
   nav a {
-    padding-inline: 0.45rem;
-    font-size: 0.68rem;
+    padding-inline: 0.35rem;
+    font-size: 0.62rem;
+  }
+
+  nav .account-link {
+    max-width: 4.7rem;
   }
 }

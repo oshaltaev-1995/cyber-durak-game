@@ -1,17 +1,31 @@
 import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { App } from './app';
 import { routes } from './app.routes';
 import { GameApiService } from './core/api/game-api.service';
+import { AuthService } from './core/auth/auth.service';
 
 describe('App', () => {
+  const currentUser = signal<{
+    id: string;
+    email: string;
+    display_name: string;
+    created_at: string;
+  } | null>(null);
+
   beforeEach(async () => {
+    currentUser.set(null);
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
         provideRouter(routes),
         { provide: GameApiService, useValue: { createGame: () => of(null) } },
+        {
+          provide: AuthService,
+          useValue: { currentUser, initialized: signal(true), refresh: () => of(null) },
+        },
       ],
     }).compileComponents();
   });
@@ -34,6 +48,25 @@ describe('App', () => {
     expect(compiled.querySelector('a[href="/play"]')?.textContent).toContain('Играть');
     expect(compiled.querySelector('a[href="/tutorial"]')?.textContent).toContain('Обучение');
     expect(compiled.querySelector('a[href="/rules"]')?.textContent).toContain('Правила');
+    expect(compiled.querySelector('a[href="/login"]')?.textContent).toContain('Войти');
+    expect(compiled.querySelector('a[href="/register"]')?.textContent).toContain(
+      'Создайте аккаунт',
+    );
+  });
+
+  it('shows the account display name in navigation after authentication', () => {
+    currentUser.set({
+      id: 'user-1',
+      email: 'player@example.com',
+      display_name: 'КибаИгрок',
+      created_at: '2026-08-27T10:00:00+00:00',
+    });
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+
+    const profile = (fixture.nativeElement as HTMLElement).querySelector('a[href="/profile"]');
+    expect(profile?.textContent).toContain('КибаИгрок');
+    expect((fixture.nativeElement as HTMLElement).querySelector('a[href="/login"]')).toBeNull();
   });
 
   it('routes to tutorial and rules without starting a gameplay API call', async () => {
