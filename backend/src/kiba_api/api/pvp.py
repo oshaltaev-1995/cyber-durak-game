@@ -159,7 +159,16 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
             auth = WebSocketAuthMessage.model_validate(await _receive_payload(websocket))
             reconnect_token = auth.credential
             registration = service.connect(invite_code, reconnect_token, connection_id)
-        except (ValidationError, PvPError, _MessageTooLarge, json.JSONDecodeError, TypeError):
+        except PvPError as error:
+            await websocket.send_json(_error_message("ERROR", error.code))
+            close_code = (
+                4404
+                if error.code in {PvPErrorCode.ROOM_NOT_FOUND, PvPErrorCode.INVITE_EXPIRED}
+                else 4401
+            )
+            await websocket.close(code=close_code)
+            return
+        except (ValidationError, _MessageTooLarge, json.JSONDecodeError, TypeError):
             await websocket.send_json(_error_message("ERROR", PvPErrorCode.INVALID_CREDENTIAL))
             await websocket.close(code=4401)
             return
@@ -241,6 +250,10 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                 await websocket.send_json(
                     _error_message("ACTION_REJECTED", error.code, error.domain_code)
                 )
+                if error.code is PvPErrorCode.STALE_VERSION:
+                    latest = service.get_room(invite_code)
+                    latest_participant = latest.participant_by_id(participant_id)
+                    await _send_state(websocket, latest, latest_participant)
                 continue
             except PvPError as error:
                 await websocket.send_json(_error_message("ACTION_REJECTED", error.code))
@@ -259,8 +272,15 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
             except PvPError:
                 room = None
             if room is not None:
-                await _broadcast_event(room, hub, "OPPONENT_DISCONNECTED", exclude=participant_id)
-                await _broadcast_state(room, hub, exclude=participant_id)
+                participant = room.participant_by_id(participant_id)
+                if not participant.connected:
+                    await _broadcast_event(
+                        room,
+                        hub,
+                        "OPPONENT_DISCONNECTED",
+                        exclude=participant_id,
+                    )
+                    await _broadcast_state(room, hub, exclude=participant_id)
 
 
 def _guest_name(nickname: str | None) -> str:

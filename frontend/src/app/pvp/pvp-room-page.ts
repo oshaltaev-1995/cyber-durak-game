@@ -49,7 +49,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   protected readonly socket = inject(PvPWebSocketService);
   protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
-  protected readonly copied = signal(false);
+  protected readonly copyStatus = signal<'idle' | 'copied' | 'failed'>('idle');
   protected readonly leaveConfirmation = signal(false);
   protected readonly state = this.socket.state;
   protected readonly selectedCards = computed<readonly GameCard[]>(() => {
@@ -66,22 +66,29 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   constructor() {
     effect(() => {
       const current = this.state();
-      if (current !== null && current.version > this.lastVersion) {
-        if (this.lastVersion >= 0) this.selectedCodes.set(new Set());
-        this.lastVersion = current.version;
+      if (current !== null) {
+        if (current.version > this.lastVersion && this.lastVersion >= 0) {
+          this.selectedCodes.set(new Set());
+        } else {
+          const ownedCodes = new Set(current.hand.map((card) => card.code));
+          this.selectedCodes.update(
+            (selected) => new Set([...selected].filter((code) => ownedCodes.has(code))),
+          );
+        }
+        this.lastVersion = Math.max(this.lastVersion, current.version);
       }
     });
     effect(() => {
       const errorCode = this.socket.actionError()?.code;
-      if (
-        this.inviteCode !== '' &&
-        (errorCode === 'INVALID_CREDENTIAL' ||
-          errorCode === 'ROOM_NOT_FOUND' ||
-          errorCode === 'INVITE_EXPIRED')
-      ) {
+      if (this.inviteCode !== '' && errorCode === 'INVALID_CREDENTIAL') {
         this.credentials.clear(this.inviteCode);
         this.socket.disconnect();
         void this.router.navigate(['/join', this.inviteCode]);
+      }
+    });
+    effect(() => {
+      if (this.inviteCode !== '' && this.socket.status() === 'expired') {
+        this.credentials.clear(this.inviteCode);
       }
     });
   }
@@ -126,20 +133,60 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
 
   protected async copyInvite(): Promise<void> {
     try {
+      if (navigator.clipboard === undefined) throw new Error('clipboard unavailable');
       await navigator.clipboard.writeText(this.inviteUrl());
-      this.copied.set(true);
+      this.copyStatus.set('copied');
     } catch {
-      this.copied.set(false);
+      this.copyStatus.set('failed');
     }
   }
 
   protected async shareInvite(): Promise<void> {
     if (navigator.share === undefined) return;
-    await navigator.share({ title: 'Kiba — приватная игра', url: this.inviteUrl() });
+    try {
+      await navigator.share({ title: 'Kiba — приватная игра', url: this.inviteUrl() });
+    } catch {
+      // Dismissed or unavailable native sharing leaves the copy fallback usable.
+    }
   }
 
   protected canShare(): boolean {
     return navigator.share !== undefined;
+  }
+
+  protected connectionMessage(): string | null {
+    const status = this.socket.status();
+    if (status === 'connecting') return 'Подключаемся…';
+    if (status === 'reconnecting') return 'Переподключение…';
+    if (status === 'offline') return 'Нет соединения';
+    if (status === 'disconnected') return 'Связь потеряна';
+    if (status === 'error') {
+      return this.socket.actionError()?.code === 'CONNECTION_REPLACED'
+        ? 'Комната открыта в другой вкладке'
+        : 'Не удалось подключиться';
+    }
+    if (this.socket.opponentStatus() === 'disconnected') {
+      return 'Соперник отключился. Ждём возвращения…';
+    }
+    if (this.socket.opponentStatus() === 'returned') return 'Соперник вернулся';
+    return null;
+  }
+
+  protected connectionNoticeText(): string | null {
+    switch (this.socket.connectionNotice()) {
+      case 'connection_restored':
+        return 'Соединение восстановлено.';
+      case 'action_recovered':
+        return 'Соединение восстановлено. Показано актуальное состояние.';
+      case 'state_updated':
+        return 'Состояние игры обновилось.';
+      default:
+        return null;
+    }
+  }
+
+  protected canRetryConnection(): boolean {
+    return this.socket.status() === 'disconnected' || this.socket.status() === 'error';
   }
 
   protected errorText(): string | null {
@@ -162,13 +209,19 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
 
   protected leave(): void {
     this.leaveConfirmation.set(false);
-    void this.router.navigate(['/']);
+    this.credentials.clear(this.inviteCode);
+    this.socket.disconnect();
+    void this.router.navigate(['/pvp']);
   }
 
   private getStatusText(): string {
     const state = this.state();
     if (this.socket.status() === 'connecting') return 'Подключаемся…';
     if (this.socket.status() === 'reconnecting') return 'Переподключение…';
+    if (this.socket.status() === 'offline') return 'Нет соединения';
+    if (this.socket.status() === 'disconnected' || this.socket.status() === 'error') {
+      return 'Связь с комнатой потеряна';
+    }
     if (state === null) return 'Загружаем комнату…';
     if (state.room_phase === 'WAITING_FOR_OPPONENT') return 'Ждём второго игрока…';
     if (state.game_phase === 'complete') return 'Партия завершена';

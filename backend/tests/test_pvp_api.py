@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import random
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,7 +14,7 @@ from kiba_api.config import Settings
 from kiba_api.game import BotActionType, GamePhase, Seat, choose_bot_action, create_new_game
 from kiba_api.main import create_app
 from kiba_api.persistence import Base, CompletedMatch, Database
-from kiba_api.pvp import PvPRoomService
+from kiba_api.pvp import PvPRoomService, RoomTTLPolicy
 from kiba_api.sessions import acting_seat
 
 ORIGIN = "http://testserver"
@@ -154,6 +155,43 @@ def test_invalid_reconnect_credential_is_rejected(client: TestClient) -> None:
     assert closed.value.code == 4401
 
 
+def test_expired_room_auth_is_terminal_and_distinct_from_invalid_credential(
+    database: Database,
+) -> None:
+    now = [datetime(2026, 8, 27, tzinfo=UTC)]
+    service = PvPRoomService(
+        game_factory=lambda: create_new_game(random.Random(42)),
+        clock=lambda: now[0],
+        ttl=RoomTTLPolicy(
+            waiting=timedelta(seconds=1),
+            complete=timedelta(seconds=1),
+            disconnected_active=timedelta(seconds=1),
+        ),
+    )
+    settings = Settings(database_url="sqlite://", csrf_trusted_origins=(ORIGIN,))
+    expiring_client = TestClient(
+        create_app(database=database, settings=settings, pvp_service=service)
+    )
+    creator = expiring_client.post("/api/pvp/rooms", json={"nickname": "Creator"}).json()
+    now[0] += timedelta(seconds=2)
+
+    with expiring_client.websocket_connect(
+        websocket_path(creator), headers={"Origin": ORIGIN}
+    ) as socket:
+        socket.send_json(
+            {
+                "type": "AUTH",
+                "credential": creator["credential"]["reconnect_token"],
+            }
+        )
+        message = socket.receive_json()
+        with pytest.raises(WebSocketDisconnect) as closed:
+            socket.receive_json()
+
+    assert message["error"]["code"] == "INVITE_EXPIRED"
+    assert closed.value.code == 4404
+
+
 @pytest.mark.parametrize("nickname", [None, "", "   ", "x" * 25, "bad\nname"])
 def test_guest_room_requires_a_valid_nickname(client: TestClient, nickname: str | None) -> None:
     response = client.post("/api/pvp/rooms", json={"nickname": nickname})
@@ -273,6 +311,73 @@ def test_websocket_rejects_wrong_actor_then_broadcasts_accepted_state(
             assert all(message["type"] == "STATE" for message in states)
             assert all(message["state"]["version"] == 1 for message in states)
             assert pvp_service.get_room(creator["invite_code"]).version == 1
+
+
+def test_stale_websocket_action_returns_latest_state_without_mutation(
+    client: TestClient,
+    pvp_service: PvPRoomService,
+) -> None:
+    creator, joiner = create_and_join(client)
+    room = pvp_service.get_room(creator["invite_code"])
+    assert room.state is not None
+    actor = acting_seat(room.state)
+    assert actor is not None
+    actor_payload = creator if actor is Seat.ONE else joiner
+    card_code = card_to_code(room.state.hand(actor)[0])
+
+    with client.websocket_connect(
+        websocket_path(actor_payload), headers={"Origin": ORIGIN}
+    ) as socket:
+        authenticate(socket, actor_payload)
+        action = {
+            "type": "ACTION",
+            "version": 0,
+            "action": "INITIAL_ATTACK",
+            "cards": [card_code],
+        }
+        socket.send_json(action)
+        accepted = socket.receive_json()
+        socket.send_json(action)
+        rejected = socket.receive_json()
+        latest = socket.receive_json()
+
+    assert accepted["type"] == "STATE"
+    assert accepted["state"]["version"] == 1
+    assert rejected == {
+        "type": "ACTION_REJECTED",
+        "error": {"code": "STALE_VERSION", "domain_code": None},
+    }
+    assert latest["type"] == "STATE"
+    assert latest["state"]["version"] == 1
+    assert pvp_service.get_room(creator["invite_code"]).version == 1
+
+
+def test_malformed_messages_are_rejected_without_mutating_room(
+    client: TestClient,
+    pvp_service: PvPRoomService,
+) -> None:
+    creator, _joiner = create_and_join(client)
+
+    with client.websocket_connect(websocket_path(creator), headers={"Origin": ORIGIN}) as socket:
+        authenticate(socket, creator)
+        socket.send_text("not-json")
+        invalid_json = socket.receive_json()
+        socket.send_json({"type": "UNKNOWN"})
+        unsupported = socket.receive_json()
+        socket.send_json(
+            {
+                "type": "ACTION",
+                "version": 0,
+                "action": "DEFEND",
+                "cards": ["not-a-card"],
+            }
+        )
+        malformed_card = socket.receive_json()
+
+    assert invalid_json["error"]["domain_code"] == "invalid_json"
+    assert unsupported["error"]["domain_code"] == "invalid_message"
+    assert malformed_card["type"] == "ACTION_REJECTED"
+    assert pvp_service.get_room(creator["invite_code"]).version == 0
 
 
 def test_disconnect_and_same_credential_reconnect_restore_latest_state(

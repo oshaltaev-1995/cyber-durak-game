@@ -4,7 +4,13 @@ import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angul
 import { GameCard } from '../core/api/game-api.models';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
 import { PvPWebSocketService } from '../core/pvp/pvp-websocket.service';
-import { PvPErrorBody, PvPState } from '../core/pvp/pvp.models';
+import {
+  PvPConnectionNotice,
+  PvPConnectionStatus,
+  PvPErrorBody,
+  PvPOpponentStatus,
+  PvPState,
+} from '../core/pvp/pvp.models';
 import { PvPRoomPageComponent } from './pvp-room-page';
 
 const card: GameCard = {
@@ -65,20 +71,28 @@ describe('PvPRoomPageComponent', () => {
   const credentials = { get: vi.fn(), clear: vi.fn() };
   const socket = {
     state: signal<PvPState | null>(makeState()),
-    status: signal<'connected'>('connected'),
+    status: signal<PvPConnectionStatus>('connected'),
     actionError: signal<PvPErrorBody | null>(null),
     actionPending: signal(false),
-    opponentDisconnected: signal(false),
+    opponentStatus: signal<PvPOpponentStatus>('connected'),
+    connectionNotice: signal<PvPConnectionNotice>(null),
     connect: vi.fn(),
     disconnect: vi.fn(),
     sendAction: vi.fn(),
+    retry: vi.fn(),
   };
 
   beforeEach(async () => {
     socket.state.set(makeState());
+    socket.status.set('connected');
     socket.actionError.set(null);
+    socket.actionPending.set(false);
+    socket.opponentStatus.set('connected');
+    socket.connectionNotice.set(null);
+    socket.connect.mockReset();
     socket.sendAction.mockReset();
     socket.disconnect.mockReset();
+    socket.retry.mockReset();
     credentials.get.mockReset().mockReturnValue({ reconnect_token: 'secret' });
     credentials.clear.mockReset();
     await TestBed.configureTestingModule({
@@ -103,6 +117,11 @@ describe('PvPRoomPageComponent', () => {
     expect(element.textContent).toContain('Bob · 7 карт');
     expect(element.textContent).not.toContain('opponent_hand');
     expect(element.textContent).not.toContain('draw_pile');
+  });
+
+  it('resumes the same room from the stored reconnect credential', () => {
+    expect(socket.connect).toHaveBeenCalledWith('ABC123', 'secret');
+    expect(credentials.get).toHaveBeenCalledWith('ABC123');
   });
 
   it('sends selected card codes through the WebSocket without optimistic table changes', () => {
@@ -175,10 +194,37 @@ describe('PvPRoomPageComponent', () => {
   });
 
   it('shows disconnect state without declaring a forfeit', () => {
-    socket.opponentDisconnected.set(true);
+    socket.opponentStatus.set('disconnected');
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Соперник отключился');
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('победили');
+  });
+
+  it('keeps invite copy fallback usable when clipboard access is unavailable', async () => {
+    socket.state.set(
+      makeState({
+        room_phase: 'WAITING_FOR_OPPONENT',
+        opponent: null,
+        opponent_hand_count: null,
+        game_phase: null,
+        available_actions: [],
+      }),
+    );
+    fixture.detectChanges();
+    const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    try {
+      const copy = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+        (button) => button.textContent?.includes('Скопировать'),
+      ) as HTMLButtonElement;
+      copy.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Выделите ссылку выше');
+    } finally {
+      if (originalClipboard === undefined) Reflect.deleteProperty(navigator, 'clipboard');
+      else Object.defineProperty(navigator, 'clipboard', originalClipboard);
+    }
   });
 
   it('clears an invalid reconnect credential and returns to the join flow', async () => {
@@ -189,6 +235,62 @@ describe('PvPRoomPageComponent', () => {
     expect(credentials.clear).toHaveBeenCalledWith('ABC123');
     expect(socket.disconnect).toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith(['/join', 'ABC123']);
+  });
+
+  it('preserves the table while reconnecting and disables gameplay controls', () => {
+    socket.status.set('reconnecting');
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Переподключение');
+    expect(element.querySelector('app-game-table')).not.toBeNull();
+    expect(element.querySelector<HTMLButtonElement>('app-hand .playing-card')?.disabled).toBe(true);
+    expect(element.querySelector<HTMLButtonElement>('app-action-bar button')?.disabled).toBe(true);
+  });
+
+  it('offers manual retry after bounded reconnect attempts are exhausted', () => {
+    socket.status.set('disconnected');
+    fixture.detectChanges();
+    const retry = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Повторить',
+    ) as HTMLButtonElement;
+    retry.click();
+    expect(socket.retry).toHaveBeenCalledOnce();
+  });
+
+  it('shows recovered and stale-state notices without changing the table locally', () => {
+    socket.connectionNotice.set('state_updated');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Состояние игры обновилось',
+    );
+    expect(socket.state()?.packets).toHaveLength(0);
+  });
+
+  it('shows an expired-room terminal view and clears its stored credential', () => {
+    socket.status.set('expired');
+    socket.actionError.set({ code: 'INVITE_EXPIRED', domain_code: null });
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Комната больше недоступна');
+    expect(element.textContent).toContain('Создать новую комнату');
+    expect(element.textContent).toContain('Играть с ботом');
+    expect(credentials.clear).toHaveBeenCalledWith('ABC123');
+  });
+
+  it('explicit leave clears resume credential, closes intentionally, and returns to PvP', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const leave = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Выйти',
+    ) as HTMLButtonElement;
+    leave.click();
+    fixture.detectChanges();
+    const confirm = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll('.restart-confirmation button'),
+    ].find((button) => button.textContent?.trim() === 'Выйти') as HTMLButtonElement;
+    confirm.click();
+    expect(credentials.clear).toHaveBeenCalledWith('ABC123');
+    expect(socket.disconnect).toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(['/pvp']);
   });
 
   it.each([

@@ -120,6 +120,9 @@ is never exposed. The development proxy supports both HTTP and WebSocket traffic
 The Angular room client stores its reconnect credential in `sessionStorage`, never in the invite
 URL, and reconnects to the participant-specific state after ordinary refresh/navigation. Invite
 links are built from the browser's current origin, so a LAN visitor receives a LAN-usable link.
+Unexpected socket loss uses bounded exponential retry; returning from a backgrounded page or an
+offline period verifies/reconnects and replaces the UI with the latest authoritative state. An
+explicit **Выйти** clears that room's local resume credential and does not start another reconnect.
 Private rooms, active games, connection state, and reconnect credentials are process-local and are
 lost when the backend restarts. Multiplayer match history, progression, XP, and room state are not
 persisted; there is no matchmaking or chat.
@@ -217,6 +220,17 @@ http://<MAC_LAN_IP>:14200
 
 Only the frontend URL is needed: its same-origin `/api` proxy reaches the backend. The development
 server binds to all local interfaces for LAN access; no Mac address is hardcoded in the project.
+
+For a physical-device private-PvP check:
+
+1. open the LAN frontend URL on the first device and choose **Играть с другом**;
+2. create a room and send its generated invite link to the second device;
+3. join from the second browser, then briefly background/lock one device;
+4. return to Kiba and confirm that it reconnects to the same seat and current table.
+
+The backend host port remains loopback-only; phones need only the frontend URL because HTTP and
+WebSocket `/api` traffic stays behind the Angular same-origin proxy. Active rooms cannot survive a
+backend process restart.
 
 The Compose database is stored in the `kiba-postgres-data` volume. The backend applies pending
 Alembic migrations before starting. `docker compose down` preserves the volume; do not use `-v`

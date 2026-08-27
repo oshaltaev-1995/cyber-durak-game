@@ -83,7 +83,19 @@ export interface PvPErrorBody {
 }
 
 export type PvPConnectionStatus =
-  'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'offline'
+  | 'disconnected'
+  | 'expired'
+  | 'error';
+
+export type PvPOpponentStatus = 'unknown' | 'connected' | 'disconnected' | 'returned';
+
+export type PvPConnectionNotice =
+  'connection_restored' | 'state_updated' | 'action_recovered' | null;
 
 export type PvPServerMessage =
   | { readonly type: 'STATE'; readonly state: PvPState }

@@ -564,6 +564,24 @@ table, and drives actions exclusively from server `available_actions`. PvP rooms
 and process-local, with no bot participation, matchmaking, chat, spectators, match persistence, XP,
 statistics, or rematch protocol. A post-match “new room” starts the invitation flow again.
 
+Phase 5C hardens this client around one constrained connection state. Unexpected closure retries at
+bounded `0.5s`, `1s`, `2s`, `4s`, then `5s` intervals for at most eight attempts; a manual retry is
+available after exhaustion. `visibilitychange`, `pageshow`, `offline`, and `online` feed the same
+single-socket recovery path. A returning visible page health-checks the socket with existing
+`PING`/`PONG`; recovery always waits for a full participant-specific authoritative `STATE` and never
+resends an uncertain action. Socket-generation guards prevent handlers from a replaced connection
+from changing current UI state.
+
+The client keeps the last table visible but disables actions while its own connection is unsafe,
+surfaces opponent disconnect/return separately, and retains selected cards until an authoritative
+newer version proves an action was accepted. Older state versions are ignored; stale actions are
+rejected and followed by the server's latest state. Explicit leave disables reconnect and clears
+only that room's `sessionStorage` credential, while ordinary internal navigation preserves it.
+Authoritative room-expired/not-found closes stop retry, clear the stale credential, and show a
+terminal room-unavailable screen; invalid credentials return through public room status/join flow.
+These transport changes do not alter `GameState`, gameplay versions, hidden-information boundaries,
+or the process-local room TTL policy.
+
 Docker Compose keeps PostgreSQL on its private service network and applies `alembic upgrade head`
 before FastAPI starts. Production deployment must supply external database credentials, HTTPS with
 Secure cookies, explicit trusted origins, robust distributed rate limiting, email verification,

@@ -1,5 +1,13 @@
 <div class="game-shell" [class.complete]="state()?.game_phase === 'complete'">
-  @if (state(); as game) {
+  @if (socket.status() === 'expired') {
+    <main class="room-unavailable" aria-labelledby="room-unavailable-title">
+      <span aria-hidden="true">⌛</span>
+      <h1 id="room-unavailable-title">Комната больше недоступна</h1>
+      <p>Срок приглашения истёк или сервер был перезапущен.</p>
+      <a class="room-again" routerLink="/pvp">Создать новую комнату</a>
+      <a routerLink="/play">Играть с ботом</a>
+    </main>
+  } @else if (state(); as game) {
     <main class="game-board">
       <div class="game-utilities">
         <span>Приватная комната · {{ game.invite_code }}</span>
@@ -18,6 +26,26 @@
         </section>
       }
 
+      @if (connectionMessage(); as message) {
+        <div
+          class="connection-banner"
+          [class.warning]="
+            socket.opponentStatus() === 'disconnected' || socket.status() === 'offline'
+          "
+          role="status"
+        >
+          <span>{{ message }}</span>
+          @if (canRetryConnection()) {
+            <button type="button" (click)="socket.retry()">Повторить</button>
+          }
+        </div>
+      } @else if (socket.status() === 'connected') {
+        <div class="connection-badge" role="status">Подключено</div>
+      }
+      @if (connectionNoticeText(); as notice) {
+        <div class="connection-notice" role="status">{{ notice }}</div>
+      }
+
       @if (game.room_phase === 'WAITING_FOR_OPPONENT') {
         <section class="waiting-room" aria-live="polite">
           <span class="waiting-icon" aria-hidden="true">↗</span>
@@ -29,12 +57,17 @@
           <strong>Код комнаты: {{ game.invite_code }}</strong>
           <div class="share-actions">
             <button type="button" (click)="copyInvite()">
-              {{ copied() ? 'Ссылка скопирована' : 'Скопировать ссылку' }}
+              {{ copyStatus() === 'copied' ? 'Ссылка скопирована' : 'Скопировать ссылку' }}
             </button>
             @if (canShare()) {
               <button class="secondary" type="button" (click)="shareInvite()">Поделиться</button>
             }
           </div>
+          @if (copyStatus() === 'failed') {
+            <small class="copy-error" role="alert"
+              >Не удалось скопировать. Выделите ссылку выше.</small
+            >
+          }
           <small>Комната хранится только до перезапуска сервера.</small>
         </section>
       } @else {
@@ -55,16 +88,6 @@
             >
           </div>
         </section>
-
-        @if (socket.opponentDisconnected()) {
-          <div class="connection-banner warning" role="status">
-            Соперник отключился. Ждём возвращения…
-          </div>
-        } @else if (socket.status() === 'reconnecting' || socket.status() === 'disconnected') {
-          <div class="connection-banner" role="status">Переподключение…</div>
-        } @else {
-          <div class="connection-badge" role="status">Подключено</div>
-        }
 
         <section class="table-stage" aria-label="Игровое поле">
           <aside class="draw-zone" aria-label="Колода и козырь">
@@ -118,7 +141,11 @@
           class="player-hand-region"
           [cards]="game.hand"
           [selectedCodes]="selectedCodes()"
-          [disabled]="socket.actionPending() || game.game_phase === 'complete'"
+          [disabled]="
+            socket.actionPending() ||
+            socket.status() !== 'connected' ||
+            game.game_phase === 'complete'
+          "
           (cardSelected)="toggleCard($event)"
         />
 
@@ -127,7 +154,7 @@
             <app-action-bar
               [actions]="game.available_actions"
               [selectedCards]="selectedCards()"
-              [pending]="socket.actionPending()"
+              [pending]="socket.actionPending() || socket.status() !== 'connected'"
               (actionSelected)="submitAction($event)"
             />
           </div>

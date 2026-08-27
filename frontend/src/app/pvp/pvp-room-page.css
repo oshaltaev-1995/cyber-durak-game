@@ -41,6 +41,9 @@
   border-radius: 0.7rem;
   background: rgb(0 0 0 / 18%);
 }
+.waiting-room .copy-error {
+  color: #ffcf9a;
+}
 .share-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -72,9 +75,32 @@
   font-size: 0.75rem;
   text-align: center;
 }
+.connection-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+}
+.connection-banner button {
+  min-height: 2rem;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid currentcolor;
+  color: inherit;
+  background: transparent;
+  font-size: 0.72rem;
+}
 .connection-banner.warning {
   color: #ffe08a;
   border-color: rgb(255 224 138 / 28%);
+}
+.connection-notice {
+  justify-self: center;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  color: #c8fff0;
+  background: rgb(73 229 190 / 12%);
+  font-size: 0.72rem;
+  text-align: center;
 }
 .connection-badge {
   justify-self: end;
@@ -105,8 +131,35 @@
   display: inline-grid;
   place-items: center;
 }
+.room-unavailable {
+  display: grid;
+  width: min(calc(100% - 2rem), 32rem);
+  min-height: calc(100dvh - 4rem);
+  margin: auto;
+  align-content: center;
+  justify-items: center;
+  gap: 0.8rem;
+  text-align: center;
+}
+.room-unavailable > span {
+  font-size: 2rem;
+}
+.room-unavailable h1,
+.room-unavailable p {
+  margin: 0;
+}
+.room-unavailable p,
+.room-unavailable > a:not(.room-again) {
+  color: var(--text-muted);
+}
 @media (max-width: 35rem) {
   .share-actions {
     grid-template-columns: 1fr;
+  }
+  .connection-banner,
+  .connection-notice {
+    position: relative;
+    z-index: 2;
+    font-size: 0.7rem;
   }
 }
