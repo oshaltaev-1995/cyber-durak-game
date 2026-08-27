@@ -1,0 +1,232 @@
+<main class="rules-page">
+  <header class="rules-hero">
+    <p class="eyebrow">Kiba · 36 карт · два игрока</p>
+    <h1>Правила игры</h1>
+    <p>
+      Kiba — карточная игра на избавление от руки. Здесь важны не масти для покрытия, а точные
+      значения, суммы и связи между картами.
+    </p>
+    <div class="hero-actions">
+      <a class="primary" routerLink="/play">Играть</a>
+      <a routerLink="/tutorial">Пройти обучение</a>
+    </div>
+  </header>
+
+  <nav class="contents" aria-label="Содержание правил">
+    <a routerLink="/rules" fragment="goal">Цель</a>
+    <a routerLink="/rules" fragment="trump">Козыри</a>
+    <a routerLink="/rules" fragment="attack">Первый ход</a>
+    <a routerLink="/rules" fragment="defense">Покрытие</a>
+    <a routerLink="/rules" fragment="throw-in">Подкидывание</a>
+    <a routerLink="/rules" fragment="transfer">Перевод</a>
+    <a routerLink="/rules" fragment="ending">Конец игры</a>
+  </nav>
+
+  <div class="rules-content">
+    <section id="goal">
+      <span class="section-number">01</span>
+      <h2>Цель игры</h2>
+      <p>
+        Первым избавиться от всех карт. Результат проверяется только после завершения кона, движения
+        карт со стола и добора.
+      </p>
+    </section>
+
+    <section id="deck">
+      <span class="section-number">02</span>
+      <h2>Колода и раздача</h2>
+      <p>
+        В Alpha используется 36 карт: от шестёрки до Туза, четыре масти. Каждый получает по 7 карт.
+        Остаток лежит открытым: верхняя карта видна и остаётся следующей картой для добора.
+      </p>
+      <div class="rule-note">
+        Карты раздаются по одной: первый игрок, второй игрок — до семи каждому.
+      </div>
+    </section>
+
+    <section id="values">
+      <span class="section-number">03</span>
+      <h2>Очки карт</h2>
+      <div class="value-grid" aria-label="Стоимость карт">
+        <span>6<strong>6</strong></span
+        ><span>7<strong>7</strong></span
+        ><span>8<strong>8</strong></span> <span>9<strong>9</strong></span
+        ><span>10<strong>10</strong></span
+        ><span>J<strong>12</strong></span> <span>Q<strong>15</strong></span
+        ><span>K<strong>18</strong></span
+        ><span>A<strong>20</strong></span>
+      </div>
+      <p>Вся арифметика использует текущую эффективную стоимость — с учётом козыря.</p>
+    </section>
+
+    <section id="trump">
+      <span class="section-number">04</span>
+      <h2>Двойной козырь</h2>
+      <p>
+        Открытая карта задаёт сразу козырную масть и козырный ранг. При открытой <strong>7♥</strong>
+        козыри — все червы и все семёрки. Козырная карта стоит вдвое больше.
+      </p>
+      <div class="card-example">
+        @for (card of trumpExamples; track card.code) {
+          <app-playing-card [card]="card" [compact]="true" />
+        }
+      </div>
+      <div class="equation-row"><code>7♠ = 14</code><code>8♥ = 16</code><code>8♣ = 8</code></div>
+      <p>После опустошения колоды козырей больше нет, и карты возвращаются к базовой стоимости.</p>
+    </section>
+
+    <section id="first-attacker">
+      <span class="section-number">05</span>
+      <h2>Кто ходит первым</h2>
+      <p>
+        В первой раздаче начинает игрок с самым младшим козырем в руке. Сравнивается эффективная
+        стоимость. При равенстве младших козырей или отсутствии козырей у обоих выбор случайный.
+      </p>
+      <div class="equation-block">Открыта 7♥: 6♥ = 12 &lt; 7♠ = 14 &lt; 8♥ = 16</div>
+    </section>
+
+    <section id="attack">
+      <span class="section-number">06</span>
+      <h2>Первый ход</h2>
+      <p>
+        Одной картой можно ходить всегда. Несколько карт должны образовать одну связанную систему:
+      </p>
+      <ul>
+        <li>одинаковый ранг: <code>9 + 9</code>;</li>
+        <li>равные суммы групп: <code>9 + 9 = 18 = K</code>;</li>
+        <li>составные равенства: <code>J + 6 = 18 = K</code>.</li>
+      </ul>
+      <div class="equation-row">
+        <code>9 + 9 + K ✓</code><code>J + 6 + K ✓</code><code>9 + 7 ✕</code>
+      </div>
+      <p>Сумма и среднее всего выбранного набора не создают новые связи для первого хода.</p>
+    </section>
+
+    <section id="defense">
+      <span class="section-number">07</span>
+      <h2>Как покрывать</h2>
+      <p>
+        Выберите любые карты, чья суммарная эффективная стоимость <strong>строго больше</strong>
+        активной атаки. Равенства недостаточно.
+      </p>
+      <div class="equation-block">Атака 36 · Защита Q + Q + 10 = 40 · 40 &gt; 36 ✓</div>
+      <div class="rule-note">
+        Покрывается только текущий пакет. Значения уже покрытых атак к нему не прибавляются.
+      </div>
+    </section>
+
+    <section id="throw-in">
+      <span class="section-number">08</span>
+      <h2>Как подкидывать</h2>
+      <p>
+        После покрытия прямую подсказку дают карты, которыми только что отбились: их ранги и
+        эффективные значения. Старые покрытые атаки такой прямой подсказки больше не дают.
+      </p>
+      <div class="equation-block">
+        J(12) покрыт K(18) → доступны ранг K и значение 18, но не старые J и 12
+      </div>
+      <p>
+        Если отбились несколькими рангами, их можно смешивать в одном подкидывании. После защиты
+        <code>7 + J</code> разрешено подкинуть <code>7 + J</code>, потому что каждый выбранный ранг
+        присутствует среди карт последней защиты.
+      </p>
+      <p>
+        Также можно собрать комбинацию, точно равную доступному значению:
+        <code>10 + 8 = 18 = K</code>.
+      </p>
+    </section>
+
+    <section id="table-total">
+      <span class="section-number">09</span>
+      <h2>Сумма стола</h2>
+      <p>
+        Все физические карты текущего кона — и атаки, и защиты — складываются. Точная сумма стола
+        становится отдельной целью для следующего подкидывания.
+      </p>
+      <div class="equation-block">7 + 7 + K(18) = 32 → комбинация на 32 может быть подкинута</div>
+    </section>
+
+    <section id="mean">
+      <span class="section-number">10</span>
+      <h2>Среднее арифметическое</h2>
+      <p>Среднее считается по всем физическим картам на столе и не округляется.</p>
+      <div class="card-example">
+        @for (card of meanExamples; track card.code) {
+          <app-playing-card [card]="card" [compact]="true" />
+        }
+      </div>
+      <div class="equation-block">J(12) + K(18) = 30 · 30 / 2 = 15 · Q = 15 ✓</div>
+      <p>
+        <code>7 + 8 = 15</code> тоже подходит. Если среднее равно <code>32 / 3</code>, оно не
+        округляется до 11.
+      </p>
+    </section>
+
+    <section id="transfer">
+      <span class="section-number">11</span>
+      <h2>Перевод</h2>
+      <p>
+        До первой успешной защиты игрок может перевести атаку точной суммой. Больше или меньше —
+        нельзя. Перевод увеличивает тот же пакет как снежный ком.
+      </p>
+      <div class="equation-block">K = 18 · перевод 9 + 9 = 18 · следующая цель 36 · затем 72</div>
+      <div class="snowball" aria-label="Рост перевода">18 <span>→</span> 36 <span>→</span> 72</div>
+      <p>После первой успешной защиты перевод закрыт до конца кона.</p>
+    </section>
+
+    <section id="take-bito">
+      <span class="section-number">12</span>
+      <h2>Взять и Бито</h2>
+      <p>
+        <strong>Взять:</strong> защитник забирает весь стол, прежний атакующий сохраняет инициативу.
+      </p>
+      <p><strong>Бито:</strong> покрытый стол уходит в сброс, и защитник начинает следующий кон.</p>
+      <div class="rule-note">
+        Если защитник успешно отбился последними картами, кон завершается как Бито автоматически —
+        подкидывать больше нельзя.
+      </div>
+    </section>
+
+    <section id="refill">
+      <span class="section-number">13</span>
+      <h2>Добор</h2>
+      <p>
+        После кона руки добираются до семи. Первым получает карты тот, кто начал кон, даже если в
+        нём были переводы. Игрок с семью или более картами ничего не добирает.
+      </p>
+      <p>
+        Если колоды не хватает на полный добор обоим, оставшиеся карты распределяются так, чтобы
+        размеры рук стали максимально близкими. При равноценных вариантах приоритет у начавшего кон.
+      </p>
+      <div class="equation-row">
+        <code>3 / 5 + 4 карты → 6 / 6</code><code>4 / 5 + 4 карты → 7 / 6</code>
+      </div>
+    </section>
+
+    <section id="ending">
+      <span class="section-number">14</span>
+      <h2>Победа и ничья</h2>
+      <p>
+        Итог проверяется после завершения кона, движения стола и добора — и только при пустой
+        колоде.
+      </p>
+      <ul>
+        <li>ровно одна пустая рука — этот игрок победил;</li>
+        <li>обе руки пусты — <strong>Ничья 🤝</strong>;</li>
+        <li>обе руки непусты — игра продолжается без козырей.</li>
+      </ul>
+      <p>Нет дополнительного правила о том, кто положил последнюю карту первым.</p>
+    </section>
+
+    <section id="examples" class="final-example">
+      <span class="section-number">15</span>
+      <h2>Главное в трёх формулах</h2>
+      <div class="formula-grid">
+        <strong>Атака<small>9 + 9 = 18 = K</small></strong>
+        <strong>Защита<small>40 &gt; 36</small></strong>
+        <strong>Подкидывание<small>(12 + 18) / 2 = 15 = Q</small></strong>
+      </div>
+      <a class="play-end" routerLink="/play">Начать партию</a>
+    </section>
+  </div>
+</main>

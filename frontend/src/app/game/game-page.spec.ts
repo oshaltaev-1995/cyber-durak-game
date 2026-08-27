@@ -87,8 +87,6 @@ describe('GamePageComponent', () => {
       imports: [GamePageComponent],
       providers: [{ provide: GameApiService, useValue: api }],
     }).compileComponents();
-    fixture = TestBed.createComponent(GamePageComponent);
-    fixture.detectChanges();
   });
 
   const clickButton = (label: string): void => {
@@ -102,14 +100,27 @@ describe('GamePageComponent', () => {
 
   const create = (game = makeGame()): void => {
     api.createGame.mockReturnValue(of(game));
-    clickButton('Играть');
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
   };
 
-  it('shows the initial playable landing screen', () => {
+  it('starts a new game automatically when the play route opens', () => {
+    create();
     const element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelector('h1')?.textContent).toBe('KIBA');
-    expect(element.textContent).toContain('Арифметический карточный дурак');
-    expect(element.querySelector('button')?.textContent?.trim()).toBe('Играть');
+    expect(api.createGame).toHaveBeenCalledOnce();
+    expect(element.textContent).toContain('Партия против бота');
+    expect(element.textContent).toContain('Ваш ход');
+  }, 15_000);
+
+  it('keeps the active public game snapshot when the routed page is recreated', () => {
+    create();
+    fixture.destroy();
+
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+
+    expect(api.createGame).toHaveBeenCalledOnce();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Бот · 6 карт');
   });
 
   it('creates and renders a public human-vs-bot state without hidden cards', () => {
@@ -333,6 +344,18 @@ describe('GamePageComponent', () => {
     api.submitAction.mockReturnValue(of(makeGame()));
     clickButton('Взять');
     expect(api.submitAction).toHaveBeenCalledWith('game-1', 'TAKE', []);
+  });
+
+  it('asks before replacing an active game', () => {
+    create();
+    clickButton('Новая игра');
+
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector('[role="alertdialog"]');
+    expect(dialog?.textContent).toContain('Текущая партия будет потеряна');
+    expect(api.createGame).toHaveBeenCalledOnce();
+
+    clickButton('Отмена');
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="alertdialog"]')).toBeNull();
   });
 
   it.each([

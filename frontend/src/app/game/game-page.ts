@@ -1,5 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { finalize } from 'rxjs';
 import { GameCard, GameResponse, HumanActionType } from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
@@ -7,6 +14,7 @@ import { ActionBarComponent } from './components/action-bar/action-bar';
 import { GameTableComponent } from './components/game-table/game-table';
 import { HandComponent } from './components/hand/hand';
 import { TrumpIndicatorComponent } from './components/trump-indicator/trump-indicator';
+import { GameSessionState } from './game-session-state';
 
 const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   illegal_initial_attack: 'Эти карты нельзя объединить для первого хода.',
@@ -26,12 +34,14 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   styleUrl: './game-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GamePageComponent {
+export class GamePageComponent implements OnInit {
   private readonly api = inject(GameApiService);
+  private readonly session = inject(GameSessionState);
 
-  protected readonly game = signal<GameResponse | null>(null);
+  protected readonly game = this.session.game;
   protected readonly pending = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  protected readonly restartConfirmation = signal(false);
   protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
   protected readonly selectedCards = computed<readonly GameCard[]>(() => {
     const selected = this.selectedCodes();
@@ -39,10 +49,27 @@ export class GamePageComponent {
   });
   protected readonly statusText = computed(() => this.getStatusText());
 
+  ngOnInit(): void {
+    if (this.game() === null) {
+      this.startNewGame();
+    }
+  }
+
+  protected requestNewGame(): void {
+    if (!this.pending()) {
+      this.restartConfirmation.set(true);
+    }
+  }
+
+  protected cancelNewGame(): void {
+    this.restartConfirmation.set(false);
+  }
+
   protected startNewGame(): void {
     if (this.pending()) {
       return;
     }
+    this.restartConfirmation.set(false);
     this.pending.set(true);
     this.errorMessage.set(null);
     this.api

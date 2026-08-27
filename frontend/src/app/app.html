@@ -1,1 +1,12 @@
-<app-game-page />
+<header class="app-header">
+  <a class="brand" routerLink="/" aria-label="Kiba — главная">
+    <span class="brand-mark" aria-hidden="true">K</span>
+    <span>KIBA</span>
+  </a>
+  <nav aria-label="Основная навигация">
+    <a routerLink="/play" routerLinkActive="active">Играть</a>
+    <a routerLink="/tutorial" routerLinkActive="active">Обучение</a>
+    <a routerLink="/rules" routerLinkActive="active">Правила</a>
+  </nav>
+</header>
+<router-outlet />

@@ -47,10 +47,18 @@ Open the frontend at <http://localhost:14200>. The backend health check is avail
 {"status":"ok"}
 ```
 
+The product shell provides three routes:
+
+- **Играть** (`/play`) creates or resumes the current in-memory browser session;
+- **Обучение** (`/tutorial`) is a short interactive introduction to Kiba's core mechanics;
+- **Правила** (`/rules`) is the complete user-facing Russian rulebook.
+
 Click **Играть** to create a new game, select cards by tapping or clicking them, and use the actions
-offered below the hand. The Angular development server proxies `/api` to the local backend, so both
-services must be running. The UI works from public server state only: bot cards and future draw-pile
-order remain hidden, and the backend decides whether every submitted move is legal.
+offered below the hand. Rules and Tutorial remain available from the compact navigation during a
+game; returning to Play preserves the current frontend session while the page remains open. The
+Angular development server proxies `/api` to the local backend, so both services must be running.
+The UI works from public server state only: bot cards and future draw-pile order remain hidden, and
+the backend decides whether every submitted move is legal.
 
 Create and inspect an Alpha human-versus-bot game with:
 

@@ -1,0 +1,102 @@
+<main class="tutorial-page">
+  @if (complete()) {
+    <section class="tutorial-complete" aria-labelledby="tutorial-complete-title">
+      <span class="completion-mark" aria-hidden="true">✓</span>
+      <p class="eyebrow">Обучение завершено</p>
+      <h1 id="tutorial-complete-title">Готово!</h1>
+      <p>Теперь можно сыграть настоящую партию и вернуться к примерам в любое время.</p>
+      <div class="completion-actions">
+        <a class="primary" routerLink="/play">Играть</a>
+        <a routerLink="/rules">Правила</a>
+        <button type="button" (click)="restart()">Пройти ещё раз</button>
+      </div>
+    </section>
+  } @else {
+    @let current = lesson();
+    <section class="tutorial-card" [attr.data-lesson]="current.id">
+      <header class="lesson-header">
+        <div>
+          <p class="eyebrow">Короткое обучение</p>
+          <h1>{{ current.title }}</h1>
+        </div>
+        <div
+          class="progress"
+          role="progressbar"
+          [attr.aria-valuemin]="1"
+          [attr.aria-valuemax]="lessons.length"
+          [attr.aria-valuenow]="stepIndex() + 1"
+        >
+          <strong>{{ stepIndex() + 1 }} / {{ lessons.length }}</strong>
+          <span><i [style.width.%]="((stepIndex() + 1) / lessons.length) * 100"></i></span>
+        </div>
+      </header>
+
+      <div class="lesson-grid">
+        <div class="lesson-copy">
+          <p class="lead">{{ current.lead }}</p>
+          <ul>
+            @for (point of current.points; track point) {
+              <li>{{ point }}</li>
+            }
+          </ul>
+          @if (current.note) {
+            <p class="lesson-note">{{ current.note }}</p>
+          }
+        </div>
+
+        <div class="lesson-example" aria-label="Пример">
+          @if (current.cards.length > 0) {
+            <div class="tutorial-cards">
+              @for (card of current.cards; track card.code) {
+                <app-playing-card [card]="card" [compact]="true" />
+              }
+            </div>
+          }
+          @if (current.cardCaption) {
+            <p class="card-caption">{{ current.cardCaption }}</p>
+          }
+          <div class="equations">
+            @for (equation of current.equations; track equation) {
+              <strong>{{ equation }}</strong>
+            }
+          </div>
+        </div>
+      </div>
+
+      @if (current.exercise; as exercise) {
+        <section class="exercise" aria-labelledby="exercise-title">
+          <h2 id="exercise-title">{{ exercise.prompt }}</h2>
+          <div class="choice-list">
+            @for (choice of exercise.choices; track choice.id) {
+              <button
+                type="button"
+                [class.chosen]="selectedChoice() === choice.id"
+                [class.correct]="selectedChoice() === choice.id && choiceIsCorrect()"
+                [class.incorrect]="selectedChoice() === choice.id && !choiceIsCorrect()"
+                [attr.aria-pressed]="selectedChoice() === choice.id"
+                (click)="choose(choice.id)"
+              >
+                {{ choice.label }}
+              </button>
+            }
+          </div>
+          @if (selectedChoice() !== null) {
+            <p class="feedback" [class.success]="choiceIsCorrect()" role="status">
+              {{ choiceIsCorrect() ? exercise.success : exercise.retry }}
+            </p>
+          }
+        </section>
+      }
+
+      <footer class="tutorial-controls">
+        <button type="button" class="quiet" [disabled]="stepIndex() === 0" (click)="previous()">
+          Назад
+        </button>
+        <a routerLink="/play">Пропустить</a>
+        <button type="button" class="next" [disabled]="!canContinue()" (click)="next()">
+          {{ stepIndex() === lessons.length - 1 ? 'Завершить' : 'Далее' }}
+        </button>
+      </footer>
+    </section>
+  }
+</main>

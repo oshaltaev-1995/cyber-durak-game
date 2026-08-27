@@ -1,10 +1,10 @@
 :host {
   display: block;
-  min-height: 100dvh;
+  min-height: calc(100dvh - 4rem);
 }
 
 .game-shell {
-  min-height: 100dvh;
+  min-height: calc(100dvh - 4rem);
   padding: 0.75rem 0.75rem 12rem;
   color: var(--text-strong);
   background:
@@ -14,36 +14,6 @@
 
 .game-shell.complete {
   padding-bottom: 1.5rem;
-}
-
-.topbar {
-  display: flex;
-  width: min(100%, 80rem);
-  min-height: 3.25rem;
-  margin: auto;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  color: inherit;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-decoration: none;
-}
-
-.brand-mark {
-  display: grid;
-  width: 2rem;
-  height: 2rem;
-  place-items: center;
-  border: 1px solid rgb(73 229 190 / 50%);
-  border-radius: 0.6rem;
-  color: var(--accent);
-  background: rgb(73 229 190 / 10%);
 }
 
 button {
@@ -56,8 +26,7 @@ button {
   cursor: pointer;
 }
 
-button:focus-visible,
-.brand:focus-visible {
+button:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 3px;
 }
@@ -76,6 +45,49 @@ button:disabled {
   font-size: 0.82rem;
 }
 
+.game-utilities {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.restart-confirmation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.7rem;
+  border: 1px solid rgb(255 224 138 / 30%);
+  border-radius: 0.85rem;
+  background: rgb(52 44 21 / 82%);
+}
+
+.restart-confirmation div,
+.restart-confirmation strong,
+.restart-confirmation span {
+  display: block;
+}
+
+.restart-confirmation span {
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.restart-confirmation button {
+  min-height: 2.4rem;
+  padding: 0.45rem 0.7rem;
+}
+
+.restart-confirmation .cancel {
+  color: var(--text-strong);
+  border: 1px solid var(--border);
+  background: rgb(255 255 255 / 6%);
+}
+
 .welcome {
   display: grid;
   width: min(100%, 68rem);
@@ -85,24 +97,28 @@ button:disabled {
   text-align: center;
 }
 
-.kicker {
-  color: var(--accent);
-  font-size: 0.75rem;
-  font-weight: 750;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-}
-
 .welcome h1 {
-  margin: 0.4rem 0 0;
-  font-size: clamp(4.8rem, 24vw, 10rem);
-  letter-spacing: -0.08em;
-  line-height: 0.92;
+  margin: 1rem 0 0;
+  font-size: clamp(1.5rem, 7vw, 2.5rem);
 }
 
 .welcome p {
   margin: 1rem 0 2rem;
   color: var(--text-muted);
+}
+
+.loading-mark {
+  display: grid;
+  width: 4rem;
+  height: 4rem;
+  margin: auto;
+  place-items: center;
+  border: 1px solid rgb(73 229 190 / 45%);
+  border-radius: 1rem;
+  color: var(--accent);
+  background: rgb(73 229 190 / 10%);
+  font-size: 1.5rem;
+  font-weight: 850;
 }
 
 .play-button,
@@ -365,9 +381,15 @@ button:disabled {
   .discard-zone {
     align-content: center;
   }
+}
 
-  .welcome {
-    text-align: left;
+@media (max-width: 35rem) {
+  .restart-confirmation {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .restart-confirmation div {
+    grid-column: 1 / -1;
   }
 }
 

@@ -1,25 +1,13 @@
 <div class="game-shell" [class.complete]="game()?.phase === 'complete'">
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="Kiba — главная">
-      <span class="brand-mark" aria-hidden="true">K</span>
-      <span>KIBA</span>
-    </a>
-    @if (game() !== null) {
-      <button class="new-game" type="button" [disabled]="pending()" (click)="startNewGame()">
-        Новая игра
-      </button>
-    }
-  </header>
-
   @if (game() === null) {
     <main class="welcome">
       <div class="welcome-copy">
-        <span class="kicker">Cyber Durak</span>
-        <h1>KIBA</h1>
-        <p>Арифметический карточный дурак</p>
-        <button class="play-button" type="button" [disabled]="pending()" (click)="startNewGame()">
-          {{ pending() ? 'Раздаём карты…' : 'Играть' }}
-        </button>
+        <span class="loading-mark" aria-hidden="true">K</span>
+        <h1>{{ pending() ? 'Раздаём карты…' : 'Не удалось начать игру' }}</h1>
+        <p>{{ pending() ? 'Готовим колоду и выбираем первый ход' : 'Попробуйте ещё раз.' }}</p>
+        @if (!pending()) {
+          <button class="play-button" type="button" (click)="startNewGame()">Повторить</button>
+        }
         @if (errorMessage(); as error) {
           <div class="error-message" role="alert">{{ error }}</div>
         }
@@ -27,6 +15,31 @@
     </main>
   } @else if (game(); as currentGame) {
     <main class="game-board">
+      <div class="game-utilities">
+        <span>{{
+          currentGame.phase === 'complete' ? 'Партия завершена' : 'Партия против бота'
+        }}</span>
+        <button class="new-game" type="button" [disabled]="pending()" (click)="requestNewGame()">
+          Новая игра
+        </button>
+      </div>
+
+      @if (restartConfirmation()) {
+        <section
+          class="restart-confirmation"
+          role="alertdialog"
+          aria-labelledby="restart-title"
+          aria-describedby="restart-description"
+        >
+          <div>
+            <strong id="restart-title">Начать новую игру?</strong>
+            <span id="restart-description">Текущая партия будет потеряна.</span>
+          </div>
+          <button type="button" class="cancel" (click)="cancelNewGame()">Отмена</button>
+          <button type="button" (click)="startNewGame()">Начать</button>
+        </section>
+      }
+
       <section class="opponent-zone" aria-label="Карты бота">
         @if (currentGame.bot_hand_count > 0) {
           <div class="opponent-card-backs" aria-hidden="true"><i></i><i></i><i></i></div>

@@ -2,3 +2,73 @@
   display: block;
   min-height: 100dvh;
 }
+
+.app-header {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  width: min(100% - 1.25rem, 80rem);
+  min-height: 4rem;
+  margin: auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-strong);
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid rgb(73 229 190 / 50%);
+  border-radius: 0.6rem;
+  color: var(--accent);
+  background: rgb(73 229 190 / 10%);
+}
+
+nav {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+nav a {
+  padding: 0.5rem 0.55rem;
+  border-radius: 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 720;
+  text-decoration: none;
+}
+
+nav a:hover,
+nav a.active {
+  color: var(--text-strong);
+  background: rgb(255 255 255 / 6%);
+}
+
+a:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 25rem) {
+  .brand > span:last-child {
+    display: none;
+  }
+
+  nav a {
+    padding-inline: 0.45rem;
+    font-size: 0.68rem;
+  }
+}

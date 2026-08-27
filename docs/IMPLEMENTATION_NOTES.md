@@ -405,6 +405,19 @@ putting UI history into the rules model. Later throw-in packets also include exp
 derived by the existing authoritative `analyze_throw_in` primitive. Angular renders those confirmed
 reason codes and expressions after acceptance; it does not infer throw-in legality before submission.
 
+### 10.4 Tutorial, rules, and product shell
+
+The Angular shell routes `/`, `/play`, `/tutorial`, and `/rules` behind one compact navigation. A
+root-scoped frontend holder retains only the latest public `GameResponse`, so visiting Tutorial or
+Rules and returning to Play does not discard an active process-local session. This is convenience
+state, not saved-game persistence; a browser or backend restart may still lose the Alpha session.
+
+The tutorial is deterministic, scripted educational content. Each exercise compares the user's
+choice only with an explicitly authored answer for that fixed example. It does not calculate trump,
+attack, defense, throw-in, mean, transfer, or winner legality and is not a second rules engine. The
+Russian Rules page is a player-facing transformation of `GAME_RULES.md`, while real match actions
+continue to use backend-provided actions and authoritative REST transitions.
+
 Possible bot priorities:
 
 ### Defense
