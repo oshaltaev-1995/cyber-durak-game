@@ -31,6 +31,13 @@ describe('ProfileService', () => {
     request.flush({ items: [], total: 0, limit: 10, offset: 20 });
   });
 
+  it('filters private match history by opponent type', () => {
+    service.getMatches(20, 0, 'PVP').subscribe();
+    const request = http.expectOne('/api/matches?limit=20&offset=0&opponent_type=PVP');
+    expect(request.request.method).toBe('GET');
+    request.flush({ items: [], total: 0, limit: 20, offset: 0 });
+  });
+
   it('loads derived progression', () => {
     service.getProgression().subscribe();
     const request = http.expectOne('/api/progression');

@@ -42,6 +42,8 @@ const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
   },
   game_phase: 'bout_active',
   result: null,
+  result_saved: false,
+  progression_award: null,
   hand: [card],
   opponent_hand_count: 7,
   draw_pile_count: 22,
@@ -307,6 +309,49 @@ describe('PvPRoomPageComponent', () => {
     );
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(expected);
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('не сохраняются');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Создайте аккаунт');
+  });
+
+  it('renders only the authenticated local participant progression on completion', () => {
+    socket.state.set(
+      makeState({
+        room_phase: 'COMPLETE',
+        game_phase: 'complete',
+        you: { ...makeState().you, authenticated: true },
+        result: {
+          outcome: 'WIN',
+          winner_seat: 'one',
+          winner_participant_id: 'p1',
+          winner_display_name: 'Alice',
+        },
+        result_saved: true,
+        progression_award: {
+          base_xp: 100,
+          achievement_bonus_xp: 25,
+          total_awarded_xp: 125,
+          total_xp: 125,
+          level: 1,
+          next_level_xp: 200,
+          xp_needed_for_next_level: 75,
+          new_achievements: [
+            {
+              code: 'FIRST_WIN',
+              title: 'Первая победа',
+              description: 'Победите впервые.',
+              bonus_xp: 25,
+            },
+          ],
+          new_cosmetics: [{ code: 'WINNER_FRAME', category: 'PROFILE_FRAME', title: 'Победитель' }],
+        },
+      }),
+    );
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent;
+
+    expect(text).toContain('+125 XP');
+    expect(text).toContain('Результат сохранён');
+    expect(text).toContain('Первая победа');
+    expect(text).toContain('Победитель');
+    expect(text).not.toContain('Создайте аккаунт');
   });
 });

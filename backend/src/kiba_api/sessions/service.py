@@ -21,16 +21,16 @@ from kiba_api.game import (
     GamePhase,
     GameState,
     Seat,
-    ThrowInReason,
-    analyze_throw_in,
     create_new_game,
     play_bot_turn,
     start_game_bout,
 )
 from kiba_api.sessions.actions import (
+    ActionCounters,
     HumanActionType,
     acting_seat,
     apply_game_action,
+    record_accepted_action,
     remember_resolved_bout,
 )
 
@@ -345,37 +345,26 @@ def _record_accepted_human_action(
     action_type: HumanActionType,
     selected: tuple[Card, ...],
 ) -> GameSession:
-    transfer_count = session.human_transfer_count
-    take_count = session.human_take_count
-    throw_in_count = session.human_throw_in_count
-    max_transfer_target = session.max_transfer_target
-    mean_throw_in_count = session.arithmetic_mean_throw_in_count
-
-    bout = previous_state.active_bout
-    if action_type is HumanActionType.TRANSFER:
-        transfer_count += 1
-        if bout is not None and bout.transfer_target is not None:
-            max_transfer_target = max(max_transfer_target, bout.transfer_target)
-    elif action_type is HumanActionType.TAKE:
-        take_count += 1
-    elif action_type is HumanActionType.THROW_IN:
-        throw_in_count += 1
-        if bout is not None:
-            analysis = analyze_throw_in(
-                selected,
-                bout.table_cards,
-                bout.direct_anchor_cards,
-                bout.trump_state,
-            )
-            if ThrowInReason.ARITHMETIC_MEAN in analysis.reasons:
-                mean_throw_in_count += 1
+    counters = record_accepted_action(
+        ActionCounters(
+            action_count=session.human_action_count,
+            transfer_count=session.human_transfer_count,
+            take_count=session.human_take_count,
+            throw_in_count=session.human_throw_in_count,
+            max_transfer_target=session.max_transfer_target,
+            arithmetic_mean_throw_in_count=session.arithmetic_mean_throw_in_count,
+        ),
+        previous_state,
+        action_type,
+        selected,
+    )
 
     return replace(
         session,
-        human_action_count=session.human_action_count + 1,
-        human_transfer_count=transfer_count,
-        human_take_count=take_count,
-        human_throw_in_count=throw_in_count,
-        max_transfer_target=max_transfer_target,
-        arithmetic_mean_throw_in_count=mean_throw_in_count,
+        human_action_count=counters.action_count,
+        human_transfer_count=counters.transfer_count,
+        human_take_count=counters.take_count,
+        human_throw_in_count=counters.throw_in_count,
+        max_transfer_target=counters.max_transfer_target,
+        arithmetic_mean_throw_in_count=counters.arithmetic_mean_throw_in_count,
     )

@@ -82,6 +82,8 @@ Everything else depends on this.
 - reconnect support
 - authoritative two-participant WebSocket gameplay
 - participant-specific state that never exposes the opponent hand or future draw order
+- authenticated private-PvP results participate in the same history, statistics, XP, achievement,
+  and cosmetic progression as bot results; guest PvP remains unsaved
 
 Example flow:
 
@@ -90,9 +92,9 @@ Example flow:
 The Alpha 2 private-room slice is deliberately process-local: it provides private room
 creation/join, a responsive Angular invite and game flow, guest or optional-account display
 identity, browser-session reconnect credentials, authoritative two-seat WebSocket action routing,
-and complete WIN/DRAW matches. Active rooms are lost on backend restart. Matchmaking, rating, chat,
-spectators, persistent active rooms, multiplayer match history/progression, and distributed room
-infrastructure remain later work.
+and complete WIN/DRAW matches. Active rooms are lost on backend restart, while completed
+authenticated participant summaries and progression survive. Matchmaking, rating, chat, spectators,
+persistent active rooms, and distributed room infrastructure remain later work.
 
 ---
 

@@ -2,18 +2,24 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from kiba_api.game import GameOutcome, GamePhase
+from kiba_api.game import GameOutcome, GamePhase, GameResult, Seat
 from kiba_api.persistence.database import Database
 from kiba_api.persistence.models import CompletedMatch
 from kiba_api.sessions import GameSession
+
+if TYPE_CHECKING:
+    from kiba_api.pvp import PvPParticipant, PvPRoom
 
 
 class MatchOutcome(StrEnum):
@@ -28,6 +34,7 @@ class OpponentType(StrEnum):
     """The constrained opponent kind supported by the current Alpha."""
 
     BOT = "BOT"
+    PVP = "PVP"
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +53,10 @@ class MatchStatistics:
     total_throw_ins: int
     highest_transfer_target: int
     arithmetic_mean_throw_ins: int
+    bot_games: int
+    bot_wins: int
+    pvp_games: int
+    pvp_wins: int
 
 
 class MatchHistoryService:
@@ -109,6 +120,70 @@ class MatchHistoryService:
                 if duplicate is None:
                     raise
 
+    def record_completed_pvp_room(self, room: PvPRoom) -> dict[str, CompletedMatch]:
+        """Persist authenticated participant perspectives in one idempotent transaction."""
+        state = room.state
+        if (
+            room.phase.value != "COMPLETE"
+            or state is None
+            or state.phase is not GamePhase.COMPLETE
+            or state.result is None
+        ):
+            raise ValueError("only a completed authoritative PvP room can be recorded")
+        if room.game_started_at is None or room.initial_attacker is None:
+            raise ValueError("a recorded PvP game requires start metadata")
+
+        authenticated = tuple(value for value in room.participants if value.user_id is not None)
+        if not authenticated:
+            return {}
+        completed_at = _as_utc(room.updated_at)
+        started_at = _as_utc(room.game_started_at)
+        records: list[tuple[str, CompletedMatch]] = []
+        for participant in authenticated:
+            opponent = room.participant(participant.seat.other)
+            counters = room.action_summary(participant.seat)
+            records.append(
+                (
+                    participant.participant_id,
+                    CompletedMatch(
+                        user_id=participant.user_id,
+                        game_session_id=f"pvp:{room.room_id}:{participant.seat.value}",
+                        pvp_match_id=room.room_id,
+                        opponent_type=OpponentType.PVP.value,
+                        opponent_user_id=opponent.user_id,
+                        opponent_display_name=opponent.display_name,
+                        outcome=_outcome_for_seat(state.result, participant.seat),
+                        started_at=started_at,
+                        completed_at=completed_at,
+                        duration_seconds=max(0, int((completed_at - started_at).total_seconds())),
+                        user_seat=participant.seat.value,
+                        initial_attacker=room.initial_attacker.value,
+                        final_human_card_count=len(state.hand(participant.seat)),
+                        final_bot_card_count=len(state.hand(opponent.seat)),
+                        human_action_count=counters.action_count,
+                        human_transfer_count=counters.transfer_count,
+                        human_take_count=counters.take_count,
+                        human_throw_in_count=counters.throw_in_count,
+                        max_transfer_target=counters.max_transfer_target,
+                        arithmetic_mean_throw_in_count=(counters.arithmetic_mean_throw_in_count),
+                    ),
+                )
+            )
+
+        with self._database.session() as database_session:
+            existing = _pvp_records(database_session, room.room_id, authenticated)
+            for participant_id, record in records:
+                if participant_id not in existing:
+                    database_session.add(record)
+            try:
+                database_session.commit()
+            except IntegrityError:
+                database_session.rollback()
+            persisted = _pvp_records(database_session, room.room_id, authenticated)
+            if len(persisted) != len(authenticated):
+                raise RuntimeError("PvP match persistence did not converge")
+            return persisted
+
     def get_statistics(self, user_id: UUID) -> MatchStatistics:
         """Calculate aggregate and chronological streak statistics from match rows."""
         with self._database.session() as database_session:
@@ -126,6 +201,8 @@ class MatchHistoryService:
         wins = sum(row.outcome == MatchOutcome.WIN.value for row in rows)
         losses = sum(row.outcome == MatchOutcome.LOSS.value for row in rows)
         draws = sum(row.outcome == MatchOutcome.DRAW.value for row in rows)
+        bot_rows = [row for row in rows if row.opponent_type == OpponentType.BOT.value]
+        pvp_rows = [row for row in rows if row.opponent_type == OpponentType.PVP.value]
         current_streak = 0
         best_streak = 0
         for row in rows:
@@ -148,14 +225,25 @@ class MatchHistoryService:
             total_throw_ins=sum(row.human_throw_in_count for row in rows),
             highest_transfer_target=max((row.max_transfer_target for row in rows), default=0),
             arithmetic_mean_throw_ins=sum(row.arithmetic_mean_throw_in_count for row in rows),
+            bot_games=len(bot_rows),
+            bot_wins=sum(row.outcome == MatchOutcome.WIN.value for row in bot_rows),
+            pvp_games=len(pvp_rows),
+            pvp_wins=sum(row.outcome == MatchOutcome.WIN.value for row in pvp_rows),
         )
 
-    def list_matches(self, user_id: UUID, *, limit: int, offset: int) -> list[CompletedMatch]:
+    def list_matches(
+        self,
+        user_id: UUID,
+        *,
+        limit: int,
+        offset: int,
+        opponent_type: OpponentType | None = None,
+    ) -> list[CompletedMatch]:
         """Return one user's newest completed summaries with bounded pagination."""
         with self._database.session() as database_session:
             return list(
                 database_session.scalars(
-                    _for_user(user_id)
+                    _for_user(user_id, opponent_type)
                     .order_by(
                         CompletedMatch.completed_at.desc(),
                         CompletedMatch.created_at.desc(),
@@ -166,17 +254,17 @@ class MatchHistoryService:
                 )
             )
 
-    def count_matches(self, user_id: UUID) -> int:
+    def count_matches(self, user_id: UUID, opponent_type: OpponentType | None = None) -> int:
         """Return the total private history count for pagination metadata."""
+        query = (
+            select(func.count())
+            .select_from(CompletedMatch)
+            .where(CompletedMatch.user_id == user_id)
+        )
+        if opponent_type is not None:
+            query = query.where(CompletedMatch.opponent_type == opponent_type.value)
         with self._database.session() as database_session:
-            return (
-                database_session.scalar(
-                    select(func.count())
-                    .select_from(CompletedMatch)
-                    .where(CompletedMatch.user_id == user_id)
-                )
-                or 0
-            )
+            return database_session.scalar(query) or 0
 
     def get_match_by_game_session(self, game_session_id: str) -> CompletedMatch:
         """Return the authoritative row for a stable process-local game identifier."""
@@ -189,8 +277,13 @@ class MatchHistoryService:
         return match
 
 
-def _for_user(user_id: UUID) -> Select[tuple[CompletedMatch]]:
-    return select(CompletedMatch).where(CompletedMatch.user_id == user_id)
+def _for_user(
+    user_id: UUID, opponent_type: OpponentType | None = None
+) -> Select[tuple[CompletedMatch]]:
+    query = select(CompletedMatch).where(CompletedMatch.user_id == user_id)
+    if opponent_type is not None:
+        query = query.where(CompletedMatch.opponent_type == opponent_type.value)
+    return query
 
 
 def _outcome_for_human(game_session: GameSession) -> str:
@@ -204,6 +297,33 @@ def _outcome_for_human(game_session: GameSession) -> str:
         if result.winner is game_session.human_seat
         else MatchOutcome.LOSS.value
     )
+
+
+def _outcome_for_seat(result: GameResult, seat: Seat) -> str:
+    if result.outcome is GameOutcome.DRAW:
+        return MatchOutcome.DRAW.value
+    return MatchOutcome.WIN.value if result.winner is seat else MatchOutcome.LOSS.value
+
+
+def _pvp_records(
+    database_session: Session,
+    pvp_match_id: str,
+    participants: Sequence[PvPParticipant],
+) -> dict[str, CompletedMatch]:
+    rows = list(
+        database_session.scalars(
+            select(CompletedMatch).where(
+                CompletedMatch.pvp_match_id == pvp_match_id,
+                CompletedMatch.user_id.in_([participant.user_id for participant in participants]),
+            )
+        )
+    )
+    by_user = {row.user_id: row for row in rows}
+    return {
+        participant.participant_id: by_user[participant.user_id]
+        for participant in participants
+        if participant.user_id in by_user
+    }
 
 
 def _as_utc(value: datetime) -> datetime:

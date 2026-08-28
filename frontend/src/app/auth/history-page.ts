@@ -21,6 +21,7 @@ export class HistoryPageComponent implements OnInit {
   protected readonly total = signal(0);
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly filter = signal<'ALL' | 'BOT' | 'PVP'>('ALL');
 
   ngOnInit(): void {
     if (this.auth.currentUser() !== null) {
@@ -51,11 +52,24 @@ export class HistoryPageComponent implements OnInit {
     return minutes > 0 ? `${minutes} мин ${remainder} сек` : `${remainder} сек`;
   }
 
+  protected opponentLabel(match: MatchHistoryItem): string {
+    return match.opponent_type === 'PVP'
+      ? `против ${match.opponent_display_name ?? 'игрока'}`
+      : 'против бота';
+  }
+
+  protected setFilter(filter: 'ALL' | 'BOT' | 'PVP'): void {
+    if (this.filter() === filter) return;
+    this.filter.set(filter);
+    this.load();
+  }
+
   private load(): void {
     this.pending.set(true);
     this.error.set(null);
+    const selectedFilter = this.filter();
     this.profile
-      .getMatches()
+      .getMatches(20, 0, selectedFilter === 'ALL' ? null : selectedFilter)
       .pipe(finalize(() => this.pending.set(false)))
       .subscribe({
         next: (response) => {

@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from kiba_api.api.schemas import (
     CardResponse,
     PacketResponse,
+    ProgressionAwardResponse,
     TableArithmeticResponse,
     TrumpResponse,
 )
@@ -50,6 +51,8 @@ class PvPStateResponse(BaseModel):
     opponent: ParticipantResponse | None
     game_phase: str | None
     result: PvPResultResponse | None
+    result_saved: bool
+    progression_award: ProgressionAwardResponse | None
     hand: list[CardResponse]
     opponent_hand_count: int | None
     draw_pile_count: int

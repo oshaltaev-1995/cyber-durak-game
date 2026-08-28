@@ -44,6 +44,70 @@ def test_initial_migration_upgrades_and_downgrades_clean_database(
             {"id": auth_session_id, "user_id": user_id},
         )
 
+    command.upgrade(config, "20260827_0002")
+    match_id = uuid4().hex
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """INSERT INTO completed_matches (
+                    id, user_id, game_session_id, opponent_type, outcome,
+                    started_at, completed_at, duration_seconds, user_seat,
+                    initial_attacker, final_human_card_count, final_bot_card_count,
+                    human_action_count, human_transfer_count, human_take_count,
+                    human_throw_in_count, max_transfer_target,
+                    arithmetic_mean_throw_in_count
+                ) VALUES (
+                    :id, :user_id, 'existing-bot-game', 'BOT', 'WIN',
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, 'one', 'one',
+                    0, 1, 1, 0, 0, 0, 0, 0
+                )"""
+            ),
+            {"id": match_id, "user_id": user_id},
+        )
+
+    command.upgrade(config, "20260827_0004")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """INSERT INTO xp_ledger (
+                    id, user_id, amount, source_type, source_key, source_match_id
+                ) VALUES (
+                    :id, :user_id, 100, 'MATCH', 'match:existing', :match_id
+                )"""
+            ),
+            {"id": uuid4().hex, "user_id": user_id, "match_id": match_id},
+        )
+        connection.execute(
+            text(
+                """INSERT INTO user_achievements (
+                    id, user_id, achievement_code, unlocked_at, unlocked_match_id
+                ) VALUES (
+                    :id, :user_id, 'FIRST_MATCH', CURRENT_TIMESTAMP, :match_id
+                )"""
+            ),
+            {"id": uuid4().hex, "user_id": user_id, "match_id": match_id},
+        )
+        connection.execute(
+            text(
+                """INSERT INTO user_cosmetic_unlocks (
+                    id, user_id, cosmetic_code, unlocked_at, source_type, source_key
+                ) VALUES (
+                    :id, :user_id, 'LEVEL_3_BACK', CURRENT_TIMESTAMP, 'LEVEL', 'level:3'
+                )"""
+            ),
+            {"id": uuid4().hex, "user_id": user_id},
+        )
+        connection.execute(
+            text(
+                """INSERT INTO user_cosmetic_loadout (
+                    user_id, card_back_code, table_theme_code, profile_frame_code
+                ) VALUES (
+                    :user_id, 'LEVEL_3_BACK', 'CLASSIC_TABLE', 'NO_FRAME'
+                )"""
+            ),
+            {"user_id": user_id},
+        )
+
     command.upgrade(config, "head")
 
     inspector = inspect(engine)
@@ -64,14 +128,21 @@ def test_initial_migration_upgrades_and_downgrades_clean_database(
     assert auth_foreign_keys[0]["referred_table"] == "users"
     assert auth_foreign_keys[0]["options"]["ondelete"] == "CASCADE"
     match_foreign_keys = inspector.get_foreign_keys("completed_matches")
-    assert match_foreign_keys[0]["referred_table"] == "users"
-    assert match_foreign_keys[0]["options"]["ondelete"] == "CASCADE"
+    assert {foreign_key["options"]["ondelete"] for foreign_key in match_foreign_keys} == {
+        "CASCADE",
+        "SET NULL",
+    }
     assert {"game_session_id"} in [
         set(constraint["column_names"])
         for constraint in inspector.get_unique_constraints("completed_matches")
     ]
     assert {"user_id", "completed_at"} in [
         set(index["column_names"]) for index in inspector.get_indexes("completed_matches")
+    ]
+    assert {"user_id", "pvp_match_id"} in [
+        set(index["column_names"])
+        for index in inspector.get_indexes("completed_matches")
+        if index["unique"]
     ]
     assert {"user_id", "source_key"} in [
         set(index["column_names"])
@@ -91,6 +162,12 @@ def test_initial_migration_upgrades_and_downgrades_clean_database(
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM users")) == 1
         assert connection.scalar(text("SELECT count(*) FROM auth_sessions")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM completed_matches")) == 1
+        assert connection.scalar(text("SELECT opponent_type FROM completed_matches")) == "BOT"
+        assert connection.scalar(text("SELECT count(*) FROM xp_ledger")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM user_achievements")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM user_cosmetic_unlocks")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM user_cosmetic_loadout")) == 1
 
     command.downgrade(config, "20260827_0003")
     downgraded_tables = set(inspect(engine).get_table_names())

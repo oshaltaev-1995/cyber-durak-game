@@ -14,6 +14,7 @@ from kiba_api.api.serialization import (
     _presentation_card_key,
     _serialize_card,
     _serialize_packets,
+    serialize_progression_award,
 )
 from kiba_api.game import (
     BoutPhase,
@@ -54,6 +55,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
     """Serialize one room strictly from the requesting participant's perspective."""
     opponent = next((value for value in room.participants if value.seat is not viewer.seat), None)
     state = room.state
+    completion = room.completion_for(viewer.participant_id)
     if state is None:
         return PvPStateResponse(
             invite_code=room.invite_code,
@@ -63,6 +65,8 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             opponent=_serialize_participant(opponent) if opponent else None,
             game_phase=None,
             result=None,
+            result_saved=False,
+            progression_award=None,
             hand=[],
             opponent_hand_count=None,
             draw_pile_count=0,
@@ -115,6 +119,12 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
         opponent=_serialize_participant(opponent) if opponent else None,
         game_phase=state.phase.value,
         result=_serialize_result(room),
+        result_saved=completion.saved if completion is not None else False,
+        progression_award=(
+            serialize_progression_award(completion.progression_award)
+            if completion is not None
+            else None
+        ),
         hand=[
             _serialize_card(card, trump_state)
             for card in sorted(state.hand(viewer.seat), key=_presentation_card_key)

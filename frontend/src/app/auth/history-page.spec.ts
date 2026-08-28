@@ -19,11 +19,12 @@ const populated: MatchHistoryResponse = {
     {
       id: 'match-1',
       outcome: 'WIN',
-      opponent_type: 'BOT',
+      opponent_type: 'PVP',
+      opponent_display_name: 'Alice',
       started_at: '2026-08-27T10:00:00+00:00',
       completed_at: '2026-08-27T10:04:18+00:00',
       duration_seconds: 258,
-      initial_attacker: 'HUMAN',
+      initial_attacker: 'YOU',
       final_human_card_count: 0,
       final_bot_card_count: 3,
       human_action_count: 14,
@@ -37,6 +38,7 @@ const populated: MatchHistoryResponse = {
       id: 'match-2',
       outcome: 'DRAW',
       opponent_type: 'BOT',
+      opponent_display_name: null,
       started_at: '2026-08-26T10:00:00+00:00',
       completed_at: '2026-08-26T10:02:00+00:00',
       duration_seconds: 120,
@@ -54,6 +56,7 @@ const populated: MatchHistoryResponse = {
       id: 'match-3',
       outcome: 'LOSS',
       opponent_type: 'BOT',
+      opponent_display_name: null,
       started_at: '2026-08-25T10:00:00+00:00',
       completed_at: '2026-08-25T10:03:00+00:00',
       duration_seconds: 180,
@@ -103,6 +106,20 @@ describe('HistoryPageComponent', () => {
     expect(element.textContent).toContain('Ничья');
     expect(element.textContent).toContain('4 мин 18 сек');
     expect(element.textContent).toContain('Макс. перевод');
+    expect(element.textContent).toContain('против Alice');
+    expect(element.textContent).toContain('против бота');
+  });
+
+  it('filters history by PvP without changing pagination semantics', () => {
+    const fixture = TestBed.createComponent(HistoryPageComponent);
+    fixture.detectChanges();
+    const pvp = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'PvP',
+    ) as HTMLButtonElement;
+
+    pvp.click();
+
+    expect(profile.getMatches).toHaveBeenLastCalledWith(20, 0, 'PVP');
   });
 
   it('renders the authenticated empty state', () => {

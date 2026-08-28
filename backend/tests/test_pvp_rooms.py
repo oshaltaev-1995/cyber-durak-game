@@ -8,11 +8,12 @@ from uuid import uuid4
 
 import pytest
 
-from kiba_api.game import GamePhase, Seat, create_new_game
+from kiba_api.game import Card, GamePhase, GameState, Rank, Seat, Suit, create_new_game
 from kiba_api.pvp import (
     PvPActionError,
     PvPError,
     PvPErrorCode,
+    PvPParticipantCompletion,
     PvPRoomPhase,
     PvPRoomService,
     RoomTTLPolicy,
@@ -175,6 +176,53 @@ def test_action_versions_are_monotonic_and_concurrent_submission_commits_once() 
     assert results.count(PvPErrorCode.STALE_VERSION.value) == 1
     assert updated.version == 1
     assert len(updated.state.hand(participant.seat)) == 6
+
+
+def test_authoritative_completion_records_once_and_reconnect_reuses_result() -> None:
+    completions = []
+
+    def tiny_game() -> GameState:
+        return GameState(
+            seat_one_hand=(Card(Rank.ACE, Suit.CLUBS),),
+            seat_two_hand=(Card(Rank.SIX, Suit.CLUBS),),
+            draw_pile=(),
+            discard_pile=(),
+            current_attacker=Seat.ONE,
+        )
+
+    def record(room):
+        completions.append(room.room_id)
+        return tuple(
+            PvPParticipantCompletion(value.participant_id, False) for value in room.participants
+        )
+
+    service = PvPRoomService(
+        game_factory=tiny_game,
+        token_factory=TokenFactory(),
+        completion_recorder=record,
+    )
+    room, creator, _joiner = create_started_room(service)
+
+    attacked = service.play_action(
+        room.invite_code,
+        creator.reconnect_token,
+        HumanActionType.INITIAL_ATTACK,
+        (Card(Rank.ACE, Suit.CLUBS),),
+        expected_version=0,
+    )
+    complete = service.play_action(
+        room.invite_code,
+        _joiner.reconnect_token,
+        HumanActionType.TAKE,
+        expected_version=attacked.version,
+    )
+    service.get_room(room.invite_code)
+    service.authenticate(room.invite_code, creator.reconnect_token)
+
+    assert complete.phase is PvPRoomPhase.COMPLETE
+    assert completions == [room.room_id]
+    assert complete.action_summary(Seat.ONE).action_count == 1
+    assert complete.action_summary(Seat.TWO).take_count == 1
 
 
 def test_wrong_turn_illegal_action_and_stale_version_do_not_mutate_room() -> None:

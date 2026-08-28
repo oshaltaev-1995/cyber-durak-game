@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from kiba_api.game import (
@@ -11,6 +12,8 @@ from kiba_api.game import (
     GamePhase,
     GameState,
     Seat,
+    ThrowInReason,
+    analyze_throw_in,
     finish_game_bout,
     play_defense,
     play_game_defense,
@@ -30,6 +33,76 @@ class HumanActionType(StrEnum):
     THROW_IN = "THROW_IN"
     TAKE = "TAKE"
     BITO = "BITO"
+
+
+@dataclass(frozen=True, slots=True)
+class ActionCounters:
+    """Accepted action summary for one seat in one authoritative match."""
+
+    action_count: int = 0
+    transfer_count: int = 0
+    take_count: int = 0
+    throw_in_count: int = 0
+    max_transfer_target: int = 0
+    arithmetic_mean_throw_in_count: int = 0
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "action_count",
+            "transfer_count",
+            "take_count",
+            "throw_in_count",
+            "max_transfer_target",
+            "arithmetic_mean_throw_in_count",
+        ):
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"{field_name} must be an int")
+            if value < 0:
+                raise ValueError(f"{field_name} must not be negative")
+
+
+def record_accepted_action(
+    counters: ActionCounters,
+    previous_state: GameState,
+    action_type: HumanActionType,
+    selected: tuple[Card, ...],
+) -> ActionCounters:
+    """Return counters including one already-accepted authoritative action."""
+    transfer_count = counters.transfer_count
+    take_count = counters.take_count
+    throw_in_count = counters.throw_in_count
+    max_transfer_target = counters.max_transfer_target
+    mean_throw_in_count = counters.arithmetic_mean_throw_in_count
+    bout = previous_state.active_bout
+
+    if action_type is HumanActionType.TRANSFER:
+        transfer_count += 1
+        if bout is not None and bout.transfer_target is not None:
+            max_transfer_target = max(max_transfer_target, bout.transfer_target)
+    elif action_type is HumanActionType.TAKE:
+        take_count += 1
+    elif action_type is HumanActionType.THROW_IN:
+        throw_in_count += 1
+        if bout is not None:
+            analysis = analyze_throw_in(
+                selected,
+                bout.table_cards,
+                bout.direct_anchor_cards,
+                bout.trump_state,
+            )
+            if ThrowInReason.ARITHMETIC_MEAN in analysis.reasons:
+                mean_throw_in_count += 1
+
+    return replace(
+        counters,
+        action_count=counters.action_count + 1,
+        transfer_count=transfer_count,
+        take_count=take_count,
+        throw_in_count=throw_in_count,
+        max_transfer_target=max_transfer_target,
+        arithmetic_mean_throw_in_count=mean_throw_in_count,
+    )
 
 
 def acting_seat(state: GameState) -> Seat | None:

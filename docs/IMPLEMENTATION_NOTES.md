@@ -582,6 +582,29 @@ terminal room-unavailable screen; invalid credentials return through public room
 These transport changes do not alter `GameState`, gameplay versions, hidden-information boundaries,
 or the process-local room TTL policy.
 
+### 10.9 Persistent private-PvP results
+
+Phase 5D extends the existing user-owned `completed_matches` stream instead of creating PvP-only
+statistics or progression tables. A completed room's opaque `room_id` is its non-secret shared PvP
+match identity. Each authenticated participant receives one perspective row, protected by a unique
+`(user_id, pvp_match_id)` index: outcomes, final card counts, and accepted-action counters are local
+to that seat. The row snapshots the opponent's public display name and nullable user ID; it never
+stores email, reconnect credentials, hidden hands, draw order, or live room state. Guests create no
+row and no anonymous account.
+
+The room tracks only minimal per-seat accepted-action summaries in memory. The authoritative
+completion transition persists all authenticated perspectives in one idempotent transaction, then
+reuses the existing XP ledger, achievement synchronization, and cosmetic synchronization for each
+user. WebSocket delivery cannot trigger persistence. Participant-specific COMPLETE serialization
+repeats only the local account's saved flag and progression delta on reconnect; it never broadcasts
+one participant's private progression to the opponent. History and statistics combine BOT and PVP
+rows chronologically, with compact bot/PvP splits and an optional opponent-type history filter.
+
+Room identity remains fixed at create/join: signing in or out later does not reassign a participant.
+Active rooms and reconnect credentials are still process-local and disappear on restart; only
+completed summaries/progression survive. Rating, ELO, matchmaking, public profiles, replay logs, and
+private-room progression-abuse prevention are deliberately deferred before competitive launch.
+
 Docker Compose keeps PostgreSQL on its private service network and applies `alembic upgrade head`
 before FastAPI starts. Production deployment must supply external database credentials, HTTPS with
 Secure cookies, explicit trusted origins, robust distributed rate limiting, email verification,

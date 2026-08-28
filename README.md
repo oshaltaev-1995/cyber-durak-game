@@ -7,8 +7,8 @@ account identity with completed-match history, statistics, XP, derived levels an
 persistent visual cosmetic rewards, plus a responsive playable Angular human-versus-bot table. The
 Alpha 2 also provides process-local private two-player rooms with invite links, an Angular lobby,
 authoritative WebSocket actions, and browser-session reconnect credentials.
-Registration is never required to play; guest results and progression are not persisted, and guests
-always use the classic appearance.
+Registration is never required to play. Completed authenticated bot and private-PvP matches persist
+history and progression; guest results remain unsaved, and guests always use the classic appearance.
 
 ## Repository structure
 
@@ -124,8 +124,9 @@ Unexpected socket loss uses bounded exponential retry; returning from a backgrou
 offline period verifies/reconnects and replaces the UI with the latest authoritative state. An
 explicit **Выйти** clears that room's local resume credential and does not start another reconnect.
 Private rooms, active games, connection state, and reconnect credentials are process-local and are
-lost when the backend restarts. Multiplayer match history, progression, XP, and room state are not
-persisted; there is no matchmaking or chat.
+lost when the backend restarts. Completed authenticated PvP participant summaries, XP, achievements,
+and cosmetics are persistent and appear in private history; guests remain registration-free and
+unsaved. There is no matchmaking, rating, or chat.
 
 Alpha sessions are held only in backend process memory and are lost when the backend restarts. The
 API sends the human hand and public table state, but never sends bot cards or hidden draw-pile order.
@@ -146,15 +147,15 @@ POST  /api/auth/logout
 GET   /api/auth/me
 PATCH /api/profile
 GET   /api/stats
-GET   /api/matches?limit=20&offset=0
+GET   /api/matches?limit=20&offset=0&opponent_type=PVP
 GET   /api/progression
 GET   /api/achievements
 GET   /api/cosmetics
 PATCH /api/profile/cosmetics
 ```
 
-Only authenticated completed matches grant persistent progression. Base awards are 100 XP for a
-win, 50 XP for a draw, and 25 XP for a loss; achievement bonuses are added once when their
+Only authenticated completed bot or PvP match perspectives grant persistent progression. Base
+awards are 100 XP for a win, 50 XP for a draw, and 25 XP for a loss; achievement bonuses are added once when their
 server-defined condition is first met. Level and achievement milestones may permanently unlock
 optional card backs, table themes, and profile frames. Progression and cosmetics do not affect any
 gameplay rule or bot behavior; there is no currency, shop, or purchase flow.

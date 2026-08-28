@@ -1,10 +1,12 @@
 """Application-session orchestration helpers."""
 
 from kiba_api.sessions.actions import (
+    ActionCounters,
     HumanActionType,
     acting_seat,
     apply_game_action,
     available_actions_for,
+    record_accepted_action,
     remember_resolved_bout,
 )
 from kiba_api.sessions.service import (
@@ -18,6 +20,7 @@ from kiba_api.sessions.service import (
 )
 
 __all__ = [
+    "ActionCounters",
     "GameSession",
     "GameAppearance",
     "GameSessionService",
@@ -30,4 +33,5 @@ __all__ = [
     "apply_game_action",
     "available_actions_for",
     "remember_resolved_bout",
+    "record_accepted_action",
 ]

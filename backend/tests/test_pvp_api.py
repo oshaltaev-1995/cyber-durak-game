@@ -13,7 +13,7 @@ from kiba_api.api.cards import card_to_code
 from kiba_api.config import Settings
 from kiba_api.game import BotActionType, GamePhase, Seat, choose_bot_action, create_new_game
 from kiba_api.main import create_app
-from kiba_api.persistence import Base, CompletedMatch, Database
+from kiba_api.persistence import Base, CompletedMatch, Database, XPLedgerEntry
 from kiba_api.pvp import PvPRoomService, RoomTTLPolicy
 from kiba_api.sessions import acting_seat
 
@@ -530,3 +530,107 @@ def test_full_two_client_match_completes_through_websocket_actions(
     assert completed.state.result is not None
     with database.session() as session:
         assert session.scalar(select(func.count()).select_from(CompletedMatch)) == 0
+
+
+def test_authenticated_pvp_completion_persists_private_progression_once(
+    database: Database,
+) -> None:
+    settings = Settings(
+        database_url="sqlite://",
+        csrf_trusted_origins=(ORIGIN,),
+        pvp_action_rate_limit_attempts=2000,
+    )
+    application = create_app(database=database, settings=settings)
+    client = TestClient(application)
+    assert (
+        client.post(
+            "/api/auth/register",
+            headers={"Origin": ORIGIN},
+            json={
+                "email": "alice@example.com",
+                "display_name": "Alice",
+                "password": "correct horse battery staple",
+            },
+        ).status_code
+        == 201
+    )
+    creator = client.post("/api/pvp/rooms", json={}).json()
+    assert client.post("/api/auth/logout", headers={"Origin": ORIGIN}).status_code == 204
+    assert (
+        client.post(
+            "/api/auth/register",
+            headers={"Origin": ORIGIN},
+            json={
+                "email": "bob@example.com",
+                "display_name": "Bob",
+                "password": "correct horse battery staple",
+            },
+        ).status_code
+        == 201
+    )
+    joiner = client.post(f"/api/pvp/rooms/{creator['invite_code']}/join", json={}).json()
+    service = application.state.pvp_service
+    mapping = {
+        BotActionType.INITIAL_ATTACK: "INITIAL_ATTACK",
+        BotActionType.DEFEND: "DEFEND",
+        BotActionType.TRANSFER: "TRANSFER",
+        BotActionType.THROW_IN: "THROW_IN",
+        BotActionType.TAKE: "TAKE",
+        BotActionType.BITO: "BITO",
+    }
+
+    complete_states = {}
+    with client.websocket_connect(websocket_path(creator), headers={"Origin": ORIGIN}) as one:
+        authenticate(one, creator)
+        with client.websocket_connect(websocket_path(joiner), headers={"Origin": ORIGIN}) as two:
+            authenticate(two, joiner)
+            one.receive_json()
+            one.receive_json()
+            sockets = {Seat.ONE: one, Seat.TWO: two}
+            for _action_count in range(1000):
+                room = service.get_room(creator["invite_code"])
+                assert room.state is not None
+                if room.state.phase is GamePhase.COMPLETE:
+                    break
+                actor = acting_seat(room.state)
+                assert actor is not None
+                action = choose_bot_action(room.state, actor)
+                sockets[actor].send_json(
+                    {
+                        "type": "ACTION",
+                        "version": room.version,
+                        "action": mapping[action.action_type],
+                        "cards": [card_to_code(card) for card in action.cards],
+                    }
+                )
+                updates = (one.receive_json(), two.receive_json())
+                if updates[0]["state"]["game_phase"] == GamePhase.COMPLETE.value:
+                    complete_states[Seat.ONE] = updates[0]["state"]
+                    complete_states[Seat.TWO] = updates[1]["state"]
+                    assert one.receive_json()["type"] == "GAME_COMPLETE"
+                    assert two.receive_json()["type"] == "GAME_COMPLETE"
+                    break
+            else:
+                pytest.fail("authenticated PvP match exceeded the action bound")
+
+    assert complete_states[Seat.ONE]["result_saved"] is True
+    assert complete_states[Seat.TWO]["result_saved"] is True
+    assert complete_states[Seat.ONE]["progression_award"] is not None
+    assert complete_states[Seat.TWO]["progression_award"] is not None
+    assert {
+        complete_states[Seat.ONE]["progression_award"]["base_xp"],
+        complete_states[Seat.TWO]["progression_award"]["base_xp"],
+    } <= {25, 50, 100}
+
+    with client.websocket_connect(websocket_path(creator), headers={"Origin": ORIGIN}) as socket:
+        reconnected = authenticate(socket, creator)
+    assert reconnected["progression_award"] == complete_states[Seat.ONE]["progression_award"]
+    with database.session() as session:
+        rows = list(session.scalars(select(CompletedMatch)))
+        assert len(rows) == 2
+        assert len({row.pvp_match_id for row in rows}) == 1
+        ledger_count = session.scalar(select(func.count()).select_from(XPLedgerEntry))
+    service.get_room(creator["invite_code"])
+    with database.session() as session:
+        assert session.scalar(select(func.count()).select_from(CompletedMatch)) == 2
+        assert session.scalar(select(func.count()).select_from(XPLedgerEntry)) == ledger_count

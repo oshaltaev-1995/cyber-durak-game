@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 import unicodedata
 from collections.abc import Callable, Iterable, Iterator
@@ -10,7 +11,11 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from threading import RLock
+from typing import TYPE_CHECKING
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from kiba_api.persistence.progression import ProgressionAward
 
 from kiba_api.game import (
     BoutActionError,
@@ -24,11 +29,15 @@ from kiba_api.game import (
     start_game_bout,
 )
 from kiba_api.sessions import (
+    ActionCounters,
     HumanActionType,
     acting_seat,
     apply_game_action,
+    record_accepted_action,
     remember_resolved_bout,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PvPRoomPhase(StrEnum):
@@ -117,6 +126,23 @@ class PvPParticipant:
 
 
 @dataclass(frozen=True, slots=True)
+class PvPSeatActionSummary:
+    """Accepted action counters for one room seat."""
+
+    seat: Seat
+    counters: ActionCounters = ActionCounters()
+
+
+@dataclass(frozen=True, slots=True)
+class PvPParticipantCompletion:
+    """One participant's private persisted-completion presentation."""
+
+    participant_id: str
+    saved: bool
+    progression_award: ProgressionAward | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PvPRoom:
     """An immutable public snapshot of one private friend room."""
 
@@ -126,6 +152,10 @@ class PvPRoom:
     participants: tuple[PvPParticipant, ...]
     state: GameState | None
     last_bout: BoutState | None
+    game_started_at: datetime | None
+    initial_attacker: Seat | None
+    action_summaries: tuple[PvPSeatActionSummary, ...]
+    completion_results: tuple[PvPParticipantCompletion, ...]
     version: int
     created_at: datetime
     updated_at: datetime
@@ -153,6 +183,20 @@ class PvPRoom:
             raise ValueError("room timestamps must be timezone-aware")
         if self.last_bout is not None and not isinstance(self.last_bout, BoutState):
             raise TypeError("last_bout must be a BoutState or None")
+        if self.game_started_at is not None and self.game_started_at.tzinfo is None:
+            raise ValueError("game_started_at must be timezone-aware")
+        if self.initial_attacker is not None and not isinstance(self.initial_attacker, Seat):
+            raise TypeError("initial_attacker must be a Seat or None")
+        if len({summary.seat for summary in self.action_summaries}) != len(self.action_summaries):
+            raise ValueError("action summary seats must be unique")
+        participant_ids = {participant.participant_id for participant in self.participants}
+        completion_ids = {result.participant_id for result in self.completion_results}
+        if len(completion_ids) != len(self.completion_results):
+            raise ValueError("participant completion results must be unique")
+        if not completion_ids.issubset(participant_ids):
+            raise ValueError("completion results must belong to room participants")
+        if self.completion_results and self.phase is not PvPRoomPhase.COMPLETE:
+            raise ValueError("completion results require a complete room")
 
         if self.phase is PvPRoomPhase.WAITING_FOR_OPPONENT:
             if len(self.participants) != 1 or self.state is not None:
@@ -162,6 +206,8 @@ class PvPRoom:
                 raise ValueError("an active room must have two participants and one game")
             if self.state.phase is not GamePhase.BOUT_ACTIVE:
                 raise ValueError("an active room must expose a started bout")
+            if self.game_started_at is None or self.initial_attacker is None:
+                raise ValueError("an active room requires game start metadata")
         elif self.phase is PvPRoomPhase.COMPLETE and (
             self.state is None or self.state.phase is not GamePhase.COMPLETE
         ):
@@ -184,6 +230,22 @@ class PvPRoom:
             if secrets.compare_digest(participant.reconnect_token, reconnect_token):
                 return participant
         raise PvPError(PvPErrorCode.INVALID_CREDENTIAL)
+
+    def action_summary(self, seat: Seat) -> ActionCounters:
+        for summary in self.action_summaries:
+            if summary.seat is seat:
+                return summary.counters
+        return ActionCounters()
+
+    def completion_for(self, participant_id: str) -> PvPParticipantCompletion | None:
+        return next(
+            (
+                result
+                for result in self.completion_results
+                if secrets.compare_digest(result.participant_id, participant_id)
+            ),
+            None,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,6 +323,7 @@ class InMemoryPvPRoomStore:
 _Clock = Callable[[], datetime]
 _GameFactory = Callable[[], GameState]
 _TokenFactory = Callable[[int], str]
+_CompletionRecorder = Callable[[PvPRoom], tuple[PvPParticipantCompletion, ...]]
 
 
 class PvPRoomService:
@@ -274,12 +337,14 @@ class PvPRoomService:
         clock: _Clock = lambda: datetime.now(UTC),
         token_factory: _TokenFactory = secrets.token_urlsafe,
         ttl: RoomTTLPolicy | None = None,
+        completion_recorder: _CompletionRecorder | None = None,
     ) -> None:
         self._store = store or InMemoryPvPRoomStore()
         self._game_factory = game_factory
         self._clock = clock
         self._token_factory = token_factory
         self._ttl = ttl or RoomTTLPolicy()
+        self._completion_recorder = completion_recorder
 
     def create_room(
         self,
@@ -299,6 +364,10 @@ class PvPRoomService:
             participants=(creator,),
             state=None,
             last_bout=None,
+            game_started_at=None,
+            initial_attacker=None,
+            action_summaries=(),
+            completion_results=(),
             version=0,
             created_at=now,
             updated_at=now,
@@ -324,12 +393,19 @@ class PvPRoomService:
             state = self._game_factory()
             if state.phase is not GamePhase.READY_FOR_BOUT:
                 raise ValueError("PvP game factory must return READY_FOR_BOUT")
+            initial_attacker = state.current_attacker
             state = start_game_bout(state)
             record.room = replace(
                 record.room,
                 phase=PvPRoomPhase.GAME_ACTIVE,
                 participants=record.room.participants + (participant,),
                 state=state,
+                game_started_at=now,
+                initial_attacker=initial_attacker,
+                action_summaries=(
+                    PvPSeatActionSummary(Seat.ONE),
+                    PvPSeatActionSummary(Seat.TWO),
+                ),
                 updated_at=now,
             )
             return record.room, participant
@@ -340,6 +416,7 @@ class PvPRoomService:
         self._store.cleanup(now, self._ttl, exclude=invite_code)
         with self._store.locked_record(invite_code) as record:
             self._raise_if_expired(record, now)
+            self._persist_completed_room(record)
             return record.room
 
     def authenticate(
@@ -418,6 +495,12 @@ class PvPRoomService:
             except (BoutActionError, GameActionError) as error:
                 raise PvPActionError(PvPErrorCode.ILLEGAL_ACTION, error.code.value) from error
             last_bout = remember_resolved_bout(previous_state, state, room.last_bout)
+            counters = record_accepted_action(
+                room.action_summary(participant.seat),
+                previous_state,
+                action_type,
+                selected,
+            )
             if state.phase is GamePhase.READY_FOR_BOUT:
                 state = start_game_bout(state)
             phase = (
@@ -430,10 +513,30 @@ class PvPRoomService:
                 phase=phase,
                 state=state,
                 last_bout=last_bout,
+                action_summaries=_replace_action_summary(
+                    room.action_summaries,
+                    PvPSeatActionSummary(participant.seat, counters),
+                ),
                 version=room.version + 1,
                 updated_at=now,
             )
+            self._persist_completed_room(record)
             return record.room
+
+    def _persist_completed_room(self, record: _RoomRecord) -> None:
+        room = record.room
+        if (
+            room.phase is not PvPRoomPhase.COMPLETE
+            or room.completion_results
+            or self._completion_recorder is None
+        ):
+            return
+        try:
+            completion_results = self._completion_recorder(room)
+        except Exception:
+            logger.exception("PvP completion persistence failed for room %s", room.room_id)
+            return
+        record.room = replace(room, completion_results=completion_results)
 
     def _new_participant(
         self,
@@ -499,3 +602,10 @@ def _replace_participant(
     updated: PvPParticipant,
 ) -> tuple[PvPParticipant, ...]:
     return tuple(updated if item.seat is updated.seat else item for item in participants)
+
+
+def _replace_action_summary(
+    summaries: tuple[PvPSeatActionSummary, ...],
+    updated: PvPSeatActionSummary,
+) -> tuple[PvPSeatActionSummary, ...]:
+    return tuple(updated if item.seat is updated.seat else item for item in summaries)

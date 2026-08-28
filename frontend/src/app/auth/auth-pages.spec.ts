@@ -45,6 +45,10 @@ const statistics: MatchStatistics = {
   total_throw_ins: 8,
   highest_transfer_target: 72,
   arithmetic_mean_throw_ins: 2,
+  bot_games: 9,
+  bot_wins: 5,
+  pvp_games: 3,
+  pvp_wins: 2,
 };
 
 const progression: ProgressionSummary = {
@@ -173,6 +177,8 @@ describe('account pages', () => {
     expect(text).toContain('Статистика');
     expect(text).toContain('58,3%');
     expect(text).toContain('История партий');
+    expect(text).toContain('Против бота 9 / 5 побед');
+    expect(text).toContain('PvP 3 / 2 побед');
     expect(profile.getStatistics).toHaveBeenCalledOnce();
     expect(profile.getProgression).toHaveBeenCalledOnce();
     expect(text).toContain('Уровень 4');

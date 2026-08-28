@@ -11,6 +11,10 @@ export interface MatchStatistics {
   readonly total_throw_ins: number;
   readonly highest_transfer_target: number;
   readonly arithmetic_mean_throw_ins: number;
+  readonly bot_games: number;
+  readonly bot_wins: number;
+  readonly pvp_games: number;
+  readonly pvp_wins: number;
 }
 
 export type MatchOutcome = 'WIN' | 'LOSS' | 'DRAW';
@@ -18,11 +22,12 @@ export type MatchOutcome = 'WIN' | 'LOSS' | 'DRAW';
 export interface MatchHistoryItem {
   readonly id: string;
   readonly outcome: MatchOutcome;
-  readonly opponent_type: 'BOT';
+  readonly opponent_type: 'BOT' | 'PVP';
+  readonly opponent_display_name: string | null;
   readonly started_at: string;
   readonly completed_at: string;
   readonly duration_seconds: number;
-  readonly initial_attacker: 'HUMAN' | 'BOT';
+  readonly initial_attacker: 'HUMAN' | 'BOT' | 'YOU' | 'OPPONENT';
   readonly final_human_card_count: number;
   readonly final_bot_card_count: number;
   readonly human_action_count: number;

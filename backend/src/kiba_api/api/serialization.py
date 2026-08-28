@@ -1,6 +1,12 @@
 """Explicit translation from domain/session snapshots to public REST state."""
 
+from __future__ import annotations
+
 from fractions import Fraction
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from kiba_api.persistence import ProgressionAward
 
 from kiba_api.api.cards import card_to_code
 from kiba_api.api.schemas import (
@@ -70,7 +76,7 @@ def serialize_game_session(session: GameSession) -> GameResponse:
         game_id=session.game_id,
         account_associated=session.user_id is not None,
         result_saved=session.completion_persisted,
-        progression_award=_serialize_progression_award(session),
+        progression_award=serialize_progression_award(session.progression_award),
         cosmetics=CosmeticLoadoutResponse(
             card_back_code=session.appearance.card_back_code,
             table_theme_code=session.appearance.table_theme_code,
@@ -244,8 +250,8 @@ def _serialize_result(session: GameSession) -> ResultResponse | None:
     )
 
 
-def _serialize_progression_award(session: GameSession) -> ProgressionAwardResponse | None:
-    award = session.progression_award
+def serialize_progression_award(award: ProgressionAward | None) -> ProgressionAwardResponse | None:
+    """Translate one participant's private progression delta for HTTP delivery."""
     if award is None:
         return None
     return ProgressionAwardResponse(

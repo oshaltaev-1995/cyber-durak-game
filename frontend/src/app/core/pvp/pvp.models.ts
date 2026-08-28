@@ -4,6 +4,7 @@ import {
   GameCard,
   GamePhase,
   HumanActionType,
+  ProgressionAward,
   Seat,
   TableArithmetic,
   TrumpState,
@@ -40,6 +41,8 @@ export interface PvPState {
   readonly opponent: PvPParticipant | null;
   readonly game_phase: GamePhase | null;
   readonly result: PvPResult | null;
+  readonly result_saved: boolean;
+  readonly progression_award: ProgressionAward | null;
   readonly hand: readonly GameCard[];
   readonly opponent_hand_count: number | null;
   readonly draw_pile_count: number;

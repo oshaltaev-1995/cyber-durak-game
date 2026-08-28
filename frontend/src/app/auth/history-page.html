@@ -4,7 +4,7 @@
       <span class="kicker">Профиль</span>
       <h1 id="history-title">История партий</h1>
       @if (auth.currentUser()) {
-        <p>Завершённые игры против бота · {{ total() }}</p>
+        <p>Завершённые игры · {{ total() }}</p>
       }
     </div>
     <nav aria-label="Разделы профиля">
@@ -13,6 +13,20 @@
       <a class="secondary-action" routerLink="/profile/cosmetics">Оформление</a>
     </nav>
   </header>
+
+  @if (auth.currentUser() && !pending()) {
+    <nav class="history-filters" aria-label="Фильтр истории">
+      <button type="button" [class.active]="filter() === 'ALL'" (click)="setFilter('ALL')">
+        Все
+      </button>
+      <button type="button" [class.active]="filter() === 'BOT'" (click)="setFilter('BOT')">
+        Бот
+      </button>
+      <button type="button" [class.active]="filter() === 'PVP'" (click)="setFilter('PVP')">
+        PvP
+      </button>
+    </nav>
+  }
 
   @if (!auth.currentUser() && !pending()) {
     <section class="empty-state">
@@ -37,7 +51,7 @@
         <li class="match-card" [class]="'outcome-' + match.outcome.toLowerCase()">
           <div class="match-result">
             <strong>{{ outcomeLabel(match.outcome) }}</strong>
-            <span>против бота</span>
+            <span>{{ opponentLabel(match) }}</span>
           </div>
           <div class="match-time">
             <time [attr.datetime]="match.completed_at">{{ completedAt(match.completed_at) }}</time>

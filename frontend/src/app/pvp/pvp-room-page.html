@@ -117,7 +117,66 @@
           <section class="result-panel" aria-live="polite">
             <span>Игра окончена</span>
             <h2>{{ resultTitle() }}</h2>
-            <p>Приватные партии пока не сохраняются в истории и не дают XP.</p>
+            @if (game.result_saved) {
+              <p class="result-history-note">Результат сохранён в статистике.</p>
+              @if (game.progression_award; as award) {
+                <section class="result-progression" aria-label="Полученный прогресс">
+                  <strong>+{{ award.total_awarded_xp }} XP</strong>
+                  <span>
+                    За партию {{ award.base_xp }} XP
+                    @if (award.achievement_bonus_xp > 0) {
+                      · достижения +{{ award.achievement_bonus_xp }} XP
+                    }
+                  </span>
+                  <span>
+                    Уровень {{ award.level }} · до следующего
+                    {{ award.xp_needed_for_next_level }} XP
+                  </span>
+                  @if (award.new_achievements.length > 0) {
+                    <div class="new-achievements">
+                      <small>Новые достижения</small>
+                      @for (achievement of award.new_achievements; track achievement.code) {
+                        <article>
+                          <span aria-hidden="true">🏅</span>
+                          <div>
+                            <strong>{{ achievement.title }}</strong>
+                            <small>{{ achievement.description }}</small>
+                          </div>
+                          <b>+{{ achievement.bonus_xp }} XP</b>
+                        </article>
+                      }
+                    </div>
+                  }
+                  @if (award.new_cosmetics.length > 0) {
+                    <div class="new-cosmetics">
+                      <small>Новая награда</small>
+                      @for (cosmetic of award.new_cosmetics; track cosmetic.code) {
+                        <article>
+                          <span aria-hidden="true">🎴</span>
+                          <div>
+                            <strong>{{ cosmetic.title }}</strong>
+                            <small>Новое оформление открыто</small>
+                          </div>
+                        </article>
+                      }
+                    </div>
+                  }
+                </section>
+              }
+              <div class="result-links">
+                <a class="result-history-link" routerLink="/profile">Открыть профиль</a>
+                <a class="result-history-link" routerLink="/profile/history">Открыть историю</a>
+              </div>
+            } @else if (!game.you.authenticated) {
+              <p class="result-history-note">
+                Создайте аккаунт, чтобы сохранять следующие PvP-партии и прогресс.
+              </p>
+              <a class="result-history-link" routerLink="/register">Создать аккаунт</a>
+            } @else {
+              <p class="result-history-note">
+                Сохранение результата ещё не подтверждено. Переподключитесь позже.
+              </p>
+            }
             <a class="room-again" routerLink="/pvp">Создать новую комнату</a>
           </section>
         } @else {

@@ -47,6 +47,7 @@ class User(Base):
     )
     completed_matches: Mapped[list[CompletedMatch]] = relationship(
         back_populates="user",
+        foreign_keys="CompletedMatch.user_id",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
@@ -103,7 +104,7 @@ class CompletedMatch(Base):
 
     __tablename__ = "completed_matches"
     __table_args__ = (
-        CheckConstraint("opponent_type = 'BOT'", name="opponent_type_bot"),
+        CheckConstraint("opponent_type IN ('BOT', 'PVP')", name="valid_opponent_type"),
         CheckConstraint("outcome IN ('WIN', 'LOSS', 'DRAW')", name="valid_outcome"),
         CheckConstraint("user_seat IN ('one', 'two')", name="valid_user_seat"),
         CheckConstraint("initial_attacker IN ('one', 'two')", name="valid_initial_attacker"),
@@ -128,7 +129,13 @@ class CompletedMatch(Base):
         nullable=False,
     )
     game_session_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    pvp_match_id: Mapped[str | None] = mapped_column(String(64))
     opponent_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    opponent_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="SET NULL"),
+    )
+    opponent_display_name: Mapped[str | None] = mapped_column(String(50))
     outcome: Mapped[str] = mapped_column(String(8), nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -147,10 +154,21 @@ class CompletedMatch(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    user: Mapped[User] = relationship(back_populates="completed_matches")
+    user: Mapped[User] = relationship(
+        back_populates="completed_matches",
+        foreign_keys=[user_id],
+    )
 
 
 Index("ix_completed_matches_user_id", CompletedMatch.user_id)
+Index("ix_completed_matches_pvp_match_id", CompletedMatch.pvp_match_id)
+Index("ix_completed_matches_opponent_user_id", CompletedMatch.opponent_user_id)
+Index(
+    "uq_completed_matches_user_pvp_match",
+    CompletedMatch.user_id,
+    CompletedMatch.pvp_match_id,
+    unique=True,
+)
 Index(
     "ix_completed_matches_user_completed_at",
     CompletedMatch.user_id,

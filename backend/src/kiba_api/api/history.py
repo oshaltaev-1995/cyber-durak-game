@@ -7,7 +7,12 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
 from kiba_api.api.auth import CurrentUser
-from kiba_api.persistence import CompletedMatch, MatchHistoryService, MatchStatistics
+from kiba_api.persistence import (
+    CompletedMatch,
+    MatchHistoryService,
+    MatchStatistics,
+    OpponentType,
+)
 
 router = APIRouter(tags=["history"])
 
@@ -25,16 +30,21 @@ class StatisticsResponse(BaseModel):
     total_throw_ins: int
     highest_transfer_target: int
     arithmetic_mean_throw_ins: int
+    bot_games: int
+    bot_wins: int
+    pvp_games: int
+    pvp_wins: int
 
 
 class MatchResponse(BaseModel):
     id: str
     outcome: Literal["WIN", "LOSS", "DRAW"]
-    opponent_type: Literal["BOT"]
+    opponent_type: Literal["BOT", "PVP"]
+    opponent_display_name: str | None
     started_at: datetime
     completed_at: datetime
     duration_seconds: int
-    initial_attacker: Literal["HUMAN", "BOT"]
+    initial_attacker: Literal["HUMAN", "BOT", "YOU", "OPPONENT"]
     final_human_card_count: int
     final_bot_card_count: int
     human_action_count: int
@@ -77,12 +87,19 @@ def get_matches(
     service: MatchHistoryDependency,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
+    opponent_type: Literal["BOT", "PVP"] | None = None,
 ) -> MatchHistoryResponse:
     """Return the current account's newest completed matches."""
-    matches = service.list_matches(user.id, limit=limit, offset=offset)
+    selected_type = OpponentType(opponent_type) if opponent_type is not None else None
+    matches = service.list_matches(
+        user.id,
+        limit=limit,
+        offset=offset,
+        opponent_type=selected_type,
+    )
     return MatchHistoryResponse(
         items=[_serialize_match(match) for match in matches],
-        total=service.count_matches(user.id),
+        total=service.count_matches(user.id, selected_type),
         limit=limit,
         offset=offset,
     )
@@ -95,14 +112,18 @@ def _serialize_statistics(statistics: MatchStatistics) -> StatisticsResponse:
 
 
 def _serialize_match(match: CompletedMatch) -> MatchResponse:
+    initial_attacker = "HUMAN" if match.initial_attacker == match.user_seat else "BOT"
+    if match.opponent_type == OpponentType.PVP.value:
+        initial_attacker = "YOU" if match.initial_attacker == match.user_seat else "OPPONENT"
     return MatchResponse(
         id=str(match.id),
         outcome=match.outcome,
         opponent_type=match.opponent_type,
+        opponent_display_name=match.opponent_display_name,
         started_at=match.started_at,
         completed_at=match.completed_at,
         duration_seconds=match.duration_seconds,
-        initial_attacker="HUMAN" if match.initial_attacker == match.user_seat else "BOT",
+        initial_attacker=initial_attacker,
         final_human_card_count=match.final_human_card_count,
         final_bot_card_count=match.final_bot_card_count,
         human_action_count=match.human_action_count,

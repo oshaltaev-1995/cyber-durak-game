@@ -21,9 +21,17 @@ export class ProfileService {
     return this.http.get<MatchStatistics>('/api/stats');
   }
 
-  getMatches(limit = 20, offset = 0): Observable<MatchHistoryResponse> {
+  getMatches(
+    limit = 20,
+    offset = 0,
+    opponentType: 'BOT' | 'PVP' | null = null,
+  ): Observable<MatchHistoryResponse> {
     return this.http.get<MatchHistoryResponse>('/api/matches', {
-      params: { limit, offset },
+      params: {
+        limit,
+        offset,
+        ...(opponentType === null ? {} : { opponent_type: opponentType }),
+      },
     });
   }
 

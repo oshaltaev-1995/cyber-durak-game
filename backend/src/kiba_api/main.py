@@ -26,7 +26,12 @@ from kiba_api.persistence import (
     MatchHistoryService,
     ProgressionService,
 )
-from kiba_api.pvp import PvPError, PvPErrorCode, PvPRoomService
+from kiba_api.pvp import (
+    PvPError,
+    PvPErrorCode,
+    PvPParticipantCompletion,
+    PvPRoomService,
+)
 from kiba_api.sessions import GameSessionService, SessionActionError, SessionNotFoundError
 
 
@@ -45,11 +50,8 @@ def create_app(
     progression_service = ProgressionService(resolved_database)
     cosmetic_service = CosmeticService(resolved_database, progression_service)
 
-    def record_completion(session):
-        match_history_service.record_completed_match(session)
-        match = match_history_service.get_match_by_game_session(session.game_id)
-        award = progression_service.synchronize_for_match(session.user_id, match.id)
-        cosmetic_sync = cosmetic_service.synchronize(session.user_id)
+    def with_cosmetics(award, user_id):
+        cosmetic_sync = cosmetic_service.synchronize(user_id)
         return replace(
             award,
             new_cosmetics=tuple(
@@ -62,10 +64,36 @@ def create_app(
             ),
         )
 
+    def record_completion(session):
+        match_history_service.record_completed_match(session)
+        match = match_history_service.get_match_by_game_session(session.game_id)
+        award = progression_service.synchronize_for_match(session.user_id, match.id)
+        return with_cosmetics(award, session.user_id)
+
+    def record_pvp_completion(room):
+        matches = match_history_service.record_completed_pvp_room(room)
+        results = []
+        for participant in room.participants:
+            if participant.user_id is None:
+                results.append(PvPParticipantCompletion(participant.participant_id, False))
+                continue
+            match = matches[participant.participant_id]
+            award = progression_service.synchronize_for_match(participant.user_id, match.id)
+            results.append(
+                PvPParticipantCompletion(
+                    participant.participant_id,
+                    True,
+                    with_cosmetics(award, participant.user_id),
+                )
+            )
+        return tuple(results)
+
     application.state.game_service = game_service or GameSessionService(
         completion_recorder=record_completion
     )
-    application.state.pvp_service = pvp_service or PvPRoomService()
+    application.state.pvp_service = pvp_service or PvPRoomService(
+        completion_recorder=record_pvp_completion
+    )
     application.state.pvp_hub = PvPConnectionHub()
     application.state.settings = resolved_settings
     application.state.database = resolved_database

@@ -176,3 +176,22 @@ dd {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+.history-filters {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.history-filters button {
+  border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.history-filters button.active {
+  background: var(--accent, #d9a441);
+  color: #17251e;
+}

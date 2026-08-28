@@ -411,13 +411,17 @@ def add_match(
     throw_ins: int = 0,
     transfer_target: int = 0,
     means: int = 0,
+    opponent_type: str = "BOT",
+    opponent_display_name: str | None = None,
 ) -> None:
     with database.session() as session:
         session.add(
             CompletedMatch(
                 user_id=user_id,
                 game_session_id=game_id,
-                opponent_type="BOT",
+                opponent_type=opponent_type,
+                pvp_match_id=game_id if opponent_type == "PVP" else None,
+                opponent_display_name=opponent_display_name,
                 outcome=outcome.value,
                 started_at=completed_at - timedelta(minutes=4),
                 completed_at=completed_at,
@@ -478,6 +482,8 @@ def test_statistics_derive_rates_streaks_counters_and_isolate_users(database: Da
     assert stats.total_throw_ins == 12
     assert stats.highest_transfer_target == 90
     assert stats.arithmetic_mean_throw_ins == 6
+    assert (stats.bot_games, stats.bot_wins) == (6, 4)
+    assert (stats.pvp_games, stats.pvp_wins) == (0, 0)
     assert MatchHistoryService(database).get_statistics(uuid4()).games_played == 0
 
 
@@ -501,7 +507,15 @@ def test_stats_and_match_history_endpoints_require_auth_and_paginate_newest_firs
     other_id = add_user(database, email="isolated@example.com")
     start = datetime(2026, 8, 20, tzinfo=UTC)
     add_match(database, user_id, MatchOutcome.WIN, start, game_id="old")
-    add_match(database, user_id, MatchOutcome.LOSS, start + timedelta(days=1), game_id="new")
+    add_match(
+        database,
+        user_id,
+        MatchOutcome.LOSS,
+        start + timedelta(days=1),
+        game_id="new",
+        opponent_type="PVP",
+        opponent_display_name="Bob",
+    )
     add_match(database, other_id, MatchOutcome.DRAW, start + timedelta(days=2), game_id="private")
 
     stats = client.get("/api/stats")
@@ -512,10 +526,16 @@ def test_stats_and_match_history_endpoints_require_auth_and_paginate_newest_firs
     assert stats.json()["games_played"] == 2
     assert stats.json()["wins"] == 1
     assert stats.json()["losses"] == 1
+    assert stats.json()["bot_games"] == 1
+    assert stats.json()["pvp_games"] == 1
     assert history.status_code == 200
     assert history.json()["total"] == 2
     assert history.json()["items"][0]["outcome"] == "LOSS"
+    assert history.json()["items"][0]["opponent_type"] == "PVP"
+    assert history.json()["items"][0]["opponent_display_name"] == "Bob"
     assert second_page.json()["items"][0]["outcome"] == "WIN"
+    assert client.get("/api/matches?opponent_type=PVP").json()["total"] == 1
+    assert client.get("/api/matches?opponent_type=BOT").json()["total"] == 1
     serialized = history.text
     assert "user_id" not in serialized
     assert "game_session_id" not in serialized
