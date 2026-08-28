@@ -237,6 +237,25 @@ The Compose database is stored in the `kiba-postgres-data` volume. The backend a
 Alembic migrations before starting. `docker compose down` preserves the volume; do not use `-v`
 unless the local account database should also be deleted.
 
+## Production-readiness preview
+
+Phase 6A adds strict production configuration, email verification/password reset, request IDs,
+security headers, `/ready`, non-root production images, and backup/restore tooling. It does **not**
+deploy Kiba. See [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md) and use
+`.env.production.example` only as a placeholder checklist—never commit filled secrets.
+
+The production contract requires **one backend process / one application worker** because active
+Human-vs-Bot sessions and PvP rooms remain process-local. Production migrations are explicit:
+
+```bash
+cd backend && uv run alembic upgrade head
+docker compose --env-file /secure/path/kiba.env -f docker-compose.prod.yml up --build -d
+```
+
+Development email links are available only in explicit development mode. Production refuses that
+sender and requires generic SMTP configuration. Liveness is `/health`; database readiness is
+`/ready`.
+
 ## Authoritative specifications
 
 - [`docs/GAME_RULES.md`](docs/GAME_RULES.md) is the gameplay source of truth.

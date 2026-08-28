@@ -605,10 +605,29 @@ Active rooms and reconnect credentials are still process-local and disappear on 
 completed summaries/progression survive. Rating, ELO, matchmaking, public profiles, replay logs, and
 private-room progression-abuse prevention are deliberately deferred before competitive launch.
 
-Docker Compose keeps PostgreSQL on its private service network and applies `alembic upgrade head`
-before FastAPI starts. Production deployment must supply external database credentials, HTTPS with
-Secure cookies, explicit trusted origins, robust distributed rate limiting, email verification,
-password reset, account deletion/data export, secrets management, and database backups.
+Development Docker Compose keeps PostgreSQL private and applies migrations for convenience.
+
+### 10.10 Phase 6A production-readiness boundary
+
+Runtime configuration names `development`, `test`, and `production`. Production rejects local or
+wildcard hosts/origins, insecure cookies, the development email sender, default database credentials,
+and incomplete SMTP values. The browser boundary remains same-origin: cookie mutations and PvP
+WebSockets validate configured origins, broad CORS is absent, and a Phase 6B reverse proxy is the
+trusted public edge.
+
+Email verification and recovery share a persistent `account_tokens` table. Raw random tokens exist
+only in delivery links; SHA-256 digests, type, expiry, and consumption are stored. Password reset
+uses Argon2id and revokes every opaque auth session. Registration remains usable after delivery
+failure and unverified accounts retain gameplay access. `EmailSender` provides a development outbox
+and a generic SMTP production adapter.
+
+Production requests have UUID correlation, safe JSON logs, generic internal errors, trusted hosts,
+security headers, and database readiness. Human-vs-Bot TTL cleanup joins the existing PvP cleanup
+policy. The production backend is non-root and pins exactly one Uvicorn worker; the production
+Angular image is static content behind unprivileged nginx with API/WebSocket proxying. Multiple
+backend workers are unsafe because active games, rooms, reconnect state, and rate limits remain
+process-local. Production migrations are an explicit release step. Operational details live in
+`docs/PRODUCTION_READINESS.md`.
 
 Possible bot priorities:
 

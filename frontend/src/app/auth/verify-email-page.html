@@ -1,0 +1,13 @@
+<main class="auth-card" aria-labelledby="verify-title">
+  <span class="kicker">Безопасность аккаунта</span>
+  <h1 id="verify-title">Подтверждение email</h1>
+  @if (pending()) {
+    <p role="status">Проверяем ссылку…</p>
+  } @else if (verified()) {
+    <p class="success" role="status">Email подтверждён.</p>
+    <a class="secondary-action" routerLink="/profile">Открыть профиль</a>
+  } @else if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+    <a class="secondary-action" routerLink="/profile">Открыть профиль</a>
+  }
+</main>

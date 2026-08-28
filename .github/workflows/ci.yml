@@ -41,6 +41,17 @@ jobs:
       - name: Test
         run: uv run pytest
 
+      - name: Migration upgrade and drift check
+        env:
+          KIBA_DATABASE_URL: sqlite:///ci-migrations.db
+          APP_ENV: test
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+
+      - name: Audit Python dependencies
+        run: uv run --with pip-audit pip-audit
+
   frontend:
     name: Frontend checks
     runs-on: ubuntu-latest
@@ -72,3 +83,34 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Audit high/critical frontend dependencies
+        run: npm audit --audit-level=high
+
+  production-images:
+    name: Production image/config checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Validate production Compose
+        env:
+          KIBA_POSTGRES_DB: kiba
+          KIBA_POSTGRES_USER: kiba
+          KIBA_POSTGRES_PASSWORD: ci-safe-password
+          KIBA_DATABASE_URL: postgresql+psycopg://kiba:ci-safe-password@database:5432/kiba
+          KIBA_PUBLIC_BASE_URL: https://kiba.example.test
+          KIBA_TRUSTED_HOSTS: kiba.example.test
+          KIBA_CSRF_TRUSTED_ORIGINS: https://kiba.example.test
+          KIBA_SMTP_HOST: smtp.example.test
+          KIBA_SMTP_USERNAME: ci
+          KIBA_SMTP_PASSWORD: ci-safe-password
+          KIBA_SMTP_FROM: no-reply@example.test
+        run: docker compose -f docker-compose.prod.yml config --quiet
+
+      - name: Build production backend image
+        run: docker build -f backend/Dockerfile.prod backend
+
+      - name: Build production frontend image
+        run: docker build -f frontend/Dockerfile.prod frontend

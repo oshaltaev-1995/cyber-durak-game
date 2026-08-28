@@ -1,5 +1,6 @@
 import random
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -105,6 +106,39 @@ def test_session_lookup_has_explicit_not_found_behavior() -> None:
 
     assert caught.value.code == "game_not_found"
     assert caught.value.game_id == "missing"
+
+
+def test_process_local_session_cleanup_uses_shorter_completed_ttl() -> None:
+    now = datetime(2026, 8, 28, tzinfo=UTC)
+    current = [now]
+    store = InMemoryGameSessionStore(
+        id_factory=iter(("active", "complete")).__next__,
+        active_ttl=timedelta(hours=2),
+        complete_ttl=timedelta(minutes=10),
+        clock=lambda: current[0],
+    )
+    active = store.create(ready_game(attacker=Seat.ONE))
+    complete_state = GameState(
+        seat_one_hand=(),
+        seat_two_hand=(card(Rank.SIX),),
+        draw_pile=(),
+        discard_pile=(),
+        current_attacker=None,
+        phase=GamePhase.COMPLETE,
+        result=GameResult(GameOutcome.WIN, Seat.ONE),
+    )
+    complete = store.create(complete_state)
+
+    current[0] += timedelta(minutes=11)
+    assert store.cleanup() == 1
+    assert store.get(active.game_id) == active
+    with pytest.raises(SessionNotFoundError):
+        store.get(complete.game_id)
+
+    current[0] += timedelta(hours=2)
+    assert store.cleanup() == 1
+    with pytest.raises(SessionNotFoundError):
+        store.get(active.game_id)
 
 
 def test_human_action_is_rejected_when_bot_owns_decision() -> None:

@@ -23,6 +23,7 @@ from kiba_api.persistence.matches import (
     OpponentType,
 )
 from kiba_api.persistence.models import (
+    AccountToken,
     AuthSession,
     CompletedMatch,
     User,
@@ -52,6 +53,7 @@ __all__ = [
     "Database",
     "ACHIEVEMENTS",
     "AchievementCode",
+    "AccountToken",
     "AchievementDefinition",
     "AchievementState",
     "COSMETICS",

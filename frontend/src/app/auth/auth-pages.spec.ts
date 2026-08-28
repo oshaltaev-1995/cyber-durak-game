@@ -29,6 +29,8 @@ interface AuthStub {
   register: ReturnType<typeof vi.fn<(request: RegisterRequest) => Observable<CurrentUser>>>;
   login: ReturnType<typeof vi.fn<(request: LoginRequest) => Observable<CurrentUser>>>;
   logout: ReturnType<typeof vi.fn<() => Observable<void>>>;
+  logoutAll: ReturnType<typeof vi.fn<() => Observable<void>>>;
+  sendVerification: ReturnType<typeof vi.fn<() => Observable<{ message: string }>>>;
   updateDisplayName: ReturnType<typeof vi.fn<(name: string) => Observable<CurrentUser>>>;
 }
 
@@ -79,6 +81,8 @@ describe('account pages', () => {
       register: vi.fn(() => of(user)),
       login: vi.fn(() => of(user)),
       logout: vi.fn(() => of(undefined)),
+      logoutAll: vi.fn(() => of(undefined)),
+      sendVerification: vi.fn(() => of({ message: 'verification_sent' })),
       updateDisplayName: vi.fn((name) => of({ ...user, display_name: name })),
     };
     profile = {
@@ -196,6 +200,35 @@ describe('account pages', () => {
     fixture.detectChanges();
     expect(auth.updateDisplayName).toHaveBeenCalledWith('Новое имя');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Имя сохранено');
+  });
+
+  it('shows verification state and can resend without gating the profile', () => {
+    auth.currentUser.set({ ...user, email_verified: false });
+    const fixture = TestBed.createComponent(ProfilePageComponent);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Email не подтверждён');
+    const resend = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.includes('Отправить письмо'),
+    );
+    resend?.click();
+    fixture.detectChanges();
+    expect(auth.sendVerification).toHaveBeenCalledOnce();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Письмо отправлено');
+
+    auth.currentUser.set({ ...user, email_verified: true });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Email подтверждён');
+  });
+
+  it('reports a failed initial verification delivery without losing the account', () => {
+    auth.currentUser.set({ ...user, email_verified: false, verification_email_sent: false });
+    const fixture = TestBed.createComponent(ProfilePageComponent);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Не удалось отправить письмо');
+    expect(text).toContain('Аккаунт создан');
+    expect(text).toContain('Отправить письмо ещё раз');
   });
 
   it('shows a useful empty match-history state for a new account', () => {

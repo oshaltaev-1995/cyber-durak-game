@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from threading import RLock
 from typing import TYPE_CHECKING
@@ -134,14 +134,27 @@ class GameSession:
 @dataclass(slots=True)
 class _SessionRecord:
     session: GameSession
+    updated_at: datetime
     lock: RLock = field(default_factory=RLock)
 
 
 class InMemoryGameSessionStore:
     """Concurrency-safe process-local storage for Alpha game sessions."""
 
-    def __init__(self, id_factory: Callable[[], str] | None = None) -> None:
+    def __init__(
+        self,
+        id_factory: Callable[[], str] | None = None,
+        *,
+        active_ttl: timedelta = timedelta(hours=6),
+        complete_ttl: timedelta = timedelta(minutes=30),
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
+        if active_ttl <= timedelta(0) or complete_ttl <= timedelta(0):
+            raise ValueError("session TTLs must be positive")
         self._id_factory = id_factory or (lambda: uuid4().hex)
+        self._active_ttl = active_ttl
+        self._complete_ttl = complete_ttl
+        self._clock = clock
         self._records: dict[str, _SessionRecord] = {}
         self._lock = RLock()
 
@@ -156,6 +169,7 @@ class InMemoryGameSessionStore:
         appearance: GameAppearance = DEFAULT_GAME_APPEARANCE,
     ) -> GameSession:
         """Store a new human Seat.ONE versus bot Seat.TWO session."""
+        self.cleanup()
         with self._lock:
             game_id = self._id_factory()
             if not game_id or game_id in self._records:
@@ -169,7 +183,7 @@ class InMemoryGameSessionStore:
                 initial_attacker=initial_attacker,
                 appearance=appearance,
             )
-            self._records[game_id] = _SessionRecord(session=session)
+            self._records[game_id] = _SessionRecord(session=session, updated_at=self._clock())
             return session
 
     def get(self, game_id: str) -> GameSession:
@@ -183,9 +197,35 @@ class InMemoryGameSessionStore:
         """Serialize one session transition against its current snapshot."""
         record = self._get_record(game_id)
         with record.lock:
-            yield record
+            try:
+                yield record
+            finally:
+                record.updated_at = self._clock()
+
+    def cleanup(self) -> int:
+        """Remove inactive process-local games without touching a locked active transition."""
+        now = self._clock()
+        expired: list[str] = []
+        with self._lock:
+            for game_id, record in tuple(self._records.items()):
+                if not record.lock.acquire(blocking=False):
+                    continue
+                try:
+                    ttl = (
+                        self._complete_ttl
+                        if record.session.state.phase is GamePhase.COMPLETE
+                        else self._active_ttl
+                    )
+                    if now - record.updated_at >= ttl:
+                        expired.append(game_id)
+                finally:
+                    record.lock.release()
+            for game_id in expired:
+                self._records.pop(game_id, None)
+        return len(expired)
 
     def _get_record(self, game_id: str) -> _SessionRecord:
+        self.cleanup()
         with self._lock:
             record = self._records.get(game_id)
         if record is None:

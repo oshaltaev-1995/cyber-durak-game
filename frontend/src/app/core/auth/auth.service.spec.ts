@@ -8,6 +8,7 @@ const user = {
   email: 'player@example.com',
   display_name: 'Игрок',
   created_at: '2026-08-27T10:00:00+00:00',
+  email_verified: false,
 };
 
 describe('AuthService', () => {
@@ -68,6 +69,30 @@ describe('AuthService', () => {
     expect(logout.request.method).toBe('POST');
     expect(logout.request.body).toBeNull();
     logout.flush(null);
+    expect(service.currentUser()).toBeNull();
+  });
+
+  it('routes verification, recovery, reset, and logout-all without exposing tokens in state', () => {
+    service.sendVerification().subscribe();
+    http.expectOne('/api/auth/verification/send').flush({ message: 'verification_sent' });
+
+    service.confirmVerification('verify-token').subscribe();
+    const verify = http.expectOne('/api/auth/verification/confirm');
+    expect(verify.request.body).toEqual({ token: 'verify-token' });
+    verify.flush({ ...user, email_verified: true });
+
+    service.forgotPassword(user.email).subscribe();
+    const forgot = http.expectOne('/api/auth/password/forgot');
+    expect(forgot.request.body).toEqual({ email: user.email });
+    forgot.flush({ message: 'password_reset_requested' });
+
+    service.resetPassword('reset-token', 'new-password').subscribe();
+    const reset = http.expectOne('/api/auth/password/reset');
+    expect(reset.request.body).toEqual({ token: 'reset-token', new_password: 'new-password' });
+    reset.flush({ message: 'password_reset' });
+
+    service.logoutAll().subscribe();
+    http.expectOne('/api/auth/logout-all').flush(null);
     expect(service.currentUser()).toBeNull();
   });
 });

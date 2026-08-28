@@ -5,6 +5,9 @@ import { CosmeticsPageComponent } from './auth/cosmetics-page';
 import { HistoryPageComponent } from './auth/history-page';
 import { ProfilePageComponent } from './auth/profile-page';
 import { RegisterPageComponent } from './auth/register-page';
+import { ForgotPasswordPageComponent } from './auth/forgot-password-page';
+import { ResetPasswordPageComponent } from './auth/reset-password-page';
+import { VerifyEmailPageComponent } from './auth/verify-email-page';
 import { GamePageComponent } from './game/game-page';
 import { LandingPageComponent } from './landing/landing-page';
 import { PvPJoinPageComponent } from './pvp/pvp-join-page';
@@ -23,6 +26,9 @@ export const routes: Routes = [
   { path: 'rules', component: RulesPageComponent, title: 'Правила — Kiba' },
   { path: 'login', component: LoginPageComponent, title: 'Войти — Kiba' },
   { path: 'register', component: RegisterPageComponent, title: 'Создать аккаунт — Kiba' },
+  { path: 'forgot-password', component: ForgotPasswordPageComponent, title: 'Сброс пароля — Kiba' },
+  { path: 'reset-password', component: ResetPasswordPageComponent, title: 'Новый пароль — Kiba' },
+  { path: 'verify-email', component: VerifyEmailPageComponent, title: 'Подтвердить email — Kiba' },
   { path: 'profile', component: ProfilePageComponent, title: 'Профиль — Kiba' },
   { path: 'profile/history', component: HistoryPageComponent, title: 'История партий — Kiba' },
   {

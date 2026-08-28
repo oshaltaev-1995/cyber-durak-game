@@ -61,6 +61,20 @@ h2 {
   line-height: 1.55;
 }
 
+.email-status {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1rem 0;
+  padding: 0.9rem;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 0.8rem;
+  background: rgb(255 255 255 / 4%);
+}
+
+.email-status button {
+  justify-self: start;
+}
+
 .statistics {
   display: grid;
   gap: 1rem;

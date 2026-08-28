@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { catchError, Observable, of, tap } from 'rxjs';
-import { CurrentUser, LoginRequest, RegisterRequest } from './auth.models';
+import { AuthMessage, CurrentUser, LoginRequest, RegisterRequest } from './auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -43,6 +43,33 @@ export class AuthService {
     return this.http
       .post<void>('/api/auth/logout', null)
       .pipe(tap(() => this.setAuthenticated(null)));
+  }
+
+  logoutAll(): Observable<void> {
+    return this.http
+      .post<void>('/api/auth/logout-all', null)
+      .pipe(tap(() => this.setAuthenticated(null)));
+  }
+
+  sendVerification(): Observable<AuthMessage> {
+    return this.http.post<AuthMessage>('/api/auth/verification/send', null);
+  }
+
+  confirmVerification(token: string): Observable<CurrentUser> {
+    return this.http
+      .post<CurrentUser>('/api/auth/verification/confirm', { token })
+      .pipe(tap((user) => this.setAuthenticated(user)));
+  }
+
+  forgotPassword(email: string): Observable<AuthMessage> {
+    return this.http.post<AuthMessage>('/api/auth/password/forgot', { email });
+  }
+
+  resetPassword(token: string, newPassword: string): Observable<AuthMessage> {
+    return this.http.post<AuthMessage>('/api/auth/password/reset', {
+      token,
+      new_password: newPassword,
+    });
   }
 
   updateDisplayName(displayName: string): Observable<CurrentUser> {

@@ -23,6 +23,7 @@ export class ProfilePageComponent implements OnInit {
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly success = signal(false);
+  protected readonly securityMessage = signal<string | null>(null);
   protected readonly statistics = signal<MatchStatistics | null>(null);
   protected readonly statisticsPending = signal(false);
   protected readonly statisticsError = signal(false);
@@ -84,6 +85,36 @@ export class ProfilePageComponent implements OnInit {
       .subscribe({
         next: () => void this.router.navigateByUrl('/'),
         error: (error: unknown) => this.error.set(this.messageFor(error)),
+      });
+  }
+
+  protected logoutAll(): void {
+    if (this.pending()) return;
+    this.pending.set(true);
+    this.auth
+      .logoutAll()
+      .pipe(finalize(() => this.pending.set(false)))
+      .subscribe({
+        next: () => void this.router.navigateByUrl('/'),
+        error: (error: unknown) => this.error.set(this.messageFor(error)),
+      });
+  }
+
+  protected resendVerification(): void {
+    if (this.pending()) return;
+    this.pending.set(true);
+    this.securityMessage.set(null);
+    this.auth
+      .sendVerification()
+      .pipe(finalize(() => this.pending.set(false)))
+      .subscribe({
+        next: (value) =>
+          this.securityMessage.set(
+            value.message === 'already_verified'
+              ? 'Email уже подтверждён.'
+              : 'Письмо отправлено. Проверьте почту.',
+          ),
+        error: () => this.error.set('Не удалось отправить письмо. Попробуйте позже.'),
       });
   }
 

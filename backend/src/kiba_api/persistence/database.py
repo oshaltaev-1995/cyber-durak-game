@@ -37,6 +37,13 @@ class Database:
                 connect_args={"check_same_thread": False},
                 poolclass=StaticPool,
             )
+        else:
+            engine_options.update(
+                pool_size=5,
+                max_overflow=5,
+                pool_recycle=1800,
+                pool_timeout=10,
+            )
         self.engine: Engine = create_engine(url, echo=echo, **engine_options)
         self._session_factory = sessionmaker(
             bind=self.engine,

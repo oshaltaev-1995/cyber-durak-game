@@ -1,0 +1,19 @@
+FROM ghcr.io/astral-sh/uv:0.9.10-python3.13-bookworm-slim AS builder
+
+WORKDIR /app
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PROJECT_ENVIRONMENT=/opt/venv
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+FROM python:3.13-slim-bookworm AS runtime
+RUN groupadd --system kiba && useradd --system --gid kiba --home /app kiba
+WORKDIR /app
+COPY --from=builder /opt/venv /opt/venv
+COPY --chown=kiba:kiba src ./src
+COPY --chown=kiba:kiba migrations ./migrations
+COPY --chown=kiba:kiba alembic.ini ./alembic.ini
+ENV PATH="/opt/venv/bin:$PATH" PYTHONPATH=/app/src PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+USER kiba
+EXPOSE 8000
+# Exactly one worker: active games and rooms are process-local.
+CMD ["uvicorn", "kiba_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log"]

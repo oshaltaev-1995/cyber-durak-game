@@ -38,9 +38,15 @@ class User(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     auth_sessions: Mapped[list[AuthSession]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    account_tokens: Mapped[list[AccountToken]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -97,6 +103,38 @@ class AuthSession(Base):
 
 Index("ix_auth_sessions_user_id", AuthSession.user_id)
 Index("ix_auth_sessions_expires_at", AuthSession.expires_at)
+
+
+class AccountToken(Base):
+    """Hashed, expiring, one-use account verification or reset token."""
+
+    __tablename__ = "account_tokens"
+    __table_args__ = (
+        CheckConstraint(
+            "token_type IN ('EMAIL_VERIFICATION', 'PASSWORD_RESET')",
+            name="valid_token_type",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    token_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship(back_populates="account_tokens")
+
+
+Index("ix_account_tokens_user_type", AccountToken.user_id, AccountToken.token_type)
+Index("ix_account_tokens_expires_at", AccountToken.expires_at)
 
 
 class CompletedMatch(Base):

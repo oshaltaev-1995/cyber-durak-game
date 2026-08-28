@@ -290,7 +290,7 @@ def _guest_name(nickname: str | None) -> str:
 def _websocket_origin_allowed(websocket: WebSocket) -> bool:
     origin = websocket.headers.get("origin")
     if origin is None:
-        return True
+        return not websocket.app.state.settings.is_production
     scheme = "https" if websocket.url.scheme == "wss" else "http"
     request_origin = f"{scheme}://{websocket.headers.get('host', '')}".rstrip("/")
     return is_trusted_origin(origin, request_origin, websocket.app.state.settings)

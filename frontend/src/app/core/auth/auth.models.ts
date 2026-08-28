@@ -3,6 +3,8 @@ export interface CurrentUser {
   readonly email: string;
   readonly display_name: string;
   readonly created_at: string;
+  readonly email_verified?: boolean;
+  readonly verification_email_sent?: boolean | null;
 }
 
 export interface RegisterRequest {
@@ -14,4 +16,8 @@ export interface RegisterRequest {
 export interface LoginRequest {
   readonly email: string;
   readonly password: string;
+}
+
+export interface AuthMessage {
+  readonly message: string;
 }

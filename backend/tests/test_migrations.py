@@ -115,12 +115,17 @@ def test_initial_migration_upgrades_and_downgrades_clean_database(
         "alembic_version",
         "users",
         "auth_sessions",
+        "account_tokens",
         "completed_matches",
         "xp_ledger",
         "user_achievements",
         "user_cosmetic_unlocks",
         "user_cosmetic_loadout",
     } == set(inspector.get_table_names())
+    assert "email_verified_at" in {column["name"] for column in inspector.get_columns("users")}
+    assert {"user_id", "token_type"} in [
+        set(index["column_names"]) for index in inspector.get_indexes("account_tokens")
+    ]
     assert {"normalized_email"} in [
         set(constraint["column_names"]) for constraint in inspector.get_unique_constraints("users")
     ]
@@ -176,6 +181,7 @@ def test_initial_migration_upgrades_and_downgrades_clean_database(
     assert "user_achievements" in downgraded_tables
     assert "user_cosmetic_unlocks" not in downgraded_tables
     assert "user_cosmetic_loadout" not in downgraded_tables
+    assert "account_tokens" not in downgraded_tables
     command.upgrade(config, "head")
     assert {"user_cosmetic_unlocks", "user_cosmetic_loadout"}.issubset(
         inspect(engine).get_table_names()

@@ -10,6 +10,24 @@
       {{ user.display_name }}
     </h1>
     <p class="account-meta">{{ user.email }} · в Kiba с {{ joinedAt(user) }}</p>
+    <section class="email-status" aria-label="Статус email">
+      @if (user.email_verified) {
+        <strong>✓ Email подтверждён</strong>
+      } @else {
+        <strong>Email не подтверждён</strong>
+        @if (user.verification_email_sent === false) {
+          <span role="alert">Не удалось отправить письмо. Аккаунт создан; повторите отправку.</span>
+        } @else {
+          <span>Подтверждение позволит безопасно восстановить пароль.</span>
+        }
+        <button type="button" (click)="resendVerification()" [disabled]="pending()">
+          Отправить письмо ещё раз
+        </button>
+      }
+      @if (securityMessage(); as message) {
+        <p class="success" role="status">{{ message }}</p>
+      }
+    </section>
 
     <nav class="profile-navigation" aria-label="Разделы профиля">
       <a routerLink="/profile">Статистика</a>
@@ -32,6 +50,9 @@
       <div class="form-actions">
         <button type="submit" [disabled]="pending()">Сохранить</button>
         <button type="button" (click)="logout()" [disabled]="pending()">Выйти</button>
+        <button type="button" (click)="logoutAll()" [disabled]="pending()">
+          Выйти на всех устройствах
+        </button>
         <a class="secondary-action" routerLink="/play">Играть</a>
       </div>
     </form>
