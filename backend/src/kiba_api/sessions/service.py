@@ -15,13 +15,17 @@ if TYPE_CHECKING:
     from kiba_api.persistence.progression import ProgressionAward
 
 from kiba_api.game import (
+    BotAction,
     BotActionError,
+    BotActionType,
     BoutState,
     Card,
     GamePhase,
     GameState,
     Seat,
+    choose_bot_action,
     create_new_game,
+    get_cards_value,
     play_bot_turn,
     start_game_bout,
 )
@@ -61,6 +65,27 @@ class SessionActionError(ValueError):
         super().__init__(code.value)
 
 
+class BotPresentationEventType(StrEnum):
+    """One safe transient bot action hint for the current HTTP response."""
+
+    INITIAL_ATTACK = "BOT_INITIAL_ATTACK"
+    DEFEND = "BOT_DEFEND"
+    TRANSFER = "BOT_TRANSFER"
+    THROW_IN = "BOT_THROW_IN"
+    TAKE = "BOT_TAKE"
+    BITO = "BOT_BITO"
+
+
+@dataclass(frozen=True, slots=True)
+class BotPresentationEvent:
+    """Public, non-authoritative metadata describing one confirmed bot action."""
+
+    type: BotPresentationEventType
+    card_count: int
+    value: int | None = None
+    target: int | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class GameAppearance:
     """Presentation-only cosmetic codes captured when a session starts."""
@@ -94,6 +119,7 @@ class GameSession:
     arithmetic_mean_throw_in_count: int = 0
     completion_persisted: bool = False
     progression_award: ProgressionAward | None = None
+    recent_events: tuple[BotPresentationEvent, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.game_id:
@@ -129,6 +155,10 @@ class GameSession:
                 raise ValueError(f"{name} must not be negative")
         if not isinstance(self.completion_persisted, bool):
             raise TypeError("completion_persisted must be a bool")
+        if not isinstance(self.recent_events, tuple) or not all(
+            isinstance(event, BotPresentationEvent) for event in self.recent_events
+        ):
+            raise TypeError("recent_events must be a tuple of BotPresentationEvent values")
 
 
 @dataclass(slots=True)
@@ -272,7 +302,7 @@ class GameSessionService:
         """Create, normalize, and store a fresh human-versus-bot game."""
         initial_state = self._game_factory()
         initial_attacker = initial_state.current_attacker
-        state, last_bout = self._advance_to_human_or_complete(initial_state)
+        state, last_bout, recent_events = self._advance_to_human_or_complete(initial_state)
         session = self._store.create(
             state,
             last_bout=last_bout,
@@ -284,8 +314,8 @@ class GameSessionService:
         if state.phase is GamePhase.COMPLETE:
             with self._store.locked_record(session.game_id) as record:
                 self._persist_completed_match(record)
-                return record.session
-        return session
+                return replace(record.session, recent_events=recent_events)
+        return replace(session, recent_events=recent_events)
 
     def get_game(self, game_id: str) -> GameSession:
         """Return a snapshot without exposing mutable repository state."""
@@ -322,7 +352,7 @@ class GameSessionService:
                 selected,
             )
             last_bout = remember_resolved_bout(state, updated_state, session.last_bout)
-            advanced_state, last_bout = self._advance_to_human_or_complete(
+            advanced_state, last_bout, recent_events = self._advance_to_human_or_complete(
                 updated_state,
                 last_bout,
             )
@@ -332,7 +362,7 @@ class GameSessionService:
                 last_bout=last_bout,
             )
             self._persist_completed_match(record)
-            return record.session
+            return replace(record.session, recent_events=recent_events)
 
     def _persist_completed_match(self, record: _SessionRecord) -> None:
         session = record.session
@@ -354,8 +384,9 @@ class GameSessionService:
         self,
         state: GameState,
         last_bout: BoutState | None = None,
-    ) -> tuple[GameState, BoutState | None]:
+    ) -> tuple[GameState, BoutState | None, tuple[BotPresentationEvent, ...]]:
         bot_action_count = 0
+        recent_events: list[BotPresentationEvent] = []
         while state.phase is not GamePhase.COMPLETE:
             if state.phase is GamePhase.READY_FOR_BOUT:
                 state = start_game_bout(state)
@@ -363,20 +394,65 @@ class GameSessionService:
 
             actor = acting_seat(state)
             if actor is Seat.ONE:
-                return state, last_bout
+                return state, last_bout, tuple(recent_events)
             if actor is not Seat.TWO:
                 raise ValueError("an active two-seat game must have a current actor")
             if bot_action_count >= self._bot_action_limit:
                 raise SessionActionError(SessionErrorCode.BOT_AUTO_ADVANCE_LIMIT)
             try:
                 previous_state = state
+                action = choose_bot_action(previous_state, Seat.TWO)
                 state = self._bot_turn(state, Seat.TWO)
             except BotActionError as error:
                 raise RuntimeError("baseline bot could not advance an owned decision") from error
             last_bout = remember_resolved_bout(previous_state, state, last_bout)
+            recent_events.append(_bot_presentation_event(previous_state, action))
             bot_action_count += 1
 
-        return state, last_bout
+        return state, last_bout, tuple(recent_events)
+
+
+_BOT_EVENT_TYPES = {
+    BotActionType.INITIAL_ATTACK: BotPresentationEventType.INITIAL_ATTACK,
+    BotActionType.DEFEND: BotPresentationEventType.DEFEND,
+    BotActionType.TRANSFER: BotPresentationEventType.TRANSFER,
+    BotActionType.THROW_IN: BotPresentationEventType.THROW_IN,
+    BotActionType.TAKE: BotPresentationEventType.TAKE,
+    BotActionType.BITO: BotPresentationEventType.BITO,
+}
+
+
+def _bot_presentation_event(
+    previous_state: GameState,
+    action: BotAction,
+) -> BotPresentationEvent:
+    event_type = _BOT_EVENT_TYPES.get(action.action_type)
+    if event_type is None:
+        raise ValueError("bout start is not a presentation event")
+    bout = previous_state.active_bout
+    trump_state = bout.trump_state if bout is not None else previous_state.current_trump_state
+    value = get_cards_value(action.cards, trump_state) if action.cards else None
+    target = None
+    if (
+        bout is not None
+        and bout.active_packet is not None
+        and action.action_type
+        in {
+            BotActionType.DEFEND,
+            BotActionType.TRANSFER,
+            BotActionType.TAKE,
+        }
+    ):
+        target = bout.active_packet.attack_value
+    card_count = len(action.cards)
+    if action.action_type is BotActionType.TAKE and bout is not None:
+        card_count = len(bout.table_cards)
+    return BotPresentationEvent(
+        type=event_type,
+        card_count=card_count,
+        value=value,
+        target=target,
+    )
 
 
 def _record_accepted_human_action(

@@ -19,6 +19,7 @@ class ThrowInReason(StrEnum):
 
     SAME_RANK = "same_rank"
     EXISTING_VALUE = "existing_value"
+    DEFENSE_TOTAL = "defense_total"
     TABLE_TOTAL = "table_total"
     ARITHMETIC_MEAN = "arithmetic_mean"
 
@@ -28,6 +29,7 @@ class ThrowInTargets:
     """Direct-anchor values and arithmetic targets from the physical table."""
 
     represented_effective_values: frozenset[int]
+    defense_total: int | None
     table_total: int | None
     arithmetic_mean: Fraction | None
 
@@ -73,6 +75,7 @@ def get_throw_in_targets(
     if not table:
         return ThrowInTargets(
             represented_effective_values=frozenset(),
+            defense_total=None,
             table_total=None,
             arithmetic_mean=None,
         )
@@ -81,6 +84,9 @@ def get_throw_in_targets(
     return ThrowInTargets(
         represented_effective_values=frozenset(
             get_effective_value(card, trump_state) for card in direct_anchors
+        ),
+        defense_total=(
+            get_cards_value(direct_anchors, trump_state) if len(direct_anchors) > 1 else None
         ),
         table_total=summary.total_effective_value,
         arithmetic_mean=summary.arithmetic_mean,
@@ -113,6 +119,13 @@ def analyze_throw_in(
         for target in targets.represented_effective_values
     ):
         reasons.add(ThrowInReason.EXISTING_VALUE)
+
+    if targets.defense_total is not None and matches_exact_value(
+        selected,
+        targets.defense_total,
+        trump_state,
+    ):
+        reasons.add(ThrowInReason.DEFENSE_TOTAL)
 
     if targets.table_total is not None and matches_exact_value(
         selected,

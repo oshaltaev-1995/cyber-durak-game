@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  OnDestroy,
   OnInit,
   computed,
   inject,
@@ -9,7 +10,12 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { GameCard, GameResponse, HumanActionType } from '../core/api/game-api.models';
+import {
+  BotPresentationEvent,
+  GameCard,
+  GameResponse,
+  HumanActionType,
+} from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
 import { AuthService } from '../core/auth/auth.service';
 import { ActionBarComponent } from './components/action-bar/action-bar';
@@ -42,7 +48,7 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   styleUrl: './game-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GamePageComponent implements OnInit {
+export class GamePageComponent implements OnInit, OnDestroy {
   private readonly api = inject(GameApiService);
   private readonly session = inject(GameSessionState);
   protected readonly auth = inject(AuthService);
@@ -51,17 +57,29 @@ export class GamePageComponent implements OnInit {
   protected readonly pending = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly restartConfirmation = signal(false);
+  protected readonly botPresentation = signal<BotPresentationEvent | null>(null);
   protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
   protected readonly selectedCards = computed<readonly GameCard[]>(() => {
     const selected = this.selectedCodes();
     return this.game()?.human_hand.filter((card) => selected.has(card.code)) ?? [];
   });
   protected readonly statusText = computed(() => this.getStatusText());
+  private presentationTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingAuthoritativeGame: GameResponse | null = null;
 
   ngOnInit(): void {
     if (this.game() === null) {
       this.startNewGame();
     }
+  }
+
+  ngOnDestroy(): void {
+    if (this.pendingAuthoritativeGame !== null) {
+      this.game.set(this.pendingAuthoritativeGame);
+      this.selectedCodes.set(new Set());
+      this.pendingAuthoritativeGame = null;
+    }
+    this.cancelPresentation();
   }
 
   protected requestNewGame(): void {
@@ -78,6 +96,7 @@ export class GamePageComponent implements OnInit {
     if (this.pending()) {
       return;
     }
+    this.cancelPresentation();
     this.restartConfirmation.set(false);
     this.pending.set(true);
     this.errorMessage.set(null);
@@ -88,6 +107,7 @@ export class GamePageComponent implements OnInit {
         next: (game) => {
           this.game.set(game);
           this.selectedCodes.set(new Set());
+          this.showBriefBotStatus(game.recent_events.at(-1) ?? null);
         },
         error: (error: unknown) => this.errorMessage.set(this.messageForError(error)),
       });
@@ -122,14 +142,27 @@ export class GamePageComponent implements OnInit {
         action,
         this.selectedCards().map((card) => card.code),
       )
-      .pipe(finalize(() => this.pending.set(false)))
       .subscribe({
-        next: (updatedGame) => {
-          this.game.set(updatedGame);
-          this.selectedCodes.set(new Set());
+        next: (updatedGame) => this.presentUpdatedGame(updatedGame),
+        error: (error: unknown) => {
+          this.pending.set(false);
+          this.errorMessage.set(this.messageForError(error));
         },
-        error: (error: unknown) => this.errorMessage.set(this.messageForError(error)),
       });
+  }
+
+  protected activityTurn(game: GameResponse, actor: 'HUMAN' | 'BOT'): readonly string[] {
+    if (this.pending() || game.phase === 'complete' || game.required_actor !== actor) return [];
+    return [
+      [
+        game.game_id,
+        actor,
+        game.bout_phase ?? 'ready',
+        game.packets.length,
+        game.table_cards.length,
+        game.available_actions.join('-'),
+      ].join(':'),
+    ];
   }
 
   protected resultTitle(game: GameResponse): string {
@@ -140,6 +173,10 @@ export class GamePageComponent implements OnInit {
   }
 
   private getStatusText(): string {
+    const event = this.botPresentation();
+    if (event !== null) {
+      return this.botEventText(event);
+    }
     if (this.pending()) {
       return 'Бот думает…';
     }
@@ -162,6 +199,73 @@ export class GamePageComponent implements OnInit {
       return 'Можно подкинуть карты или закончить кон';
     }
     return game.required_actor === 'BOT' ? 'Бот ходит…' : 'Ваш ход';
+  }
+
+  private presentUpdatedGame(updatedGame: GameResponse): void {
+    const event = updatedGame.recent_events.at(-1) ?? null;
+    if (event?.type === 'BOT_TAKE' && this.game() !== null) {
+      this.pendingAuthoritativeGame = updatedGame;
+      this.botPresentation.set(event);
+      this.presentationTimer = setTimeout(() => {
+        this.presentationTimer = null;
+        this.pendingAuthoritativeGame = null;
+        this.game.set(updatedGame);
+        this.selectedCodes.set(new Set());
+        this.botPresentation.set(null);
+        this.pending.set(false);
+      }, 650);
+      return;
+    }
+    this.game.set(updatedGame);
+    this.selectedCodes.set(new Set());
+    this.pending.set(false);
+    this.showBriefBotStatus(event);
+  }
+
+  private showBriefBotStatus(event: BotPresentationEvent | null): void {
+    if (event === null) return;
+    this.cancelPresentation();
+    this.botPresentation.set(event);
+    this.presentationTimer = setTimeout(() => {
+      this.presentationTimer = null;
+      this.botPresentation.set(null);
+    }, 700);
+  }
+
+  private cancelPresentation(): void {
+    if (this.presentationTimer !== null) {
+      clearTimeout(this.presentationTimer);
+      this.presentationTimer = null;
+    }
+    this.botPresentation.set(null);
+  }
+
+  private botEventText(event: BotPresentationEvent): string {
+    switch (event.type) {
+      case 'BOT_INITIAL_ATTACK':
+        return 'Бот ходит…';
+      case 'BOT_DEFEND':
+        return 'Бот покрывает…';
+      case 'BOT_TRANSFER':
+        return 'Бот переводит…';
+      case 'BOT_THROW_IN':
+        return 'Бот подкидывает…';
+      case 'BOT_TAKE':
+        return event.card_count > 0
+          ? `Бот берёт ${event.card_count} ${this.cardCountWord(event.card_count)}…`
+          : 'Бот берёт карты…';
+      case 'BOT_BITO':
+        return 'Бито';
+    }
+  }
+
+  private cardCountWord(count: number): string {
+    const lastTwo = count % 100;
+    if (lastTwo >= 11 && lastTwo <= 14) return 'карт';
+    const last = count % 10;
+    if (last === 1) return 'карту';
+    if (last >= 2 && last <= 4) return 'карты';
+    return 'карт';
   }
 
   private messageForError(error: unknown): string {

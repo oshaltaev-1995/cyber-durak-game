@@ -55,6 +55,8 @@ describe('RulesPageComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
 
     expect(text).toContain('7 + J');
+    expect(text).toContain('J(12) + 8(8) = 20');
+    expect(text).toContain('A = 20');
     expect(text).toContain('Старые покрытые атаки такой прямой подсказки больше не дают');
     expect(text).toContain('Покрывается только текущий пакет');
     expect(text).toContain('После первой успешной защиты перевод закрыт');

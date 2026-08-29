@@ -121,6 +121,27 @@ describe('PvPRoomPageComponent', () => {
     expect(element.textContent).not.toContain('draw_pile');
   });
 
+  it('moves the presentation-only activity ring with the authoritative actor', () => {
+    let element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.turn-player.activity-ring')).not.toBeNull();
+    expect(element.querySelector('.bot-avatar.activity-ring')).toBeNull();
+
+    socket.state.set(
+      makeState({
+        version: 2,
+        required_participant_id: 'p2',
+        required_seat: 'two',
+        available_actions: [],
+      }),
+    );
+    fixture.detectChanges();
+
+    element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.turn-player.activity-ring')).toBeNull();
+    expect(element.querySelector('.bot-avatar.activity-ring')).not.toBeNull();
+    expect(socket.sendAction).not.toHaveBeenCalled();
+  });
+
   it('resumes the same room from the stored reconnect credential', () => {
     expect(socket.connect).toHaveBeenCalledWith('ABC123', 'secret');
     expect(credentials.get).toHaveBeenCalledWith('ABC123');

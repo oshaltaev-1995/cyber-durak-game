@@ -67,7 +67,13 @@ class TrumpResponse(BaseModel):
 
 
 class ThrowInReasonResponse(BaseModel):
-    type: Literal["same_rank", "existing_value", "table_total", "arithmetic_mean"]
+    type: Literal[
+        "same_rank",
+        "existing_value",
+        "defense_total",
+        "table_total",
+        "arithmetic_mean",
+    ]
     target_value: int | None
     expression: str | None
 
@@ -124,12 +130,28 @@ class CosmeticLoadoutResponse(BaseModel):
     profile_frame_code: str
 
 
+class BotPresentationEventResponse(BaseModel):
+    type: Literal[
+        "BOT_INITIAL_ATTACK",
+        "BOT_DEFEND",
+        "BOT_TRANSFER",
+        "BOT_THROW_IN",
+        "BOT_TAKE",
+        "BOT_BITO",
+    ]
+    actor: Literal["BOT"] = "BOT"
+    card_count: int
+    value: int | None
+    target: int | None
+
+
 class GameResponse(BaseModel):
     game_id: str
     account_associated: bool
     result_saved: bool
     progression_award: ProgressionAwardResponse | None
     cosmetics: CosmeticLoadoutResponse
+    recent_events: list[BotPresentationEventResponse]
     phase: str
     result: ResultResponse | None
     human_seat: str

@@ -79,7 +79,18 @@
           @if ((game.opponent_hand_count ?? 0) > 0) {
             <div class="opponent-card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
           }
-          <div class="bot-avatar" aria-hidden="true">P2</div>
+          @for (
+            turn of activityTurn(
+              game.version,
+              game.required_participant_id,
+              game.opponent?.participant_id ?? null
+            );
+            track turn
+          ) {
+            <div class="bot-avatar activity-ring" aria-hidden="true">P2</div>
+          } @empty {
+            <div class="bot-avatar" aria-hidden="true">P2</div>
+          }
           <div class="opponent-copy">
             <span>Соперник</span
             ><strong
@@ -193,8 +204,26 @@
           <div class="error-message in-game" role="alert">{{ error }}</div>
         }
 
-        <div class="local-player" [title]="game.you.display_name">
-          Вы · {{ game.you.display_name }}
+        <div class="local-player-row">
+          @for (
+            turn of activityTurn(
+              game.version,
+              game.required_participant_id,
+              game.you.participant_id
+            );
+            track turn
+          ) {
+            <div
+              class="local-player turn-player activity-ring"
+              [title]="game.you.display_name"
+              aria-label="Сейчас ваш ход"
+            >
+              Вы
+            </div>
+          } @empty {
+            <div class="local-player turn-player" [title]="game.you.display_name">Вы</div>
+          }
+          <span class="local-player-name">{{ game.you.display_name }}</span>
         </div>
         <app-hand
           class="player-hand-region"

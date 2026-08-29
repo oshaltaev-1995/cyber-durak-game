@@ -52,7 +52,11 @@
         @if (currentGame.bot_hand_count > 0) {
           <div class="opponent-card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
         }
-        <div class="bot-avatar" aria-hidden="true">BOT</div>
+        @for (turn of activityTurn(currentGame, 'BOT'); track turn) {
+          <div class="bot-avatar activity-ring" aria-hidden="true">BOT</div>
+        } @empty {
+          <div class="bot-avatar" aria-hidden="true">BOT</div>
+        }
         <div class="opponent-copy">
           <span>Соперник</span>
           <strong>Бот · {{ currentGame.bot_hand_count }} карт</strong>
@@ -148,13 +152,19 @@
               </p>
             } @else {
               <p class="result-history-note">Создайте аккаунт, чтобы сохранять следующие партии.</p>
-              <a class="result-history-link" routerLink="/register">Создать аккаунт</a>
             }
           }
-          <button type="button" [disabled]="pending()" (click)="startNewGame()">Сыграть ещё</button>
+          <div class="result-actions" [class.guest-actions]="!currentGame.account_associated">
+            <button type="button" [disabled]="pending()" (click)="startNewGame()">
+              Сыграть ещё
+            </button>
+            @if (!currentGame.account_associated && !auth.currentUser()) {
+              <a class="result-register" routerLink="/register">Создать аккаунт</a>
+            }
+          </div>
         </section>
       } @else {
-        <div class="status-banner" aria-live="polite">
+        <div class="status-banner status-transition" aria-live="polite">
           <span class="status-dot" aria-hidden="true"></span>
           <strong>{{ statusText() }}</strong>
           <small>
@@ -168,6 +178,11 @@
         <div class="error-message in-game" role="alert">{{ error }}</div>
       }
 
+      @for (turn of activityTurn(currentGame, 'HUMAN'); track turn) {
+        <div class="local-player turn-player activity-ring" aria-label="Сейчас ваш ход">Вы</div>
+      } @empty {
+        <div class="local-player turn-player">Вы</div>
+      }
       <app-hand
         class="player-hand-region"
         [cards]="currentGame.human_hand"

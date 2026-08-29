@@ -115,6 +115,20 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.local-player-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.local-player-name {
+  max-width: min(100%, 30rem);
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .opponent-copy {
   max-width: min(13rem, 52vw);
   overflow: hidden;

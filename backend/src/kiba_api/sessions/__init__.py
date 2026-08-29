@@ -10,6 +10,8 @@ from kiba_api.sessions.actions import (
     remember_resolved_bout,
 )
 from kiba_api.sessions.service import (
+    BotPresentationEvent,
+    BotPresentationEventType,
     GameAppearance,
     GameSession,
     GameSessionService,
@@ -21,6 +23,8 @@ from kiba_api.sessions.service import (
 
 __all__ = [
     "ActionCounters",
+    "BotPresentationEvent",
+    "BotPresentationEventType",
     "GameSession",
     "GameAppearance",
     "GameSessionService",

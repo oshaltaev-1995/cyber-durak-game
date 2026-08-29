@@ -276,6 +276,38 @@ def test_throw_in_routes_current_attacker_and_removes_only_accepted_cards() -> N
     assert thrown.active_bout.hand_count(Seat.ONE) == len(thrown.seat_one_hand)
 
 
+def test_game_routes_latest_multi_card_defense_total_throw_in() -> None:
+    jack = card(Rank.JACK)
+    queen = card(Rank.QUEEN)
+    ace = card(Rank.ACE)
+    defense_jack = card(Rank.JACK, Suit.DIAMONDS)
+    eight = card(Rank.EIGHT)
+    state = start_game_bout(
+        ready_game(
+            (jack, queen, ace, card(Rank.SIX), card(Rank.SEVEN)),
+            (
+                card(Rank.KING),
+                defense_jack,
+                eight,
+                card(Rank.NINE),
+                card(Rank.TEN),
+                card(Rank.ACE, Suit.DIAMONDS),
+            ),
+        )
+    )
+    state = play_game_initial_attack(state, Seat.ONE, [jack])
+    state = play_game_defense(state, Seat.TWO, [card(Rank.KING)])
+    state = play_game_throw_in(state, Seat.ONE, [queen])
+    state = play_game_defense(state, Seat.TWO, [defense_jack, eight])
+
+    thrown = play_game_throw_in(state, Seat.ONE, [ace])
+
+    assert thrown.active_bout is not None
+    assert thrown.active_bout.active_packet is not None
+    assert thrown.active_bout.active_packet.attack_cards == (ace,)
+    assert thrown.active_bout.active_packet.attack_value == 20
+
+
 def test_game_card_actions_require_an_active_bout() -> None:
     state = ready_game((card(Rank.KING),), (card(Rank.ACE),))
 

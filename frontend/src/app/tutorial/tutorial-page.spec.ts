@@ -81,6 +81,13 @@ describe('TutorialPageComponent', () => {
     expect(text).toContain('Активная атака — отдельная величина');
   });
 
+  it('teaches the latest multi-card defense total as a throw-in target', () => {
+    advanceTo(4);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('J(12) + 8(8) = 20');
+    expect(text).toContain('A = 20');
+  });
+
   it('shows the exact transfer snowball lesson', () => {
     advanceTo(6);
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';

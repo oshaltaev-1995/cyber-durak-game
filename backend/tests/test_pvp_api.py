@@ -36,7 +36,10 @@ def pvp_service() -> PvPRoomService:
 @pytest.fixture
 def client(database: Database, pvp_service: PvPRoomService) -> TestClient:
     settings = Settings(database_url="sqlite://", csrf_trusted_origins=(ORIGIN,))
-    return TestClient(create_app(database=database, settings=settings, pvp_service=pvp_service))
+    with TestClient(
+        create_app(database=database, settings=settings, pvp_service=pvp_service)
+    ) as value:
+        yield value
 
 
 def create_and_join(client: TestClient):
@@ -190,6 +193,7 @@ def test_expired_room_auth_is_terminal_and_distinct_from_invalid_credential(
 
     assert message["error"]["code"] == "INVITE_EXPIRED"
     assert closed.value.code == 4404
+    expiring_client.close()
 
 
 @pytest.mark.parametrize("nickname", [None, "", "   ", "x" * 25, "bad\nname"])
@@ -226,6 +230,7 @@ def test_authenticated_creator_uses_account_display_name_and_guest_can_join(
     assert joined.status_code == 200
     assert joined.json()["state"]["you"]["display_name"] == "Guest Friend"
     assert joined.json()["state"]["you"]["authenticated"] is False
+    guest_client.close()
 
 
 def test_participant_specific_state_never_leaks_opponent_or_future_draw_cards(
@@ -462,6 +467,7 @@ def test_websocket_action_rate_limit_is_machine_readable(database: Database) -> 
         assert socket.receive_json()["error"]["code"] == "WRONG_TURN"
         socket.send_json(message)
         assert socket.receive_json()["error"]["code"] == "RATE_LIMITED"
+    client.close()
 
 
 def test_full_two_client_match_completes_through_websocket_actions(
@@ -504,7 +510,15 @@ def test_full_two_client_match_completes_through_websocket_actions(
                         "cards": [card_to_code(card) for card in action.cards],
                     }
                 )
-                updates = (one.receive_json(), two.receive_json())
+                actor_update = sockets[actor].receive_json()
+                assert actor_update["type"] == "STATE"
+                other = Seat.TWO if actor is Seat.ONE else Seat.ONE
+                other_update = sockets[other].receive_json()
+                updates = (
+                    (actor_update, other_update)
+                    if actor is Seat.ONE
+                    else (other_update, actor_update)
+                )
                 assert all(message["type"] == "STATE" for message in updates)
                 assert updates[0]["state"]["version"] == room.version + 1
                 if updates[0]["state"]["game_phase"] == GamePhase.COMPLETE.value:
@@ -603,7 +617,15 @@ def test_authenticated_pvp_completion_persists_private_progression_once(
                         "cards": [card_to_code(card) for card in action.cards],
                     }
                 )
-                updates = (one.receive_json(), two.receive_json())
+                actor_update = sockets[actor].receive_json()
+                assert actor_update["type"] == "STATE"
+                other = Seat.TWO if actor is Seat.ONE else Seat.ONE
+                other_update = sockets[other].receive_json()
+                updates = (
+                    (actor_update, other_update)
+                    if actor is Seat.ONE
+                    else (other_update, actor_update)
+                )
                 if updates[0]["state"]["game_phase"] == GamePhase.COMPLETE.value:
                     complete_states[Seat.ONE] = updates[0]["state"]
                     complete_states[Seat.TWO] = updates[1]["state"]
@@ -634,3 +656,4 @@ def test_authenticated_pvp_completion_persists_private_progression_once(
     with database.session() as session:
         assert session.scalar(select(func.count()).select_from(CompletedMatch)) == 2
         assert session.scalar(select(func.count()).select_from(XPLedgerEntry)) == ledger_count
+    client.close()

@@ -26,7 +26,8 @@ export interface TrumpState {
   readonly trump_suit: Suit | null;
 }
 
-export type ThrowInReasonType = 'same_rank' | 'existing_value' | 'table_total' | 'arithmetic_mean';
+export type ThrowInReasonType =
+  'same_rank' | 'existing_value' | 'defense_total' | 'table_total' | 'arithmetic_mean';
 
 export interface ThrowInReason {
   readonly type: ThrowInReasonType;
@@ -86,12 +87,24 @@ export interface GameCosmetics {
   readonly profile_frame_code: string;
 }
 
+export type BotPresentationEventType =
+  'BOT_INITIAL_ATTACK' | 'BOT_DEFEND' | 'BOT_TRANSFER' | 'BOT_THROW_IN' | 'BOT_TAKE' | 'BOT_BITO';
+
+export interface BotPresentationEvent {
+  readonly type: BotPresentationEventType;
+  readonly actor: 'BOT';
+  readonly card_count: number;
+  readonly value: number | null;
+  readonly target: number | null;
+}
+
 export interface GameResponse {
   readonly game_id: string;
   readonly account_associated: boolean;
   readonly result_saved: boolean;
   readonly progression_award: ProgressionAward | null;
   readonly cosmetics: GameCosmetics;
+  readonly recent_events: readonly BotPresentationEvent[];
   readonly phase: GamePhase;
   readonly result: GameResult | null;
   readonly human_seat: Seat;

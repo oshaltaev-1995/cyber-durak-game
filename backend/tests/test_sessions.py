@@ -95,7 +95,9 @@ def test_human_action_replaces_immutable_state_then_auto_advances_bot() -> None:
         card(Rank.EIGHT),
     )
     assert updated.state != original_state
-    assert service.get_game(created.game_id) == updated
+    assert service.get_game(created.game_id).state == updated.state
+    assert len(updated.recent_events) == 1
+    assert service.get_game(created.game_id).recent_events == ()
 
 
 def test_session_lookup_has_explicit_not_found_behavior() -> None:

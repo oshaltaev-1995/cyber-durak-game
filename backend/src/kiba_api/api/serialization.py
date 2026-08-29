@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 from kiba_api.api.cards import card_to_code
 from kiba_api.api.schemas import (
     AchievementAwardResponse,
+    BotPresentationEventResponse,
     CardResponse,
     CosmeticAwardResponse,
     CosmeticLoadoutResponse,
@@ -47,6 +48,7 @@ _RANK_ORDER = {rank: index for index, rank in enumerate(Rank)}
 _THROW_IN_REASON_ORDER = (
     ThrowInReason.SAME_RANK,
     ThrowInReason.EXISTING_VALUE,
+    ThrowInReason.DEFENSE_TOTAL,
     ThrowInReason.TABLE_TOTAL,
     ThrowInReason.ARITHMETIC_MEAN,
 )
@@ -82,6 +84,15 @@ def serialize_game_session(session: GameSession) -> GameResponse:
             table_theme_code=session.appearance.table_theme_code,
             profile_frame_code=session.appearance.profile_frame_code,
         ),
+        recent_events=[
+            BotPresentationEventResponse(
+                type=event.type.value,
+                card_count=event.card_count,
+                value=event.value,
+                target=event.target,
+            )
+            for event in session.recent_events
+        ],
         phase=state.phase.value,
         result=_serialize_result(session),
         human_seat=session.human_seat.value,
@@ -220,6 +231,11 @@ def _serialize_throw_in_reasons(
             )
             if matching_anchor is not None:
                 expression = f"{card_to_code(matching_anchor)} = {analysis.selected_value}"
+        elif reason is ThrowInReason.DEFENSE_TOTAL:
+            defense_values = [
+                get_effective_value(card, trump_state) for card in direct_anchor_cards
+            ]
+            expression = f"{' + '.join(map(str, defense_values))} = {analysis.selected_value}"
         elif reason is ThrowInReason.TABLE_TOTAL:
             expression = f"{' + '.join(map(str, table_values))} = {analysis.selected_value}"
         elif reason is ThrowInReason.ARITHMETIC_MEAN:

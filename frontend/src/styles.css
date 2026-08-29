@@ -79,3 +79,80 @@ select {
     auto,
     auto;
 }
+
+/* Non-authoritative shared turn feedback for bot and private-PvP tables. */
+.activity-ring {
+  position: relative;
+  isolation: isolate;
+}
+
+.activity-ring::before {
+  position: absolute;
+  z-index: -1;
+  inset: -0.3rem;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) var(--turn-progress), rgb(73 229 190 / 12%) 0);
+  content: '';
+  mask: radial-gradient(farthest-side, transparent calc(100% - 0.2rem), #000 0);
+  animation: turn-ring-drain 30s linear forwards;
+}
+
+.turn-player.activity-ring,
+.opponent-zone:has(.activity-ring) {
+  animation: turn-label-pulse 1.4s ease-in-out 30s infinite;
+}
+
+.status-transition {
+  animation: status-arrive 180ms ease-out;
+}
+
+.local-player.turn-player {
+  display: grid;
+  width: 2.7rem;
+  height: 2.7rem;
+  margin-inline: 0.35rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text-strong);
+  background: rgb(9 45 37 / 92%);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+@property --turn-progress {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 100%;
+}
+
+@keyframes turn-ring-drain {
+  to {
+    --turn-progress: 0%;
+  }
+}
+
+@keyframes turn-label-pulse {
+  50% {
+    box-shadow: 0 0 0 0.35rem rgb(73 229 190 / 16%);
+  }
+}
+
+@keyframes status-arrive {
+  from {
+    opacity: 0.65;
+    transform: translateY(0.2rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-ring::before,
+  .opponent-zone:has(.activity-ring),
+  .turn-player.activity-ring,
+  .status-transition {
+    animation: none;
+  }
+
+  .activity-ring::before {
+    background: rgb(73 229 190 / 55%);
+  }
+}

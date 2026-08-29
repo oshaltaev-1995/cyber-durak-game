@@ -99,6 +99,7 @@ def test_throw_in_targets_derive_unique_arithmetic_sources() -> None:
 
     assert targets == ThrowInTargets(
         represented_effective_values=frozenset({7, 18}),
+        defense_total=25,
         table_total=32,
         arithmetic_mean=Fraction(32, 3),
     )
@@ -111,6 +112,7 @@ def test_throw_in_targets_separate_direct_anchors_from_table_arithmetic() -> Non
 
     assert targets == ThrowInTargets(
         represented_effective_values=frozenset({18}),
+        defense_total=None,
         table_total=30,
         arithmetic_mean=Fraction(15),
     )
@@ -119,6 +121,7 @@ def test_throw_in_targets_separate_direct_anchors_from_table_arithmetic() -> Non
 def test_empty_table_has_no_throw_in_targets() -> None:
     assert get_throw_in_targets([], [], NO_TRUMP) == ThrowInTargets(
         represented_effective_values=frozenset(),
+        defense_total=None,
         table_total=None,
         arithmetic_mean=None,
     )
@@ -239,7 +242,9 @@ def test_each_selected_rank_may_match_a_different_direct_anchor() -> None:
         {ThrowInReason.SAME_RANK, ThrowInReason.EXISTING_VALUE}
     )
     assert selected_together.selected_value == 19
-    assert selected_together.reasons == frozenset({ThrowInReason.SAME_RANK})
+    assert selected_together.reasons == frozenset(
+        {ThrowInReason.SAME_RANK, ThrowInReason.DEFENSE_TOTAL}
+    )
     assert selected_together.legal is True
 
 
@@ -480,6 +485,7 @@ def test_empty_direct_anchors_disable_direct_rules_only() -> None:
 
     assert targets == ThrowInTargets(
         represented_effective_values=frozenset(),
+        defense_total=None,
         table_total=30,
         arithmetic_mean=Fraction(15),
     )
@@ -505,6 +511,76 @@ def test_direct_value_and_mean_reasons_are_both_preserved() -> None:
             ThrowInReason.ARITHMETIC_MEAN,
         }
     )
+
+
+@pytest.mark.parametrize(
+    "selection",
+    [
+        [card(Rank.ACE)],
+        [card(Rank.TEN), card(Rank.TEN, Suit.DIAMONDS)],
+    ],
+)
+def test_latest_multi_card_defense_total_is_an_exact_throw_in_target(
+    selection: list[Card],
+) -> None:
+    attack = card(Rank.SIX)
+    defense = [card(Rank.JACK), card(Rank.EIGHT)]
+    table = [attack, *defense]
+
+    targets = get_throw_in_targets(table, defense, NO_TRUMP)
+    analysis = analyze_throw_in(selection, table, defense, NO_TRUMP)
+
+    assert targets.defense_total == 20
+    assert analysis.selected_value == 20
+    assert ThrowInReason.DEFENSE_TOTAL in analysis.reasons
+
+
+@pytest.mark.parametrize(
+    "selection",
+    [
+        [card(Rank.JACK), card(Rank.SEVEN)],
+        [card(Rank.QUEEN), card(Rank.SIX)],
+    ],
+)
+def test_nearby_values_do_not_match_latest_defense_total(selection: list[Card]) -> None:
+    attack = card(Rank.SIX)
+    defense = [card(Rank.JACK), card(Rank.EIGHT)]
+
+    analysis = analyze_throw_in(selection, [attack, *defense], defense, NO_TRUMP)
+
+    assert analysis.selected_value in {19, 21}
+    assert ThrowInReason.DEFENSE_TOTAL not in analysis.reasons
+
+
+def test_latest_defense_total_uses_trump_adjusted_values() -> None:
+    trump_state = TrumpState.from_source_card(card(Rank.KING, Suit.HEARTS))
+    attack = card(Rank.SIX)
+    defense = [card(Rank.SIX, Suit.HEARTS), card(Rank.EIGHT)]
+    selection = [card(Rank.ACE)]
+
+    analysis = analyze_throw_in(
+        selection,
+        [attack, *defense],
+        defense,
+        trump_state,
+    )
+
+    assert analysis.selected_value == 20
+    assert ThrowInReason.DEFENSE_TOTAL in analysis.reasons
+
+
+def test_single_defense_card_does_not_duplicate_existing_value_reason() -> None:
+    king = card(Rank.KING)
+
+    analysis = analyze_throw_in(
+        [card(Rank.TEN), card(Rank.EIGHT)],
+        [card(Rank.JACK), king],
+        [king],
+        NO_TRUMP,
+    )
+
+    assert ThrowInReason.EXISTING_VALUE in analysis.reasons
+    assert ThrowInReason.DEFENSE_TOTAL not in analysis.reasons
 
 
 def test_selection_can_match_table_total() -> None:

@@ -336,11 +336,12 @@ After cards have been played onto the table, further legal throw-ins can be gene
 
 The table is recalculated after every legal addition.
 
-Three major arithmetic mechanisms are currently confirmed:
+Four major arithmetic mechanisms are currently confirmed:
 
 1. **Existing rank / existing card-value relations**
-2. **Total table sum**
-3. **Arithmetic mean of all physical cards on the table**
+2. **Latest defense packet total**
+3. **Total table sum**
+4. **Arithmetic mean of all physical cards on the table**
 
 A legal target value may be satisfied by:
 
@@ -378,6 +379,14 @@ anchors; the selected cards do not all need to share one rank. For example, if t
 cards are `7 + J`, then `7`, `J`, `7 + J`, `7 + 7`, and `7 + 7 + J` may qualify through the
 same-rank mechanism, while a selection containing an unanchored `9` does not qualify through that
 mechanism.
+
+The latest successful defense packet also exposes the **combined effective total of all its defense
+cards** as one exact throw-in target. This target belongs only to the latest defense packet; totals
+from older defense packets do not remain direct targets.
+
+Example: if the latest defense is `J(12) + 8(8) = 20`, then `A = 20` or `10 + 10 = 20` may be
+thrown in. A single-card defense already exposes the same number as its existing effective value,
+so it does not create a distinct additional gameplay effect.
 
 Example:
 

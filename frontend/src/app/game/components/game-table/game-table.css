@@ -97,6 +97,14 @@ h2 {
   border: 1px solid rgb(255 255 255 / 9%);
   border-radius: 0.9rem;
   background: rgb(0 0 0 / 13%);
+  animation: packet-arrive 180ms ease-out;
+}
+
+@keyframes packet-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
 }
 
 .packet.active {
@@ -205,5 +213,11 @@ h2 {
 
   .packet-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .packet {
+    animation: none;
   }
 }

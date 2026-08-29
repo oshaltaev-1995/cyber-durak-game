@@ -2,11 +2,12 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, of, Subject, throwError } from 'rxjs';
 import { GameCard, GameResponse } from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
 import { AuthService } from '../core/auth/auth.service';
 import { GamePageComponent } from './game-page';
+import { GameSessionState } from './game-session-state';
 
 const card = (
   code: string,
@@ -37,6 +38,7 @@ const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
     table_theme_code: 'CLASSIC_TABLE',
     profile_frame_code: 'NO_FRAME',
   },
+  recent_events: [],
   phase: 'bout_active',
   result: null,
   human_seat: 'one',
@@ -328,6 +330,35 @@ describe('GamePageComponent', () => {
     expect(tableText).toContain('30 / 2 = 15');
   });
 
+  it('renders the server-confirmed latest-defense-total explanation', () => {
+    create(
+      makeGame({
+        packets: [
+          {
+            attack_cards: [queenDiamonds],
+            attack_value: 15,
+            defense_cards: [],
+            defense_value: null,
+            closed: false,
+            throw_in_reasons: [
+              {
+                type: 'defense_total',
+                target_value: 20,
+                expression: '12 + 8 = 20',
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const tableText = (fixture.nativeElement as HTMLElement).querySelector(
+      'app-game-table',
+    )?.textContent;
+    expect(tableText).toContain('Подкинуто по сумме защиты');
+    expect(tableText).toContain('12 + 8 = 20');
+  });
+
   it('renders an exact integer arithmetic mean without decimal formatting', () => {
     create(
       makeGame({
@@ -544,6 +575,166 @@ describe('GamePageComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('сохранять следующие партии');
     expect(text).not.toContain('Результат сохранён');
+    const actions = (fixture.nativeElement as HTMLElement).querySelector('.result-actions');
+    expect(actions?.querySelector('button')?.textContent).toContain('Сыграть ещё');
+    expect(actions?.querySelector('.result-register')?.textContent).toContain('Создать аккаунт');
+    expect(actions?.children).toHaveLength(2);
+  });
+
+  it('keeps the old table visible while presenting a confirmed bot TAKE', () => {
+    vi.useFakeTimers();
+    try {
+      create(
+        makeGame({
+          table_cards: [sixClubs],
+          packets: [
+            {
+              attack_cards: [sixClubs],
+              attack_value: 6,
+              defense_cards: [],
+              defense_value: null,
+              closed: false,
+              throw_in_reasons: [],
+            },
+          ],
+        }),
+      );
+      api.submitAction.mockReturnValue(
+        of(
+          makeGame({
+            table_cards: [],
+            packets: [],
+            recent_events: [
+              {
+                type: 'BOT_TAKE',
+                actor: 'BOT',
+                card_count: 4,
+                value: null,
+                target: 18,
+              },
+            ],
+          }),
+        ),
+      );
+      const firstCard = (fixture.nativeElement as HTMLElement).querySelector(
+        'app-hand .playing-card',
+      ) as HTMLButtonElement;
+      firstCard.click();
+      fixture.detectChanges();
+
+      clickButton('Ходить');
+
+      let element = fixture.nativeElement as HTMLElement;
+      expect(element.textContent).toContain('Бот берёт 4 карты…');
+      expect(element.querySelector('app-game-table')?.textContent).toContain('Атака · 6');
+
+      vi.advanceTimersByTime(650);
+      fixture.detectChanges();
+      element = fixture.nativeElement as HTMLElement;
+      expect(element.querySelector('app-game-table')?.textContent).toContain('Стол пуст');
+      expect(element.textContent).not.toContain('Бот берёт 4 карты…');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retains the authoritative bot TAKE response when navigation interrupts presentation', () => {
+    vi.useFakeTimers();
+    try {
+      create(
+        makeGame({
+          table_cards: [sixClubs],
+          packets: [
+            {
+              attack_cards: [sixClubs],
+              attack_value: 6,
+              defense_cards: [],
+              defense_value: null,
+              closed: false,
+              throw_in_reasons: [],
+            },
+          ],
+        }),
+      );
+      const updated = makeGame({
+        table_cards: [],
+        packets: [],
+        recent_events: [
+          {
+            type: 'BOT_TAKE',
+            actor: 'BOT',
+            card_count: 1,
+            value: null,
+            target: 6,
+          },
+        ],
+      });
+      api.submitAction.mockReturnValue(of(updated));
+      const firstCard = (fixture.nativeElement as HTMLElement).querySelector(
+        'app-hand .playing-card',
+      ) as HTMLButtonElement;
+      firstCard.click();
+      fixture.detectChanges();
+      clickButton('Ходить');
+
+      fixture.destroy();
+
+      expect(TestBed.inject(GameSessionState).game()).toBe(updated);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows bot thinking while an action request is pending', () => {
+    create();
+    const response = new Subject<GameResponse>();
+    api.submitAction.mockReturnValue(response);
+    const firstCard = (fixture.nativeElement as HTMLElement).querySelector(
+      'app-hand .playing-card',
+    ) as HTMLButtonElement;
+    firstCard.click();
+    fixture.detectChanges();
+
+    clickButton('Ходить');
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Бот думает…');
+    expect(firstCard.disabled).toBe(true);
+    response.complete();
+  });
+
+  it('renders activity rings for the authoritative actor without triggering gameplay', () => {
+    vi.useFakeTimers();
+    try {
+      create();
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.turn-player.activity-ring'),
+      ).not.toBeNull();
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.bot-avatar.activity-ring'),
+      ).toBeNull();
+
+      vi.advanceTimersByTime(31_000);
+      fixture.detectChanges();
+      expect(api.submitAction).not.toHaveBeenCalled();
+
+      const session = TestBed.inject(GameSessionState);
+      session.game.set(
+        makeGame({
+          required_actor: 'BOT',
+          required_seat: 'two',
+          available_actions: [],
+        }),
+      );
+      fixture.detectChanges();
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.bot-avatar.activity-ring'),
+      ).not.toBeNull();
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.turn-player.activity-ring'),
+      ).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('updates through several server states without triggering bot turns itself', () => {

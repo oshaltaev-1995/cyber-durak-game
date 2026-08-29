@@ -154,6 +154,15 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     return navigator.share !== undefined;
   }
 
+  protected activityTurn(
+    version: number,
+    requiredParticipantId: string | null,
+    participantId: string | null,
+  ): readonly string[] {
+    if (participantId === null || requiredParticipantId !== participantId) return [];
+    return [`${participantId}:${version}`];
+  }
+
   protected connectionMessage(): string | null {
     const status = this.socket.status();
     if (status === 'connecting') return 'Подключаемся…';

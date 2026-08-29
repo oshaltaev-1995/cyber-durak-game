@@ -94,7 +94,40 @@ def test_get_game_returns_same_current_public_snapshot() -> None:
     fetched = client.get(f"/api/games/{created['game_id']}")
 
     assert fetched.status_code == 200
-    assert fetched.json() == created
+    expected = dict(created)
+    expected["recent_events"] = []
+    assert fetched.json() == expected
+
+
+def test_action_response_contains_transient_safe_bot_take_event() -> None:
+    initial = game(
+        (card(Rank.KING), card(Rank.ACE)),
+        (card(Rank.SIX), card(Rank.SEVEN)),
+    )
+    service = GameSessionService(game_factory=lambda: initial)
+    client = TestClient(create_app(service))
+    game_id = client.post("/api/games").json()["game_id"]
+
+    response = client.post(
+        f"/api/games/{game_id}/actions",
+        json={"action": "INITIAL_ATTACK", "cards": ["KC"]},
+    )
+    fetched = client.get(f"/api/games/{game_id}")
+
+    assert response.status_code == 200
+    assert response.json()["recent_events"] == [
+        {
+            "type": "BOT_TAKE",
+            "actor": "BOT",
+            "card_count": 1,
+            "value": None,
+            "target": 18,
+        }
+    ]
+    assert fetched.json()["recent_events"] == []
+    event_json = json.dumps(response.json()["recent_events"])
+    assert "6C" not in event_json
+    assert "7C" not in event_json
 
 
 def test_public_response_hides_bot_hand_and_future_draw_order() -> None:
@@ -337,6 +370,43 @@ def test_throw_in_packet_exposes_server_confirmed_mean_explanation() -> None:
             "type": "arithmetic_mean",
             "target_value": 15,
             "expression": "30 / 2 = 15",
+        }
+    ]
+
+
+def test_throw_in_packet_exposes_server_confirmed_latest_defense_total() -> None:
+    jack = card(Rank.JACK)
+    queen = card(Rank.QUEEN)
+    ace = card(Rank.ACE)
+    defense_jack = card(Rank.JACK, Suit.DIAMONDS)
+    eight = card(Rank.EIGHT)
+    state = start_game_bout(
+        game(
+            (jack, queen, ace, card(Rank.SIX), card(Rank.SEVEN)),
+            (
+                card(Rank.KING),
+                defense_jack,
+                eight,
+                card(Rank.NINE),
+                card(Rank.TEN),
+                card(Rank.ACE, Suit.DIAMONDS),
+            ),
+        )
+    )
+    state = play_game_initial_attack(state, Seat.ONE, (jack,))
+    state = play_game_defense(state, Seat.TWO, (card(Rank.KING),))
+    state = play_game_throw_in(state, Seat.ONE, (queen,))
+    state = play_game_defense(state, Seat.TWO, (defense_jack, eight))
+    state = play_game_throw_in(state, Seat.ONE, (ace,))
+    client, game_id = client_for_state(state)
+
+    body = client.get(f"/api/games/{game_id}").json()
+
+    assert body["packets"][2]["throw_in_reasons"] == [
+        {
+            "type": "defense_total",
+            "target_value": 20,
+            "expression": "12 + 8 = 20",
         }
     ]
 

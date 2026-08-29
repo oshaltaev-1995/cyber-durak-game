@@ -447,7 +447,7 @@ def test_throw_in_may_combine_ranks_from_multiple_latest_defense_cards() -> None
     )
     thrown = play_throw_in(defended, Seat.ONE, selection)
 
-    assert analysis.reasons == frozenset({ThrowInReason.SAME_RANK})
+    assert analysis.reasons == frozenset({ThrowInReason.SAME_RANK, ThrowInReason.DEFENSE_TOTAL})
     assert thrown.phase is BoutPhase.WAITING_FOR_DEFENDER_RESPONSE
     assert thrown.active_packet is not None
     assert thrown.active_packet.attack_cards == tuple(selection)
@@ -549,6 +549,69 @@ def test_latest_defense_replaces_direct_anchors_but_preserves_table_history() ->
     assert ThrowInReason.EXISTING_VALUE not in analysis.reasons
     assert summary.total_effective_value == 65
     assert summary.arithmetic_mean == Fraction(65, 4)
+
+
+def test_latest_multi_card_defense_total_creates_next_packet_target() -> None:
+    state = play_initial_attack(
+        start_bout(seat_one_hand_count=5, seat_two_hand_count=6),
+        Seat.ONE,
+        [card(Rank.JACK)],
+    )
+    state = play_defense(state, Seat.TWO, [card(Rank.KING)])
+    state = play_throw_in(state, Seat.ONE, [card(Rank.QUEEN)])
+    state = play_defense(
+        state,
+        Seat.TWO,
+        [card(Rank.JACK, Suit.DIAMONDS), card(Rank.EIGHT)],
+    )
+
+    analysis = analyze_throw_in(
+        [card(Rank.ACE)],
+        state.table_cards,
+        state.direct_anchor_cards,
+        state.trump_state,
+    )
+    thrown = play_throw_in(state, Seat.ONE, [card(Rank.ACE)])
+
+    assert state.direct_anchor_cards == (
+        card(Rank.JACK, Suit.DIAMONDS),
+        card(Rank.EIGHT),
+    )
+    assert analysis.reasons == frozenset({ThrowInReason.DEFENSE_TOTAL})
+    assert thrown.active_packet is not None
+    assert thrown.active_packet.attack_value == 20
+
+
+def test_only_latest_defense_packet_total_is_exposed() -> None:
+    state = play_initial_attack(
+        start_bout(seat_one_hand_count=5, seat_two_hand_count=6),
+        Seat.ONE,
+        [card(Rank.SIX)],
+    )
+    state = play_defense(
+        state,
+        Seat.TWO,
+        [card(Rank.JACK), card(Rank.EIGHT)],
+    )
+    state = play_throw_in(state, Seat.ONE, [card(Rank.ACE)])
+    state = play_defense(
+        state,
+        Seat.TWO,
+        [card(Rank.QUEEN), card(Rank.SIX, Suit.DIAMONDS)],
+    )
+
+    analysis = analyze_throw_in(
+        [card(Rank.TEN), card(Rank.TEN, Suit.DIAMONDS)],
+        state.table_cards,
+        state.direct_anchor_cards,
+        state.trump_state,
+    )
+
+    assert state.direct_anchor_cards == (
+        card(Rank.QUEEN),
+        card(Rank.SIX, Suit.DIAMONDS),
+    )
+    assert ThrowInReason.DEFENSE_TOTAL not in analysis.reasons
 
 
 def test_covered_value_context_uses_latest_defense_and_all_table_arithmetic() -> None:

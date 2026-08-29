@@ -405,6 +405,17 @@ putting UI history into the rules model. Later throw-in packets also include exp
 derived by the existing authoritative `analyze_throw_in` primitive. Angular renders those confirmed
 reason codes and expressions after acceptance; it does not infer throw-in legality before submission.
 
+Human-vs-bot action responses may additionally carry a response-scoped `recent_events` trace for
+confirmed bot actions. The trace contains only safe public action type/count/value metadata, is not
+stored in PostgreSQL or retained by subsequent GET responses, and never drives game correctness.
+Angular may briefly preserve the previous visible table for a confirmed bot TAKE before rendering
+the already-resolved authoritative response.
+
+The shared Angular table uses a local 30-second activity ring to make the current actor easier to
+see in bot and private-PvP modes. It resets from authoritative actor/state changes and has no server
+clock, timeout, forced move, penalty, or automatic action. Reduced-motion preferences disable the
+draining and transition animations while preserving the same state and labels.
+
 ### 10.4 Tutorial, rules, and product shell
 
 The Angular shell routes `/`, `/play`, `/tutorial`, and `/rules` behind one compact navigation. A

@@ -29,6 +29,7 @@ export class GameTableComponent {
     return {
       same_rank: 'Подкинуто по рангу',
       existing_value: 'Подкинуто по доступному значению',
+      defense_total: 'Подкинуто по сумме защиты',
       table_total: 'Подкинуто по сумме стола',
       arithmetic_mean: 'Подкинуто по среднему',
     }[reason];
