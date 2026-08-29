@@ -10,6 +10,7 @@ from threading import RLock
 from typing import Protocol
 
 from kiba_api.config import EmailMode, Settings
+from kiba_api.locale import Locale
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +26,17 @@ class DeliveredEmail:
     kind: str
     recipient: str
     link: str
+    locale: Locale
+    subject: str
+    body: str
 
 
 class EmailSender(Protocol):
-    def send_verification(self, recipient: str, link: str) -> None: ...
+    def send_verification(self, recipient: str, link: str, locale: Locale = Locale.RU) -> None: ...
 
-    def send_password_reset(self, recipient: str, link: str) -> None: ...
+    def send_password_reset(
+        self, recipient: str, link: str, locale: Locale = Locale.RU
+    ) -> None: ...
 
 
 class DevelopmentEmailSender:
@@ -45,16 +51,32 @@ class DevelopmentEmailSender:
         with self._lock:
             return tuple(self._messages)
 
-    def send_verification(self, recipient: str, link: str) -> None:
-        self._deliver("EMAIL_VERIFICATION", recipient, link)
+    def send_verification(self, recipient: str, link: str, locale: Locale = Locale.RU) -> None:
+        subject, body = verification_email(locale, link)
+        self._deliver("EMAIL_VERIFICATION", recipient, link, locale, subject, body)
 
-    def send_password_reset(self, recipient: str, link: str) -> None:
-        self._deliver("PASSWORD_RESET", recipient, link)
+    def send_password_reset(self, recipient: str, link: str, locale: Locale = Locale.RU) -> None:
+        subject, body = password_reset_email(locale, link)
+        self._deliver("PASSWORD_RESET", recipient, link, locale, subject, body)
 
-    def _deliver(self, kind: str, recipient: str, link: str) -> None:
+    def _deliver(
+        self,
+        kind: str,
+        recipient: str,
+        link: str,
+        locale: Locale,
+        subject: str,
+        body: str,
+    ) -> None:
         with self._lock:
-            self._messages.append(DeliveredEmail(kind, recipient, link))
-        logger.warning("development_email kind=%s recipient=%s link=%s", kind, recipient, link)
+            self._messages.append(DeliveredEmail(kind, recipient, link, locale, subject, body))
+        logger.warning(
+            "development_email kind=%s recipient=%s locale=%s link=%s",
+            kind,
+            recipient,
+            locale.value,
+            link,
+        )
 
 
 class SMTPEmailSender:
@@ -69,20 +91,13 @@ class SMTPEmailSender:
         self._starttls = settings.smtp_starttls
         self._timeout = settings.smtp_timeout_seconds
 
-    def send_verification(self, recipient: str, link: str) -> None:
-        self._send(
-            recipient,
-            "Подтвердите email в Kiba",
-            f"Подтвердите адрес электронной почты:\n\n{link}\n\nСсылка действует 24 часа.",
-        )
+    def send_verification(self, recipient: str, link: str, locale: Locale = Locale.RU) -> None:
+        subject, body = verification_email(locale, link)
+        self._send(recipient, subject, body)
 
-    def send_password_reset(self, recipient: str, link: str) -> None:
-        self._send(
-            recipient,
-            "Сброс пароля Kiba",
-            "Чтобы установить новый пароль, откройте ссылку:\n\n"
-            f"{link}\n\nСсылка действует 30 минут.",
-        )
+    def send_password_reset(self, recipient: str, link: str, locale: Locale = Locale.RU) -> None:
+        subject, body = password_reset_email(locale, link)
+        self._send(recipient, subject, body)
 
     def _send(self, recipient: str, subject: str, body: str) -> None:
         message = EmailMessage()
@@ -104,3 +119,33 @@ def create_email_sender(settings: Settings) -> EmailSender:
     if settings.email_mode is EmailMode.SMTP:
         return SMTPEmailSender(settings)
     return DevelopmentEmailSender()
+
+
+def verification_email(locale: Locale, link: str) -> tuple[str, str]:
+    """Return localized, provider-neutral verification copy."""
+    if locale is Locale.EN:
+        return (
+            "Verify your email — KIBA",
+            "Verify your email address to secure your KIBA account:\n\n"
+            f"{link}\n\nThis link expires in 24 hours.",
+        )
+    return (
+        "Подтвердите email — KIBA",
+        "Подтвердите адрес электронной почты для аккаунта KIBA:\n\n"
+        f"{link}\n\nСсылка действует 24 часа.",
+    )
+
+
+def password_reset_email(locale: Locale, link: str) -> tuple[str, str]:
+    """Return localized, provider-neutral password-reset copy."""
+    if locale is Locale.EN:
+        return (
+            "Reset your password — KIBA",
+            "Open this link to set a new KIBA password:\n\n"
+            f"{link}\n\nThis link expires in 30 minutes.",
+        )
+    return (
+        "Сброс пароля — KIBA",
+        "Чтобы установить новый пароль KIBA, откройте ссылку:\n\n"
+        f"{link}\n\nСсылка действует 30 минут.",
+    )

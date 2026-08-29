@@ -2,10 +2,13 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { catchError, Observable, of, tap } from 'rxjs';
 import { AuthMessage, CurrentUser, LoginRequest, RegisterRequest } from './auth.models';
+import { Locale } from '../i18n/locale';
+import { TranslationService } from '../i18n/translation.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly i18n = inject(TranslationService);
 
   readonly currentUser = signal<CurrentUser | null>(null);
   readonly initialized = signal(false);
@@ -13,8 +16,7 @@ export class AuthService {
   refresh(): Observable<CurrentUser | null> {
     return this.http.get<CurrentUser>('/api/auth/me').pipe(
       tap((user) => {
-        this.currentUser.set(user);
-        this.initialized.set(true);
+        this.setAuthenticated(user);
       }),
       catchError((error: unknown) => {
         this.currentUser.set(null);
@@ -78,8 +80,15 @@ export class AuthService {
       .pipe(tap((user) => this.setAuthenticated(user)));
   }
 
+  updatePreferredLocale(preferredLocale: Locale): Observable<CurrentUser> {
+    return this.http
+      .patch<CurrentUser>('/api/profile', { preferred_locale: preferredLocale })
+      .pipe(tap((user) => this.setAuthenticated(user)));
+  }
+
   private setAuthenticated(user: CurrentUser | null): void {
     this.currentUser.set(user);
     this.initialized.set(true);
+    if (user !== null) this.i18n.useAccountLocale(user.preferred_locale);
   }
 }

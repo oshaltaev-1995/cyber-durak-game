@@ -9,6 +9,7 @@ const user = {
   display_name: 'Игрок',
   created_at: '2026-08-27T10:00:00+00:00',
   email_verified: false,
+  preferred_locale: 'ru' as const,
 };
 
 describe('AuthService', () => {
@@ -36,15 +37,33 @@ describe('AuthService', () => {
     expect(service.initialized()).toBe(true);
   });
 
+  it('restores the stored account locale on refresh and login', () => {
+    service.refresh().subscribe();
+    http.expectOne('/api/auth/me').flush({ ...user, preferred_locale: 'en' });
+    expect(localStorage.getItem('kiba.preferred-locale')).toBe('en');
+    expect(document.documentElement.lang).toBe('en');
+
+    service.login({ email: user.email, password: 'password123' }).subscribe();
+    http.expectOne('/api/auth/login').flush({ ...user, preferred_locale: 'ru' });
+    expect(localStorage.getItem('kiba.preferred-locale')).toBe('ru');
+    expect(document.documentElement.lang).toBe('ru');
+  });
+
   it('registers and logs in without storing a token in frontend state', () => {
     service
-      .register({ email: user.email, display_name: user.display_name, password: 'password123' })
+      .register({
+        email: user.email,
+        display_name: user.display_name,
+        password: 'password123',
+        preferred_locale: 'ru',
+      })
       .subscribe();
     const registration = http.expectOne('/api/auth/register');
     expect(registration.request.body).toEqual({
       email: user.email,
       display_name: user.display_name,
       password: 'password123',
+      preferred_locale: 'ru',
     });
     registration.flush(user);
     expect(service.currentUser()).toEqual(user);

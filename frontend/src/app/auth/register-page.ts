@@ -4,6 +4,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
+import { TranslationService } from '../core/i18n/translation.service';
 
 @Component({
   selector: 'app-register-page',
@@ -15,6 +16,7 @@ import { AuthService } from '../core/auth/auth.service';
 export class RegisterPageComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  protected readonly i18n = inject(TranslationService);
 
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -41,7 +43,7 @@ export class RegisterPageComponent {
     this.pending.set(true);
     this.error.set(null);
     this.auth
-      .register(this.form.getRawValue())
+      .register({ ...this.form.getRawValue(), preferred_locale: this.i18n.locale() })
       .pipe(finalize(() => this.pending.set(false)))
       .subscribe({
         next: () => void this.router.navigateByUrl('/profile'),
@@ -51,11 +53,11 @@ export class RegisterPageComponent {
 
   private messageFor(error: unknown): string {
     if (error instanceof HttpErrorResponse && error.status === 409) {
-      return 'Аккаунт с таким email уже существует.';
+      return this.i18n.t('auth.error.email_registered');
     }
     if (error instanceof HttpErrorResponse && error.status === 429) {
-      return 'Слишком много попыток. Подождите минуту и попробуйте снова.';
+      return this.i18n.t('auth.error.rate_limited');
     }
-    return 'Не удалось создать аккаунт. Проверьте данные и попробуйте снова.';
+    return this.i18n.t('auth.error.register');
   }
 }

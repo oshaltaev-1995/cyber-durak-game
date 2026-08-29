@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from kiba_api.locale import Locale
 from kiba_api.persistence.database import Database
 from kiba_api.persistence.matches import MatchOutcome
 from kiba_api.persistence.models import CompletedMatch, UserAchievement, XPLedgerEntry
@@ -32,7 +33,15 @@ class AchievementDefinition:
     code: AchievementCode
     title: str
     description: str
+    title_en: str
+    description_en: str
     bonus_xp: int
+
+    def localized_title(self, locale: Locale) -> str:
+        return self.title if locale is Locale.RU else self.title_en
+
+    def localized_description(self, locale: Locale) -> str:
+        return self.description if locale is Locale.RU else self.description_en
 
 
 ACHIEVEMENTS: tuple[AchievementDefinition, ...] = (
@@ -40,48 +49,64 @@ ACHIEVEMENTS: tuple[AchievementDefinition, ...] = (
         AchievementCode.FIRST_MATCH,
         "Первая партия",
         "Сыграть первую партию.",
+        "First match",
+        "Play your first match.",
         25,
     ),
     AchievementDefinition(
         AchievementCode.FIRST_WIN,
         "Первая победа",
         "Выиграть первую партию.",
+        "First win",
+        "Win your first match.",
         50,
     ),
     AchievementDefinition(
         AchievementCode.TEN_GAMES,
         "Завсегдатай",
         "Сыграть 10 партий.",
+        "Regular player",
+        "Play 10 matches.",
         100,
     ),
     AchievementDefinition(
         AchievementCode.TEN_WINS,
         "Победитель",
         "Выиграть 10 партий.",
+        "Winner",
+        "Win 10 matches.",
         150,
     ),
     AchievementDefinition(
         AchievementCode.WIN_STREAK_3,
         "Серия",
         "Выиграть 3 партии подряд.",
+        "Winning streak",
+        "Win 3 matches in a row.",
         100,
     ),
     AchievementDefinition(
         AchievementCode.SNOWBALL_36,
         "Снежный ком",
         "Довести перевод до 36 очков.",
+        "Snowball",
+        "Build a transfer target up to 36 points.",
         75,
     ),
     AchievementDefinition(
         AchievementCode.AVALANCHE_72,
         "Лавина",
         "Довести перевод до 72 очков.",
+        "Avalanche",
+        "Build a transfer target up to 72 points.",
         150,
     ),
     AchievementDefinition(
         AchievementCode.ARITHMETIC_MEAN,
         "Математик",
         "Подкинуть карту или комбинацию по среднему арифметическому.",
+        "Mathematician",
+        "Throw in a card or combination using the arithmetic mean.",
         75,
     ),
 )
@@ -118,6 +143,10 @@ class CosmeticAward:
     code: str
     category: str
     title: str
+    title_en: str = ""
+
+    def localized_title(self, locale: Locale) -> str:
+        return self.title if locale is Locale.RU or not self.title_en else self.title_en
 
 
 @dataclass(frozen=True, slots=True)

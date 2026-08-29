@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslationService } from '../core/i18n/translation.service';
 import { PlayingCardComponent } from '../game/components/playing-card/playing-card';
-import { TUTORIAL_LESSONS } from './tutorial-data';
+import { TUTORIAL_LESSONS_EN, TUTORIAL_LESSONS_RU } from './tutorial-data';
 
 @Component({
   selector: 'app-tutorial-page',
@@ -11,11 +12,14 @@ import { TUTORIAL_LESSONS } from './tutorial-data';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TutorialPageComponent {
-  protected readonly lessons = TUTORIAL_LESSONS;
+  protected readonly i18n = inject(TranslationService);
+  protected readonly lessons = computed(() =>
+    this.i18n.locale() === 'ru' ? TUTORIAL_LESSONS_RU : TUTORIAL_LESSONS_EN,
+  );
   protected readonly stepIndex = signal(0);
   protected readonly selectedChoice = signal<string | null>(null);
   protected readonly complete = signal(false);
-  protected readonly lesson = computed(() => this.lessons[this.stepIndex()]);
+  protected readonly lesson = computed(() => this.lessons()[this.stepIndex()]);
   protected readonly choiceIsCorrect = computed(() => {
     const exercise = this.lesson().exercise;
     return exercise !== null && this.selectedChoice() === exercise.answer;
@@ -40,7 +44,7 @@ export class TutorialPageComponent {
     if (!this.canContinue()) {
       return;
     }
-    if (this.stepIndex() === this.lessons.length - 1) {
+    if (this.stepIndex() === this.lessons().length - 1) {
       this.complete.set(true);
       return;
     }

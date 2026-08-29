@@ -1,26 +1,28 @@
 <main class="landing-page">
   <section class="hero" aria-labelledby="landing-title">
-    <span class="kicker">Cyber Durak</span>
-    <h1 id="landing-title">KIBA</h1>
-    <p class="tagline">Карточная игра с арифметикой, двойным козырем и переводами.</p>
-    <p class="mode">36 карт · Без обязательной регистрации</p>
+    <span class="kicker">{{ i18n.t('landing.eyebrow') }}</span>
+    <h1 id="landing-title">{{ i18n.t('landing.title') }}</h1>
+    <p class="tagline">{{ i18n.t('landing.subtitle') }}</p>
+    <p class="mode">{{ i18n.t('landing.mode') }}</p>
     <div class="landing-actions">
-      <a class="primary-action" routerLink="/play">Играть с ботом</a>
-      <a class="friend-action" routerLink="/pvp">Играть с другом</a>
-      <a routerLink="/tutorial">Обучение</a>
-      <a routerLink="/rules">Правила</a>
+      <a class="primary-action" routerLink="/play">{{ i18n.t('landing.playBot') }}</a>
+      <a class="friend-action" routerLink="/pvp">{{ i18n.t('landing.playFriend') }}</a>
+      <a routerLink="/tutorial">{{ i18n.t('landing.tutorial') }}</a>
+      <a routerLink="/rules">{{ i18n.t('landing.rules') }}</a>
     </div>
     @if (auth.currentUser() === null) {
       <p class="account-invite">
-        Хотите сохранять статистику и прогресс?
-        <a routerLink="/register">Создайте аккаунт</a>. Играть можно и без регистрации.
+        {{ i18n.t('landing.accountInvite') }}
+        <a routerLink="/register">{{ i18n.t('landing.createAccount') }}</a
+        >.
+        {{ i18n.t('landing.guestSuffix') }}
       </p>
     }
   </section>
-  <aside class="concept" aria-label="Что особенного в Kiba">
+  <aside class="concept" [attr.aria-label]="i18n.t('landing.conceptLabel')">
     <span>12 + 6</span>
     <strong>= 18</strong>
     <span>= K</span>
-    <p>Собирайте связи между картами и избавьтесь от руки раньше бота.</p>
+    <p>{{ i18n.t('landing.concept') }}</p>
   </aside>
 </main>

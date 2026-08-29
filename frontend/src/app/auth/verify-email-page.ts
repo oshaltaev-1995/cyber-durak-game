@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth/auth.service';
+import { TranslationService } from '../core/i18n/translation.service';
 
 @Component({
   selector: 'app-verify-email-page',
@@ -13,6 +14,7 @@ export class VerifyEmailPageComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  protected readonly i18n = inject(TranslationService);
   private readonly token = this.route.snapshot.queryParamMap.get('token') ?? '';
   protected readonly pending = signal(true);
   protected readonly verified = signal(false);
@@ -26,7 +28,7 @@ export class VerifyEmailPageComponent implements OnInit {
     });
     if (!this.token) {
       this.pending.set(false);
-      this.error.set('Ссылка подтверждения недействительна.');
+      this.error.set(this.i18n.t('auth.invalidToken'));
       return;
     }
     this.auth.confirmVerification(this.token).subscribe({
@@ -36,7 +38,7 @@ export class VerifyEmailPageComponent implements OnInit {
       },
       error: () => {
         this.pending.set(false);
-        this.error.set('Ссылка истекла или уже использована. Запросите новое письмо в профиле.');
+        this.error.set(this.i18n.t('auth.tokenExpired'));
       },
     });
   }

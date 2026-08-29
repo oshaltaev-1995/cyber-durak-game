@@ -41,6 +41,7 @@ from kiba_api.game import (
     is_trump,
     summarize_table_arithmetic,
 )
+from kiba_api.locale import Locale
 from kiba_api.sessions import GameSession, acting_seat, available_actions_for
 
 _SUIT_ORDER = {suit: index for index, suit in enumerate(Suit)}
@@ -55,7 +56,7 @@ _THROW_IN_REASON_ORDER = (
 )
 
 
-def serialize_game_session(session: GameSession) -> GameResponse:
+def serialize_game_session(session: GameSession, locale: Locale = Locale.RU) -> GameResponse:
     """Build one hidden-information-safe public state response."""
     state = session.state
     trump_state = state.current_trump_state
@@ -79,7 +80,7 @@ def serialize_game_session(session: GameSession) -> GameResponse:
         game_id=session.game_id,
         account_associated=session.user_id is not None,
         result_saved=session.completion_persisted,
-        progression_award=serialize_progression_award(session.progression_award),
+        progression_award=serialize_progression_award(session.progression_award, locale),
         cosmetics=CosmeticLoadoutResponse(
             card_back_code=session.appearance.card_back_code,
             table_theme_code=session.appearance.table_theme_code,
@@ -284,7 +285,10 @@ def _serialize_result(session: GameSession) -> ResultResponse | None:
     )
 
 
-def serialize_progression_award(award: ProgressionAward | None) -> ProgressionAwardResponse | None:
+def serialize_progression_award(
+    award: ProgressionAward | None,
+    locale: Locale = Locale.RU,
+) -> ProgressionAwardResponse | None:
     """Translate one participant's private progression delta for HTTP delivery."""
     if award is None:
         return None
@@ -295,8 +299,8 @@ def serialize_progression_award(award: ProgressionAward | None) -> ProgressionAw
         new_achievements=[
             AchievementAwardResponse(
                 code=achievement.code.value,
-                title=achievement.title,
-                description=achievement.description,
+                title=achievement.localized_title(locale),
+                description=achievement.localized_description(locale),
                 bonus_xp=achievement.bonus_xp,
             )
             for achievement in award.new_achievements
@@ -309,7 +313,7 @@ def serialize_progression_award(award: ProgressionAward | None) -> ProgressionAw
             CosmeticAwardResponse(
                 code=cosmetic.code,
                 category=cosmetic.category,
-                title=cosmetic.title,
+                title=cosmetic.localized_title(locale),
             )
             for cosmetic in award.new_cosmetics
         ],

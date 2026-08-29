@@ -175,10 +175,6 @@ button,
   content: '  ✓';
 }
 
-.choice-list button.incorrect::after {
-  content: '  — попробуйте ещё';
-}
-
 button:focus-visible,
 a:focus-visible {
   outline: 3px solid #fff;

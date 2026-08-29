@@ -1,26 +1,30 @@
 <main class="history-page" aria-labelledby="history-title">
   <header class="history-heading">
     <div>
-      <span class="kicker">Профиль</span>
-      <h1 id="history-title">История партий</h1>
+      <span class="kicker">{{ i18n.t('profile.title') }}</span>
+      <h1 id="history-title">{{ i18n.t('history.title') }}</h1>
       @if (auth.currentUser()) {
-        <p>Завершённые игры · {{ total() }}</p>
+        <p>{{ i18n.t('history.completedCount', { count: total() }) }}</p>
       }
     </div>
-    <nav aria-label="Разделы профиля">
-      <a class="secondary-action" routerLink="/profile">Статистика</a>
-      <a class="secondary-action" routerLink="/profile/achievements">Достижения</a>
-      <a class="secondary-action" routerLink="/profile/cosmetics">Оформление</a>
+    <nav [attr.aria-label]="i18n.t('profile.sections')">
+      <a class="secondary-action" routerLink="/profile">{{ i18n.t('profile.statistics') }}</a>
+      <a class="secondary-action" routerLink="/profile/achievements">{{
+        i18n.t('profile.achievements')
+      }}</a>
+      <a class="secondary-action" routerLink="/profile/cosmetics">{{
+        i18n.t('profile.cosmetics')
+      }}</a>
     </nav>
   </header>
 
   @if (auth.currentUser() && !pending()) {
-    <nav class="history-filters" aria-label="Фильтр истории">
+    <nav class="history-filters" [attr.aria-label]="i18n.t('history.filterLabel')">
       <button type="button" [class.active]="filter() === 'ALL'" (click)="setFilter('ALL')">
-        Все
+        {{ i18n.t('history.all') }}
       </button>
       <button type="button" [class.active]="filter() === 'BOT'" (click)="setFilter('BOT')">
-        Бот
+        {{ i18n.t('history.bot') }}
       </button>
       <button type="button" [class.active]="filter() === 'PVP'" (click)="setFilter('PVP')">
         PvP
@@ -30,20 +34,20 @@
 
   @if (!auth.currentUser() && !pending()) {
     <section class="empty-state">
-      <strong>История доступна после входа.</strong>
-      <span>Гостевые партии не сохраняются.</span>
-      <a class="primary-action" routerLink="/login">Войти</a>
-      <a class="secondary-action" routerLink="/play">Играть без входа</a>
+      <strong>{{ i18n.t('history.guestTitle') }}</strong>
+      <span>{{ i18n.t('history.guestNote') }}</span>
+      <a class="primary-action" routerLink="/login">{{ i18n.t('auth.login') }}</a>
+      <a class="secondary-action" routerLink="/play">{{ i18n.t('auth.playGuest') }}</a>
     </section>
   } @else if (pending()) {
-    <p class="status" role="status">Загружаем партии…</p>
+    <p class="status" role="status">{{ i18n.t('history.loading') }}</p>
   } @else if (error(); as message) {
     <p class="error" role="alert">{{ message }}</p>
   } @else if (matches().length === 0) {
     <section class="empty-state">
-      <strong>Пока нет сыгранных партий.</strong>
-      <span>Завершите игру, начатую после входа в аккаунт.</span>
-      <a class="primary-action" routerLink="/play">Играть</a>
+      <strong>{{ i18n.t('history.noMatches') }}</strong>
+      <span>{{ i18n.t('history.noMatchesHint') }}</span>
+      <a class="primary-action" routerLink="/play">{{ i18n.t('nav.play') }}</a>
     </section>
   } @else {
     <ol class="match-list">
@@ -59,23 +63,23 @@
           </div>
           <dl>
             <div>
-              <dt>Действия</dt>
+              <dt>{{ i18n.t('history.actions') }}</dt>
               <dd>{{ match.human_action_count }}</dd>
             </div>
             <div>
-              <dt>Переводы</dt>
+              <dt>{{ i18n.t('history.transfers') }}</dt>
               <dd>{{ match.human_transfer_count }}</dd>
             </div>
             <div>
-              <dt>Брал</dt>
+              <dt>{{ i18n.t('history.takes') }}</dt>
               <dd>{{ match.human_take_count }}</dd>
             </div>
             <div>
-              <dt>Подкидывания</dt>
+              <dt>{{ i18n.t('history.throwIns') }}</dt>
               <dd>{{ match.human_throw_in_count }}</dd>
             </div>
             <div>
-              <dt>Макс. перевод</dt>
+              <dt>{{ i18n.t('history.maxTransfer') }}</dt>
               <dd>{{ match.max_transfer_target }}</dd>
             </div>
           </dl>

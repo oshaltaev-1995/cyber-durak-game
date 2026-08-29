@@ -4,6 +4,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
+import { TranslationService } from '../core/i18n/translation.service';
 
 @Component({
   selector: 'app-forgot-password-page',
@@ -14,6 +15,7 @@ import { AuthService } from '../core/auth/auth.service';
 })
 export class ForgotPasswordPageComponent {
   private readonly auth = inject(AuthService);
+  protected readonly i18n = inject(TranslationService);
   protected readonly pending = signal(false);
   protected readonly submitted = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -39,8 +41,8 @@ export class ForgotPasswordPageComponent {
         error: (error: unknown) =>
           this.error.set(
             error instanceof HttpErrorResponse && error.status === 429
-              ? 'Слишком много запросов. Попробуйте позже.'
-              : 'Не удалось отправить запрос. Попробуйте позже.',
+              ? this.i18n.t('auth.error.rate_limited')
+              : this.i18n.t('auth.error.send'),
           ),
       });
   }

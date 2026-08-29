@@ -1,13 +1,13 @@
 <main class="auth-card" aria-labelledby="verify-title">
-  <span class="kicker">Безопасность аккаунта</span>
-  <h1 id="verify-title">Подтверждение email</h1>
+  <span class="kicker">{{ i18n.t('auth.security') }}</span>
+  <h1 id="verify-title">{{ i18n.t('auth.verifyTitle') }}</h1>
   @if (pending()) {
-    <p role="status">Проверяем ссылку…</p>
+    <p role="status">{{ i18n.t('auth.verifying') }}</p>
   } @else if (verified()) {
-    <p class="success" role="status">Email подтверждён.</p>
-    <a class="secondary-action" routerLink="/profile">Открыть профиль</a>
+    <p class="success" role="status">{{ i18n.t('auth.verified') }}</p>
+    <a class="secondary-action" routerLink="/profile">{{ i18n.t('game.openProfile') }}</a>
   } @else if (error(); as message) {
     <p class="error" role="alert">{{ message }}</p>
-    <a class="secondary-action" routerLink="/profile">Открыть профиль</a>
+    <a class="secondary-action" routerLink="/profile">{{ i18n.t('game.openProfile') }}</a>
   }
 </main>

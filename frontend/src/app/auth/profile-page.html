@@ -1,6 +1,6 @@
 <main class="auth-card profile-card" aria-labelledby="profile-title">
   @if (auth.currentUser(); as user) {
-    <span class="kicker">Профиль</span>
+    <span class="kicker">{{ i18n.t('profile.title') }}</span>
     <h1
       id="profile-title"
       class="profile-title"
@@ -9,19 +9,21 @@
     >
       {{ user.display_name }}
     </h1>
-    <p class="account-meta">{{ user.email }} · в Kiba с {{ joinedAt(user) }}</p>
-    <section class="email-status" aria-label="Статус email">
+    <p class="account-meta">
+      {{ user.email }} · {{ i18n.t('profile.joined', { date: joinedAt(user) }) }}
+    </p>
+    <section class="email-status" [attr.aria-label]="i18n.t('profile.emailStatus')">
       @if (user.email_verified) {
-        <strong>✓ Email подтверждён</strong>
+        <strong>✓ {{ i18n.t('profile.verified') }}</strong>
       } @else {
-        <strong>Email не подтверждён</strong>
+        <strong>{{ i18n.t('profile.notVerified') }}</strong>
         @if (user.verification_email_sent === false) {
-          <span role="alert">Не удалось отправить письмо. Аккаунт создан; повторите отправку.</span>
+          <span role="alert">{{ i18n.t('profile.verificationInitialFailure') }}</span>
         } @else {
-          <span>Подтверждение позволит безопасно восстановить пароль.</span>
+          <span>{{ i18n.t('profile.verificationBenefit') }}</span>
         }
         <button type="button" (click)="resendVerification()" [disabled]="pending()">
-          Отправить письмо ещё раз
+          {{ i18n.t('profile.verifyResend') }}
         </button>
       }
       @if (securityMessage(); as message) {
@@ -29,58 +31,61 @@
       }
     </section>
 
-    <nav class="profile-navigation" aria-label="Разделы профиля">
-      <a routerLink="/profile">Статистика</a>
-      <a routerLink="/profile/history">История</a>
-      <a routerLink="/profile/achievements">Достижения</a>
-      <a routerLink="/profile/cosmetics">Оформление</a>
+    <nav class="profile-navigation" [attr.aria-label]="i18n.t('profile.sections')">
+      <a routerLink="/profile">{{ i18n.t('profile.statistics') }}</a>
+      <a routerLink="/profile/history">{{ i18n.t('profile.history') }}</a>
+      <a routerLink="/profile/achievements">{{ i18n.t('profile.achievements') }}</a>
+      <a routerLink="/profile/cosmetics">{{ i18n.t('profile.cosmetics') }}</a>
     </nav>
 
     <form [formGroup]="form" (ngSubmit)="save()">
       <label>
-        Имя игрока
+        {{ i18n.t('auth.displayName') }}
         <input type="text" formControlName="display_name" maxlength="50" />
       </label>
       @if (success()) {
-        <p class="success" role="status">Имя сохранено.</p>
+        <p class="success" role="status">{{ i18n.t('profile.saved') }}</p>
       }
       @if (error(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       }
       <div class="form-actions">
-        <button type="submit" [disabled]="pending()">Сохранить</button>
-        <button type="button" (click)="logout()" [disabled]="pending()">Выйти</button>
-        <button type="button" (click)="logoutAll()" [disabled]="pending()">
-          Выйти на всех устройствах
+        <button type="submit" [disabled]="pending()">{{ i18n.t('common.save') }}</button>
+        <button type="button" (click)="logout()" [disabled]="pending()">
+          {{ i18n.t('profile.logout') }}
         </button>
-        <a class="secondary-action" routerLink="/play">Играть</a>
+        <button type="button" (click)="logoutAll()" [disabled]="pending()">
+          {{ i18n.t('profile.logoutAll') }}
+        </button>
+        <a class="secondary-action" routerLink="/play">{{ i18n.t('nav.play') }}</a>
       </div>
     </form>
 
     <section class="progression" aria-labelledby="progression-title">
       @if (progressionPending()) {
-        <p class="account-meta" role="status">Загружаем прогресс…</p>
+        <p class="account-meta" role="status">{{ i18n.t('common.loading') }}</p>
       } @else if (progressionError()) {
-        <p class="error" role="alert">Не удалось загрузить прогресс.</p>
+        <p class="error" role="alert">{{ i18n.t('profile.progressLoadFailed') }}</p>
       } @else if (progression(); as progress) {
         <div class="section-heading">
           <div>
-            <span class="kicker">Прогресс</span>
-            <h2 id="progression-title">Уровень {{ progress.level }}</h2>
+            <span class="kicker">{{ i18n.t('profile.progress') }}</span>
+            <h2 id="progression-title">{{ i18n.t('profile.level', { level: progress.level }) }}</h2>
           </div>
           <strong class="total-xp">{{ progress.total_xp }} XP</strong>
         </div>
         <progress
           [value]="progress.xp_into_level"
           [max]="progress.next_level_xp - progress.level_start_xp"
-          [attr.aria-label]="'Прогресс уровня ' + progress.level"
+          [attr.aria-label]="i18n.t('profile.levelProgressAria', { level: progress.level })"
         ></progress>
         <div class="progress-caption">
           <span>{{ progress.total_xp }} / {{ progress.next_level_xp }} XP</span>
-          <span>До следующего уровня: {{ progress.xp_needed_for_next_level }} XP</span>
+          <span>{{ i18n.t('profile.toNext', { xp: progress.xp_needed_for_next_level }) }}</span>
         </div>
         <a class="achievement-count" routerLink="/profile/achievements">
-          Достижения: {{ progress.achievements_unlocked }} / {{ progress.achievements_total }}
+          {{ i18n.t('profile.achievements') }}: {{ progress.achievements_unlocked }} /
+          {{ progress.achievements_total }}
         </a>
       }
     </section>
@@ -88,88 +93,94 @@
     <section class="statistics" aria-labelledby="statistics-title">
       <div class="section-heading">
         <div>
-          <span class="kicker">Результаты</span>
-          <h2 id="statistics-title">Статистика</h2>
+          <span class="kicker">{{ i18n.t('profile.results') }}</span>
+          <h2 id="statistics-title">{{ i18n.t('profile.statistics') }}</h2>
         </div>
-        <a class="secondary-action" routerLink="/profile/history">История партий</a>
+        <a class="secondary-action" routerLink="/profile/history">{{ i18n.t('history.title') }}</a>
       </div>
 
       @if (statisticsPending()) {
-        <p class="account-meta" role="status">Загружаем статистику…</p>
+        <p class="account-meta" role="status">{{ i18n.t('common.loading') }}</p>
       } @else if (statisticsError()) {
-        <p class="error" role="alert">Не удалось загрузить статистику.</p>
+        <p class="error" role="alert">{{ i18n.t('profile.statsLoadFailed') }}</p>
       } @else if (statistics(); as stats) {
         @if (stats.games_played === 0) {
           <div class="empty-history">
-            <strong>Пока нет сыгранных партий.</strong>
-            <span>Завершите игру, начатую после входа в аккаунт.</span>
-            <a class="secondary-action" routerLink="/play">Играть</a>
+            <strong>{{ i18n.t('history.noMatches') }}</strong>
+            <span>{{ i18n.t('history.noMatchesHint') }}</span>
+            <a class="secondary-action" routerLink="/play">{{ i18n.t('nav.play') }}</a>
           </div>
         } @else {
           <dl class="stats-grid">
             <div>
-              <dt>Игр</dt>
+              <dt>{{ i18n.t('profile.games') }}</dt>
               <dd>{{ stats.games_played }}</dd>
             </div>
             <div>
-              <dt>Побед</dt>
+              <dt>{{ i18n.t('profile.wins') }}</dt>
               <dd>{{ stats.wins }}</dd>
             </div>
             <div>
-              <dt>Поражений</dt>
+              <dt>{{ i18n.t('profile.losses') }}</dt>
               <dd>{{ stats.losses }}</dd>
             </div>
             <div>
-              <dt>Ничьих</dt>
+              <dt>{{ i18n.t('profile.draws') }}</dt>
               <dd>{{ stats.draws }}</dd>
             </div>
             <div>
-              <dt>Процент побед</dt>
+              <dt>{{ i18n.t('profile.winRate') }}</dt>
               <dd>{{ winRate(stats.win_rate) }}%</dd>
             </div>
             <div>
-              <dt>Лучшая серия</dt>
+              <dt>{{ i18n.t('profile.bestStreak') }}</dt>
               <dd>{{ stats.best_win_streak }}</dd>
             </div>
             <div>
-              <dt>Текущая серия</dt>
+              <dt>{{ i18n.t('profile.currentStreak') }}</dt>
               <dd>{{ stats.current_win_streak }}</dd>
             </div>
           </dl>
-          <div class="kiba-stats" aria-label="Статистика механик Kiba">
+          <div class="kiba-stats" [attr.aria-label]="i18n.t('profile.kibaStats')">
             <span
-              >Против бота <strong>{{ stats.bot_games }} / {{ stats.bot_wins }} побед</strong></span
+              ><strong>{{
+                i18n.t('profile.botSplit', { games: stats.bot_games, wins: stats.bot_wins })
+              }}</strong></span
             >
             <span
-              >PvP <strong>{{ stats.pvp_games }} / {{ stats.pvp_wins }} побед</strong></span
+              ><strong>{{
+                i18n.t('profile.pvpSplit', { games: stats.pvp_games, wins: stats.pvp_wins })
+              }}</strong></span
             >
             <span
-              >Переводы <strong>{{ stats.total_transfers }}</strong></span
+              >{{ i18n.t('profile.transfers') }} <strong>{{ stats.total_transfers }}</strong></span
             >
             <span
-              >Взято <strong>{{ stats.total_takes }}</strong></span
+              >{{ i18n.t('profile.takes') }} <strong>{{ stats.total_takes }}</strong></span
             >
             <span
-              >Подкидывания <strong>{{ stats.total_throw_ins }}</strong></span
+              >{{ i18n.t('profile.throwIns') }} <strong>{{ stats.total_throw_ins }}</strong></span
             >
             <span
-              >Макс. перевод <strong>{{ stats.highest_transfer_target }}</strong></span
+              >{{ i18n.t('profile.maxTransfer') }}
+              <strong>{{ stats.highest_transfer_target }}</strong></span
             >
             <span
-              >По среднему <strong>{{ stats.arithmetic_mean_throw_ins }}</strong></span
+              >{{ i18n.t('profile.byMean') }}
+              <strong>{{ stats.arithmetic_mean_throw_ins }}</strong></span
             >
           </div>
         }
       }
     </section>
   } @else {
-    <span class="kicker">Профиль</span>
-    <h1 id="profile-title">Вы играете без аккаунта</h1>
-    <p class="intro">Войдите или продолжайте играть как гость — регистрация не обязательна.</p>
+    <span class="kicker">{{ i18n.t('profile.title') }}</span>
+    <h1 id="profile-title">{{ i18n.t('profile.guestTitle') }}</h1>
+    <p class="intro">{{ i18n.t('profile.guestIntro') }}</p>
     <div class="form-actions">
-      <a class="secondary-action" routerLink="/login">Войти</a>
-      <a class="secondary-action" routerLink="/register">Создать аккаунт</a>
-      <a class="secondary-action" routerLink="/play">Играть</a>
+      <a class="secondary-action" routerLink="/login">{{ i18n.t('auth.login') }}</a>
+      <a class="secondary-action" routerLink="/register">{{ i18n.t('auth.register') }}</a>
+      <a class="secondary-action" routerLink="/play">{{ i18n.t('nav.play') }}</a>
     </div>
   }
 </main>

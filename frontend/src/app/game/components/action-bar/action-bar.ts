@@ -1,11 +1,12 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
 import {
-  ACTION_LABELS,
   CARD_ACTIONS,
   GameCard,
   HumanActionType,
   SUIT_SYMBOLS,
 } from '../../../core/api/game-api.models';
+import { TranslationService } from '../../../core/i18n/translation.service';
+import { TranslationKey } from '../../../core/i18n/translations/ru';
 
 @Component({
   selector: 'app-action-bar',
@@ -19,7 +20,7 @@ export class ActionBarComponent {
   readonly pending = input(false);
   readonly actionSelected = output<HumanActionType>();
 
-  protected readonly labels = ACTION_LABELS;
+  protected readonly i18n = inject(TranslationService);
 
   protected selectedTotal(): number {
     return this.selectedCards().reduce((total, card) => total + card.effective_value, 0);
@@ -32,7 +33,7 @@ export class ActionBarComponent {
   protected selectionValuesExpression(): string {
     const cards = this.selectedCards();
     if (cards.length === 0) {
-      return 'Выберите одну или несколько карт';
+      return this.i18n.t('game.selectCards');
     }
     const values = cards.map((card) => card.effective_value).join(' + ');
     return `${values} = ${this.selectedTotal()}`;
@@ -41,12 +42,20 @@ export class ActionBarComponent {
   protected selectionAriaLabel(): string {
     const cards = this.selectedCards();
     if (cards.length === 0) {
-      return 'Карты не выбраны';
+      return this.i18n.t('game.noCardsSelected');
     }
-    return `Выбрано ${cards.length}: ${cards.map((card) => this.cardLabel(card)).join(', ')}. Сумма ${this.selectedTotal()}`;
+    return this.i18n.t('game.selectionAria', {
+      count: cards.length,
+      cards: cards.map((card) => this.cardLabel(card)).join(', '),
+      total: this.selectedTotal(),
+    });
   }
 
   protected actionDisabled(action: HumanActionType): boolean {
     return this.pending() || (CARD_ACTIONS.has(action) && this.selectedCards().length === 0);
+  }
+
+  protected actionLabel(action: HumanActionType): string {
+    return this.i18n.t(`action.${action}` as TranslationKey);
   }
 }

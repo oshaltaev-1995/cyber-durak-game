@@ -5,6 +5,8 @@ import { finalize } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
 import { MatchHistoryItem } from '../core/profile/profile.models';
 import { ProfileService } from '../core/profile/profile.service';
+import { TranslationService } from '../core/i18n/translation.service';
+import { TranslationKey } from '../core/i18n/translations/ru';
 
 @Component({
   selector: 'app-history-page',
@@ -16,6 +18,7 @@ import { ProfileService } from '../core/profile/profile.service';
 export class HistoryPageComponent implements OnInit {
   protected readonly auth = inject(AuthService);
   private readonly profile = inject(ProfileService);
+  protected readonly i18n = inject(TranslationService);
 
   protected readonly matches = signal<readonly MatchHistoryItem[]>([]);
   protected readonly total = signal(0);
@@ -36,26 +39,32 @@ export class HistoryPageComponent implements OnInit {
   }
 
   protected outcomeLabel(outcome: MatchHistoryItem['outcome']): string {
-    return { WIN: 'Победа', LOSS: 'Поражение', DRAW: 'Ничья' }[outcome];
+    return this.i18n.t(
+      { WIN: 'history.win', LOSS: 'history.loss', DRAW: 'history.draw' }[outcome] as TranslationKey,
+    );
   }
 
   protected completedAt(value: string): string {
-    return new Intl.DateTimeFormat('ru', {
+    return this.i18n.formatDate(value, {
       dateStyle: 'medium',
       timeStyle: 'short',
-    }).format(new Date(value));
+    });
   }
 
   protected duration(seconds: number): string {
     const minutes = Math.floor(seconds / 60);
     const remainder = seconds % 60;
-    return minutes > 0 ? `${minutes} мин ${remainder} сек` : `${remainder} сек`;
+    return minutes > 0
+      ? this.i18n.t('history.duration', { minutes, seconds: remainder })
+      : this.i18n.t('history.seconds', { seconds: remainder });
   }
 
   protected opponentLabel(match: MatchHistoryItem): string {
     return match.opponent_type === 'PVP'
-      ? `против ${match.opponent_display_name ?? 'игрока'}`
-      : 'против бота';
+      ? this.i18n.t('history.vsPlayer', {
+          name: match.opponent_display_name ?? this.i18n.t('pvp.opponent'),
+        })
+      : this.i18n.t('history.vsBot');
   }
 
   protected setFilter(filter: 'ALL' | 'BOT' | 'PVP'): void {
@@ -79,8 +88,8 @@ export class HistoryPageComponent implements OnInit {
         error: (error: unknown) => {
           this.error.set(
             error instanceof HttpErrorResponse && error.status === 401
-              ? 'Войдите, чтобы посмотреть историю.'
-              : 'Не удалось загрузить историю партий.',
+              ? this.i18n.t('history.loginRequired')
+              : this.i18n.t('history.loadFailed'),
           );
         },
       });

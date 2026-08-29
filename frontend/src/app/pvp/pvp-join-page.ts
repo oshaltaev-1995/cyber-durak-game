@@ -7,6 +7,7 @@ import { AuthService } from '../core/auth/auth.service';
 import { PvPApiService } from '../core/pvp/pvp-api.service';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
 import { PvPRoomStatus } from '../core/pvp/pvp.models';
+import { TranslationService } from '../core/i18n/translation.service';
 
 @Component({
   selector: 'app-pvp-join-page',
@@ -21,6 +22,7 @@ export class PvPJoinPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   protected readonly auth = inject(AuthService);
+  protected readonly i18n = inject(TranslationService);
   protected readonly status = signal<PvPRoomStatus | null>(null);
   protected readonly nickname = signal('');
   protected readonly pending = signal(true);
@@ -59,21 +61,21 @@ export class PvPJoinPageComponent implements OnInit {
       .pipe(finalize(() => this.pending.set(false)))
       .subscribe({
         next: (status) => this.status.set(status),
-        error: () => this.error.set('Комната не найдена или уже закрыта.'),
+        error: () => this.error.set(this.i18n.t('pvp.notFound')),
       });
   }
 
   private errorMessage(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       const code = (error.error as { detail?: { code?: string } })?.detail?.code;
-      if (code === 'ROOM_FULL') return 'Комната уже заполнена.';
+      if (code === 'ROOM_FULL') return this.i18n.t('pvp.roomFull');
       if (code === 'ROOM_NOT_FOUND' || code === 'INVITE_EXPIRED') {
-        return 'Комната не найдена или уже закрыта.';
+        return this.i18n.t('pvp.notFound');
       }
       if (code === 'INVALID_NICKNAME' || error.status === 422) {
-        return 'Введите имя длиной от 1 до 24 символов.';
+        return this.i18n.t('pvp.invalidNickname');
       }
     }
-    return 'Не удалось присоединиться. Попробуйте ещё раз.';
+    return this.i18n.t('pvp.joinFailed');
   }
 }

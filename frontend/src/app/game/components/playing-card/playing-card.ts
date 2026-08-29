@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { GameCard, SUIT_SYMBOLS } from '../../../core/api/game-api.models';
+import { TranslationService } from '../../../core/i18n/translation.service';
 
 @Component({
   selector: 'app-playing-card',
@@ -10,6 +11,7 @@ import { GameCard, SUIT_SYMBOLS } from '../../../core/api/game-api.models';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PlayingCardComponent {
+  protected readonly i18n = inject(TranslationService);
   readonly card = input.required<GameCard>();
   readonly selected = input(false);
   readonly selectable = input(false);
@@ -23,8 +25,12 @@ export class PlayingCardComponent {
   );
   protected readonly accessibleLabel = computed(() => {
     const card = this.card();
-    const trump = card.is_trump ? ', козырь' : '';
-    return `${card.rank} ${this.suitName(card.suit)}, значение ${card.effective_value}${trump}`;
+    return this.i18n.t('game.cardAria', {
+      rank: card.rank,
+      suit: this.suitName(card.suit),
+      value: card.effective_value,
+      trump: card.is_trump ? this.i18n.t('game.cardTrumpSuffix') : '',
+    });
   });
 
   protected select(): void {
@@ -34,11 +40,6 @@ export class PlayingCardComponent {
   }
 
   private suitName(suit: GameCard['suit']): string {
-    return {
-      clubs: 'треф',
-      diamonds: 'бубен',
-      hearts: 'червей',
-      spades: 'пик',
-    }[suit];
+    return this.i18n.t(`suit.${suit}`);
   }
 }

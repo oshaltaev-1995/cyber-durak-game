@@ -156,15 +156,6 @@ export const CARD_ACTIONS: ReadonlySet<HumanActionType> = new Set([
   'THROW_IN',
 ]);
 
-export const ACTION_LABELS: Readonly<Record<HumanActionType, string>> = {
-  INITIAL_ATTACK: 'Ходить',
-  DEFEND: 'Покрыть',
-  TRANSFER: 'Перевести',
-  THROW_IN: 'Подкинуть',
-  TAKE: 'Взять',
-  BITO: 'Бито',
-};
-
 export const SUIT_SYMBOLS: Readonly<Record<Suit, string>> = {
   clubs: '♣',
   diamonds: '♦',

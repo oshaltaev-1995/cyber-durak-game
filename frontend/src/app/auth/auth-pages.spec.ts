@@ -20,6 +20,7 @@ const user: CurrentUser = {
   email: 'player@example.com',
   display_name: 'Игрок',
   created_at: '2026-08-27T10:00:00+00:00',
+  preferred_locale: 'ru',
 };
 
 interface AuthStub {
@@ -168,6 +169,7 @@ describe('account pages', () => {
       email: user.email,
       display_name: user.display_name,
       password: 'password123',
+      preferred_locale: 'ru',
     });
   });
 

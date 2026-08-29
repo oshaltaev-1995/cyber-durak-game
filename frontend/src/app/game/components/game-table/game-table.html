@@ -1,19 +1,21 @@
 <section class="table" aria-labelledby="table-title">
   <div class="table-heading">
     <div>
-      <span class="eyebrow">Игровой стол</span>
-      <h2 id="table-title">{{ final() ? 'Финальный кон' : 'Текущий кон' }}</h2>
+      <span class="eyebrow">{{ i18n.t('game.tableLabel') }}</span>
+      <h2 id="table-title">{{ i18n.t(final() ? 'game.finalBout' : 'game.currentBout') }}</h2>
     </div>
-    <div class="math-facts" aria-label="Арифметика стола">
+    <div class="math-facts" [attr.aria-label]="i18n.t('game.tableArithmeticLabel')">
       <span
-        >Сумма <strong>{{ arithmetic().total_effective_value }}</strong></span
+        >{{ i18n.t('game.tableTotal') }}
+        <strong>{{ arithmetic().total_effective_value }}</strong></span
       >
       <span
-        >Среднее <strong>{{ formatExactValue(arithmetic().arithmetic_mean) }}</strong></span
+        >{{ i18n.t('game.mean') }}
+        <strong>{{ formatExactValue(arithmetic().arithmetic_mean) }}</strong></span
       >
       @if (activeAttackValue() !== null && !final()) {
         <span class="need"
-          >Покрыть &gt; <strong>{{ activeAttackValue() }}</strong></span
+          >{{ i18n.t('game.needBeat') }} <strong>{{ activeAttackValue() }}</strong></span
         >
       }
     </div>
@@ -22,19 +24,21 @@
   @if (packets().length === 0) {
     <div class="empty-table">
       <span aria-hidden="true">♠</span>
-      <p>Стол пуст. Выберите карту, чтобы начать кон.</p>
+      <p>{{ i18n.t('game.emptyTable') }}</p>
     </div>
   } @else {
     <div class="packet-list">
       @for (packet of packets(); track $index; let index = $index) {
         <article class="packet" [class.active]="!packet.closed">
           <header>
-            <span>Пакет {{ index + 1 }}</span>
-            <strong>{{ packet.closed ? 'Покрыт' : 'Активен' }}</strong>
+            <span>{{ i18n.t('game.packet', { number: index + 1 }) }}</span>
+            <strong>{{ i18n.t(packet.closed ? 'game.covered' : 'game.active') }}</strong>
           </header>
           <div class="packet-sides">
             <div class="packet-side attack-side">
-              <span class="side-label">Атака · {{ packet.attack_value }}</span>
+              <span class="side-label"
+                >{{ i18n.t('game.attack') }} · {{ packet.attack_value }}</span
+              >
               <div class="packet-cards">
                 @for (card of packet.attack_cards; track card.code) {
                   <app-playing-card [card]="card" [compact]="true" />
@@ -43,7 +47,9 @@
             </div>
             <div class="relation" aria-hidden="true">→</div>
             <div class="packet-side defense-side">
-              <span class="side-label">Защита · {{ packet.defense_value ?? '—' }}</span>
+              <span class="side-label"
+                >{{ i18n.t('game.defense') }} · {{ packet.defense_value ?? '—' }}</span
+              >
               @if (packet.defense_cards.length > 0) {
                 <div class="packet-cards">
                   @for (card of packet.defense_cards; track card.code) {
@@ -51,12 +57,12 @@
                   }
                 </div>
               } @else {
-                <div class="awaiting">Ожидает ответа</div>
+                <div class="awaiting">{{ i18n.t('game.awaiting') }}</div>
               }
             </div>
           </div>
           @if (packet.throw_in_reasons.length > 0) {
-            <div class="throw-reasons" aria-label="Подтверждённое объяснение подкидывания">
+            <div class="throw-reasons" [attr.aria-label]="i18n.t('game.throwReasonLabel')">
               @for (reason of packet.throw_in_reasons; track reason.type) {
                 <div class="throw-reason">
                   <strong>{{ reasonLabel(reason.type) }}</strong>
@@ -74,7 +80,7 @@
 
   @if (directAnchors().length > 0) {
     <div class="anchors">
-      <span>Текущая опора:</span>
+      <span>{{ i18n.t('game.currentAnchor') }}:</span>
       @for (card of directAnchors(); track card.code) {
         <strong>{{ card.code }} · {{ card.effective_value }}</strong>
       }

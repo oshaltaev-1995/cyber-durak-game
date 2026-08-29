@@ -1,29 +1,29 @@
 <main class="achievements-page" aria-labelledby="achievements-title">
   <header>
     <div>
-      <span class="kicker">Профиль</span>
-      <h1 id="achievements-title">Достижения</h1>
-      <p>Цели не влияют на силу карт или правила игры.</p>
+      <span class="kicker">{{ i18n.t('profile.title') }}</span>
+      <h1 id="achievements-title">{{ i18n.t('achievements.title') }}</h1>
+      <p>{{ i18n.t('achievements.intro') }}</p>
     </div>
-    <nav aria-label="Разделы профиля">
-      <a routerLink="/profile">Статистика</a>
-      <a routerLink="/profile/history">История</a>
-      <a routerLink="/profile/achievements">Достижения</a>
-      <a routerLink="/profile/cosmetics">Оформление</a>
+    <nav [attr.aria-label]="i18n.t('profile.sections')">
+      <a routerLink="/profile">{{ i18n.t('profile.statistics') }}</a>
+      <a routerLink="/profile/history">{{ i18n.t('profile.history') }}</a>
+      <a routerLink="/profile/achievements">{{ i18n.t('profile.achievements') }}</a>
+      <a routerLink="/profile/cosmetics">{{ i18n.t('profile.cosmetics') }}</a>
     </nav>
   </header>
 
   @if (!auth.currentUser() && !pending()) {
     <section class="empty-state">
-      <strong>Достижения доступны после входа.</strong>
-      <span>Играть без регистрации по-прежнему можно.</span>
-      <a routerLink="/login">Войти</a>
-      <a routerLink="/play">Играть без входа</a>
+      <strong>{{ i18n.t('achievements.guestTitle') }}</strong>
+      <span>{{ i18n.t('achievements.guestNote') }}</span>
+      <a routerLink="/login">{{ i18n.t('auth.login') }}</a>
+      <a routerLink="/play">{{ i18n.t('auth.playGuest') }}</a>
     </section>
   } @else if (pending()) {
-    <p class="status" role="status">Загружаем достижения…</p>
+    <p class="status" role="status">{{ i18n.t('achievements.loading') }}</p>
   } @else if (error()) {
-    <p class="error" role="alert">Не удалось загрузить достижения.</p>
+    <p class="error" role="alert">{{ i18n.t('achievements.loadFailed') }}</p>
   } @else {
     <ol class="achievement-list">
       @for (achievement of achievements(); track achievement.code) {
@@ -33,9 +33,11 @@
             <strong>{{ achievement.title }}</strong>
             <p>{{ achievement.description }}</p>
             @if (achievement.unlocked_at; as date) {
-              <time [attr.datetime]="date">Получено {{ unlockedAt(date) }}</time>
+              <time [attr.datetime]="date">{{
+                i18n.t('achievements.receivedAt', { date: unlockedAt(date) })
+              }}</time>
             } @else {
-              <span class="locked-label">Пока не получено</span>
+              <span class="locked-label">{{ i18n.t('achievements.locked') }}</span>
             }
           </div>
           <span class="bonus">+{{ achievement.bonus_xp }} XP</span>

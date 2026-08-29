@@ -17,6 +17,7 @@ import {
   CosmeticsResponse,
 } from '../core/profile/profile.models';
 import { ProfileService } from '../core/profile/profile.service';
+import { TranslationService } from '../core/i18n/translation.service';
 
 @Component({
   selector: 'app-cosmetics-page',
@@ -28,6 +29,7 @@ import { ProfileService } from '../core/profile/profile.service';
 export class CosmeticsPageComponent implements OnInit {
   protected readonly auth = inject(AuthService);
   private readonly profile = inject(ProfileService);
+  protected readonly i18n = inject(TranslationService);
 
   protected readonly catalogue = signal<CosmeticsResponse | null>(null);
   protected readonly pending = signal(false);
@@ -72,12 +74,20 @@ export class CosmeticsPageComponent implements OnInit {
 
   protected unlockLabel(item: CosmeticItem): string {
     if (item.unlock.type === 'DEFAULT') {
-      return 'Доступно всем';
+      return this.i18n.t('cosmetics.default');
     }
     if (item.unlock.type === 'LEVEL') {
-      return `Откроется на уровне ${item.unlock.requirement}`;
+      return this.i18n.t('cosmetics.levelRequirement', { level: item.unlock.requirement ?? '' });
     }
-    return `Нужно достижение «${item.unlock.achievement_title ?? item.unlock.requirement}»`;
+    return this.i18n.t('cosmetics.achievementRequirement', {
+      title: item.unlock.achievement_title ?? item.unlock.requirement ?? '',
+    });
+  }
+
+  protected buttonLabel(item: CosmeticItem): string {
+    return this.i18n.t(
+      item.equipped ? 'cosmetics.equipped' : item.unlocked ? 'cosmetics.equip' : 'cosmetics.locked',
+    );
   }
 
   private byCategory(category: CosmeticCategory): readonly CosmeticItem[] {
@@ -98,8 +108,8 @@ export class CosmeticsPageComponent implements OnInit {
 
   private messageFor(error: unknown): string {
     if (error instanceof HttpErrorResponse && error.status === 409) {
-      return 'Это оформление пока недоступно.';
+      return this.i18n.t('cosmetics.unavailable');
     }
-    return 'Не удалось обновить оформление. Попробуйте снова.';
+    return this.i18n.t('cosmetics.updateFailed');
   }
 }

@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { TranslationService } from '../core/i18n/translation.service';
 import { TutorialPageComponent } from './tutorial-page';
-import { TUTORIAL_LESSONS } from './tutorial-data';
+import { TUTORIAL_LESSONS_EN, TUTORIAL_LESSONS_RU } from './tutorial-data';
 
 describe('TutorialPageComponent', () => {
   let fixture: ComponentFixture<TutorialPageComponent>;
@@ -24,14 +25,14 @@ describe('TutorialPageComponent', () => {
   };
 
   const advance = (fromIndex: number): void => {
-    const exercise = TUTORIAL_LESSONS[fromIndex].exercise;
+    const exercise = TUTORIAL_LESSONS_RU[fromIndex].exercise;
     if (exercise !== null) {
       const answer = exercise.choices.find((choice) => choice.id === exercise.answer);
       expect(answer).toBeDefined();
       button((answer as { label: string }).label).click();
       fixture.detectChanges();
     }
-    button(fromIndex === TUTORIAL_LESSONS.length - 1 ? 'Завершить' : 'Далее').click();
+    button(fromIndex === TUTORIAL_LESSONS_RU.length - 1 ? 'Завершить' : 'Далее').click();
     fixture.detectChanges();
   };
 
@@ -101,7 +102,7 @@ describe('TutorialPageComponent', () => {
   });
 
   it('finishes all eight lessons with play, rules, and replay choices', () => {
-    for (let index = 0; index < TUTORIAL_LESSONS.length; index += 1) {
+    for (let index = 0; index < TUTORIAL_LESSONS_RU.length; index += 1) {
       advance(index);
     }
 
@@ -113,5 +114,23 @@ describe('TutorialPageComponent', () => {
     button('Пройти ещё раз').click();
     fixture.detectChanges();
     expect(element.textContent).toContain('Цель и карты');
+  });
+
+  it('provides all eight English lessons and preserves the current step on runtime switch', () => {
+    expect(TUTORIAL_LESSONS_EN).toHaveLength(8);
+    advance(0);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Двойной козырь');
+
+    TestBed.inject(TranslationService).setLocale('en');
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Dual trump');
+    expect(text).toContain('2 / 8');
+    button('8♥ = 16').click();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Compare doubled effective values',
+    );
   });
 });

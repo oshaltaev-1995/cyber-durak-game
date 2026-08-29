@@ -314,6 +314,14 @@ def test_cosmetic_apis_protect_guests_and_return_unlock_metadata(database: Datab
     assert avalanche["unlock"]["achievement_title"] == "Лавина"
     assert "source_key" not in response.text
 
+    english = client.get("/api/cosmetics", headers={"Accept-Language": "en"})
+    assert english.status_code == 200
+    english_avalanche = next(
+        item for item in english.json()["items"] if item["code"] == "AVALANCHE_BACK"
+    )
+    assert english_avalanche["title"] == "Avalanche"
+    assert english_avalanche["unlock"]["achievement_title"] == "Avalanche"
+
 
 def test_equip_api_returns_machine_readable_errors_and_updated_loadout(
     database: Database,

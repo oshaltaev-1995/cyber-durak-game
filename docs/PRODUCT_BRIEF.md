@@ -61,6 +61,7 @@ Everything else depends on this.
 - one human vs bot
 - complete core rules
 - responsive desktop/mobile UI
+- complete Russian and English player-facing UI with an instant runtime language switch
 - New Game
 - short interactive rules/tutorial
 - automatic arithmetic hints
@@ -84,6 +85,7 @@ Everything else depends on this.
 - participant-specific state that never exposes the opponent hand or future draw order
 - authenticated private-PvP results participate in the same history, statistics, XP, achievement,
   and cosmetic progression as bot results; guest PvP remains unsaved
+- Russian and English use the same routes, authoritative gameplay, and one frontend build
 
 Example flow:
 

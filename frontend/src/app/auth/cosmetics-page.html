@@ -1,27 +1,27 @@
 <main class="cosmetics-page" aria-labelledby="cosmetics-title">
   <header>
     <div>
-      <span class="kicker">Профиль</span>
-      <h1 id="cosmetics-title">Оформление</h1>
-      <p>Визуальные награды не меняют карты, правила или силу бота.</p>
+      <span class="kicker">{{ i18n.t('profile.title') }}</span>
+      <h1 id="cosmetics-title">{{ i18n.t('cosmetics.title') }}</h1>
+      <p>{{ i18n.t('cosmetics.intro') }}</p>
     </div>
-    <nav aria-label="Разделы профиля">
-      <a routerLink="/profile">Статистика</a>
-      <a routerLink="/profile/history">История</a>
-      <a routerLink="/profile/achievements">Достижения</a>
-      <a routerLink="/profile/cosmetics">Оформление</a>
+    <nav [attr.aria-label]="i18n.t('profile.sections')">
+      <a routerLink="/profile">{{ i18n.t('profile.statistics') }}</a>
+      <a routerLink="/profile/history">{{ i18n.t('profile.history') }}</a>
+      <a routerLink="/profile/achievements">{{ i18n.t('profile.achievements') }}</a>
+      <a routerLink="/profile/cosmetics">{{ i18n.t('profile.cosmetics') }}</a>
     </nav>
   </header>
 
   @if (!auth.currentUser() && !pending()) {
     <section class="empty-state">
-      <strong>Оформление доступно после входа.</strong>
-      <span>Гости всегда играют с классическим видом.</span>
-      <a routerLink="/login">Войти</a>
-      <a routerLink="/play">Играть без входа</a>
+      <strong>{{ i18n.t('cosmetics.guestTitle') }}</strong>
+      <span>{{ i18n.t('cosmetics.guestNote') }}</span>
+      <a routerLink="/login">{{ i18n.t('auth.login') }}</a>
+      <a routerLink="/play">{{ i18n.t('auth.playGuest') }}</a>
     </section>
   } @else if (pending()) {
-    <p class="status" role="status">Загружаем оформление…</p>
+    <p class="status" role="status">{{ i18n.t('cosmetics.loading') }}</p>
   } @else if (catalogue()) {
     @if (error(); as message) {
       <p class="error" role="alert">{{ message }}</p>
@@ -30,8 +30,8 @@
       <div class="section-heading">
         <span aria-hidden="true">🎴</span>
         <div>
-          <h2 id="backs-title">Рубашки</h2>
-          <p>Скрытые карты бота и колода.</p>
+          <h2 id="backs-title">{{ i18n.t('cosmetics.cardBacks') }}</h2>
+          <p>{{ i18n.t('cosmetics.backsHint') }}</p>
         </div>
       </div>
       <div class="cosmetic-grid">
@@ -58,7 +58,7 @@
               [disabled]="!item.unlocked || item.equipped || equipping() !== null"
               (click)="equip(item)"
             >
-              {{ item.equipped ? 'Выбрано' : item.unlocked ? 'Выбрать' : 'Закрыто' }}
+              {{ buttonLabel(item) }}
             </button>
           </article>
         }
@@ -69,8 +69,8 @@
       <div class="section-heading">
         <span aria-hidden="true">▦</span>
         <div>
-          <h2 id="tables-title">Столы</h2>
-          <p>Цвет и фактура игрового поля.</p>
+          <h2 id="tables-title">{{ i18n.t('cosmetics.tables') }}</h2>
+          <p>{{ i18n.t('cosmetics.tablesHint') }}</p>
         </div>
       </div>
       <div class="cosmetic-grid">
@@ -96,7 +96,7 @@
               [disabled]="!item.unlocked || item.equipped || equipping() !== null"
               (click)="equip(item)"
             >
-              {{ item.equipped ? 'Выбрано' : item.unlocked ? 'Выбрать' : 'Закрыто' }}
+              {{ buttonLabel(item) }}
             </button>
           </article>
         }
@@ -107,8 +107,8 @@
       <div class="section-heading">
         <span aria-hidden="true">◇</span>
         <div>
-          <h2 id="frames-title">Рамки</h2>
-          <p>Акцент вокруг имени в профиле.</p>
+          <h2 id="frames-title">{{ i18n.t('cosmetics.frames') }}</h2>
+          <p>{{ i18n.t('cosmetics.framesHint') }}</p>
         </div>
       </div>
       <div class="cosmetic-grid">
@@ -119,7 +119,7 @@
             [class.equipped]="item.equipped"
           >
             <div [class]="'preview frame-preview cosmetic-' + item.code.toLowerCase()">
-              <span>Игрок</span>
+              <span>{{ i18n.t('cosmetics.playerPreview') }}</span>
             </div>
             <div class="cosmetic-copy">
               <strong>{{ item.title }}</strong>
@@ -131,7 +131,7 @@
               [disabled]="!item.unlocked || item.equipped || equipping() !== null"
               (click)="equip(item)"
             >
-              {{ item.equipped ? 'Выбрано' : item.unlocked ? 'Выбрать' : 'Закрыто' }}
+              {{ buttonLabel(item) }}
             </button>
           </article>
         }

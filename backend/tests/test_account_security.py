@@ -85,6 +85,90 @@ def test_registration_is_unverified_and_stores_only_verification_token_hash(
         assert raw_token not in token.token_hash
 
 
+def test_account_locale_is_persisted_and_controls_account_email_copy(
+    client: TestClient,
+    database: Database,
+    sender: DevelopmentEmailSender,
+) -> None:
+    response = client.post(
+        "/api/auth/register",
+        headers={"Origin": ORIGIN},
+        json={
+            "email": "english@example.com",
+            "display_name": "English player",
+            "password": PASSWORD,
+            "preferred_locale": "en",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["preferred_locale"] == "en"
+    message = sender.messages[-1]
+    assert message.locale.value == "en"
+    assert message.subject == "Verify your email — KIBA"
+    assert "Verify your email address" in message.body
+    with database.session() as session:
+        user = session.scalar(select(User).where(User.email == "english@example.com"))
+        assert user is not None and user.preferred_locale == "en"
+
+    updated = client.patch(
+        "/api/profile",
+        headers={"Origin": ORIGIN},
+        json={"preferred_locale": "ru"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["preferred_locale"] == "ru"
+
+    resent = client.post("/api/auth/verification/send", headers={"Origin": ORIGIN})
+    assert resent.status_code == 200
+    assert sender.messages[-1].locale.value == "ru"
+    assert sender.messages[-1].subject == "Подтвердите email — KIBA"
+
+
+def test_account_locale_rejects_unsupported_values(client: TestClient) -> None:
+    response = client.post(
+        "/api/auth/register",
+        headers={"Origin": ORIGIN},
+        json={
+            "email": "unsupported@example.com",
+            "display_name": "Player",
+            "password": PASSWORD,
+            "preferred_locale": "de",
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_password_reset_uses_the_stored_account_locale(
+    client: TestClient,
+    sender: DevelopmentEmailSender,
+) -> None:
+    response = client.post(
+        "/api/auth/register",
+        headers={"Origin": ORIGIN},
+        json={
+            "email": "english-reset@example.com",
+            "display_name": "English player",
+            "password": PASSWORD,
+            "preferred_locale": "en",
+        },
+    )
+    assert response.status_code == 201
+    verify(client, sender)
+
+    requested = client.post(
+        "/api/auth/password/forgot",
+        headers={"Origin": ORIGIN, "Accept-Language": "ru"},
+        json={"email": "english-reset@example.com"},
+    )
+
+    assert requested.status_code == 200
+    message = sender.messages[-1]
+    assert message.kind == "PASSWORD_RESET"
+    assert message.locale.value == "en"
+    assert message.subject == "Reset your password — KIBA"
+
+
 def test_verification_is_one_use_and_resend_revokes_previous_token(
     client: TestClient,
     database: Database,
@@ -304,10 +388,10 @@ def test_idle_session_expires_without_waiting_for_cleanup(
 
 
 class FailingEmailSender:
-    def send_verification(self, _recipient: str, _link: str) -> None:
+    def send_verification(self, _recipient: str, _link: str, _locale: object = None) -> None:
         raise EmailDeliveryError("unavailable")
 
-    def send_password_reset(self, _recipient: str, _link: str) -> None:
+    def send_password_reset(self, _recipient: str, _link: str, _locale: object = None) -> None:
         raise EmailDeliveryError("unavailable")
 
 

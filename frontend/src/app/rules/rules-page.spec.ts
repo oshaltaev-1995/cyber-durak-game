@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { TranslationService } from '../core/i18n/translation.service';
 import { RulesPageComponent } from './rules-page';
 
 describe('RulesPageComponent', () => {
@@ -66,5 +67,20 @@ describe('RulesPageComponent', () => {
     expect(text).toContain('10–A');
     expect(text).toContain('новая цель 7 + 14 = 21');
     expect(text).toContain('9 + 9 + 9');
+  });
+
+  it('renders the complete canonical English rules at runtime', () => {
+    const fixture = TestBed.createComponent(RulesPageComponent);
+    TestBed.inject(TranslationService).setLocale('en');
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toContain('lowest trump');
+    expect(text).toContain('Arithmetic mean');
+    expect(text).toContain('latest defense is also a target');
+    expect(text).toContain('Advanced rule: Rank run');
+    expect(text).toContain('exact core may be extended');
+    expect(text).toContain('hand sizes as close as possible');
+    expect(text).toContain('both hands empty — Draw');
   });
 });

@@ -2,27 +2,34 @@
   @if (socket.status() === 'expired') {
     <main class="room-unavailable" aria-labelledby="room-unavailable-title">
       <span aria-hidden="true">⌛</span>
-      <h1 id="room-unavailable-title">Комната больше недоступна</h1>
-      <p>Срок приглашения истёк или сервер был перезапущен.</p>
-      <a class="room-again" routerLink="/pvp">Создать новую комнату</a>
-      <a routerLink="/play">Играть с ботом</a>
+      <h1 id="room-unavailable-title">{{ i18n.t('pvp.unavailableTitle') }}</h1>
+      <p>{{ i18n.t('pvp.expiredRestart') }}</p>
+      <a class="room-again" routerLink="/pvp">{{ i18n.t('pvp.newRoom') }}</a>
+      <a routerLink="/play">{{ i18n.t('landing.playBot') }}</a>
     </main>
   } @else if (state(); as game) {
     <main class="game-board">
       <div class="game-utilities">
-        <span>Приватная комната · {{ game.invite_code }}</span>
-        <button class="new-game" type="button" (click)="leaveConfirmation.set(true)">Выйти</button>
+        <span>{{ i18n.t('pvp.privateRoom', { code: game.invite_code }) }}</span>
+        <button class="new-game" type="button" (click)="leaveConfirmation.set(true)">
+          {{ i18n.t('pvp.exit') }}
+        </button>
       </div>
 
       @if (leaveConfirmation()) {
-        <section class="restart-confirmation" role="alertdialog" aria-label="Подтверждение выхода">
+        <section
+          class="restart-confirmation"
+          role="alertdialog"
+          [attr.aria-label]="i18n.t('pvp.exitConfirmLabel')"
+        >
           <div>
-            <strong>Выйти из комнаты?</strong><span>Игра будет ждать вашего переподключения.</span>
+            <strong>{{ i18n.t('pvp.exitTitle') }}</strong
+            ><span>{{ i18n.t('pvp.exitHint') }}</span>
           </div>
           <button class="cancel" type="button" (click)="leaveConfirmation.set(false)">
-            Остаться
+            {{ i18n.t('pvp.stay') }}
           </button>
-          <button type="button" (click)="leave()">Выйти</button>
+          <button type="button" (click)="leave()">{{ i18n.t('pvp.exit') }}</button>
         </section>
       }
 
@@ -36,11 +43,11 @@
         >
           <span>{{ message }}</span>
           @if (canRetryConnection()) {
-            <button type="button" (click)="socket.retry()">Повторить</button>
+            <button type="button" (click)="socket.retry()">{{ i18n.t('common.retry') }}</button>
           }
         </div>
       } @else if (socket.status() === 'connected') {
-        <div class="connection-badge" role="status">Подключено</div>
+        <div class="connection-badge" role="status">{{ i18n.t('pvp.connected') }}</div>
       }
       @if (connectionNoticeText(); as notice) {
         <div class="connection-notice" role="status">{{ notice }}</div>
@@ -49,32 +56,35 @@
       @if (game.room_phase === 'WAITING_FOR_OPPONENT') {
         <section class="waiting-room" aria-live="polite">
           <span class="waiting-icon" aria-hidden="true">↗</span>
-          <h1>Комната создана</h1>
-          <p>Ждём второго игрока…</p>
+          <h1>{{ i18n.t('pvp.roomCreated') }}</h1>
+          <p>{{ i18n.t('pvp.waiting') }}</p>
           <label
-            ><span>Ссылка-приглашение</span><output>{{ inviteUrl() }}</output></label
+            ><span>{{ i18n.t('pvp.inviteLink') }}</span
+            ><output>{{ inviteUrl() }}</output></label
           >
-          <strong>Код комнаты: {{ game.invite_code }}</strong>
+          <strong>{{ i18n.t('pvp.roomCode') }}: {{ game.invite_code }}</strong>
           <div class="share-actions">
             <button type="button" (click)="copyInvite()">
-              {{ copyStatus() === 'copied' ? 'Ссылка скопирована' : 'Скопировать ссылку' }}
+              {{ i18n.t(copyStatus() === 'copied' ? 'pvp.copied' : 'pvp.copyLink') }}
             </button>
             @if (canShare()) {
-              <button class="secondary" type="button" (click)="shareInvite()">Поделиться</button>
+              <button class="secondary" type="button" (click)="shareInvite()">
+                {{ i18n.t('pvp.share') }}
+              </button>
             }
           </div>
           @if (copyStatus() === 'failed') {
             <small class="copy-error" role="alert"
-              >Не удалось скопировать. Выделите ссылку выше.</small
+              >{{ i18n.t('pvp.copyFailed') }}. {{ i18n.t('pvp.inviteLink') }}.</small
             >
           }
-          <small>Комната хранится только до перезапуска сервера.</small>
+          <small>{{ i18n.t('pvp.localOnly') }}</small>
         </section>
       } @else {
         <section
           class="opponent-zone"
-          aria-label="Соперник"
-          [title]="game.opponent?.display_name ?? 'Соперник'"
+          [attr.aria-label]="i18n.t('pvp.opponent')"
+          [title]="game.opponent?.display_name ?? i18n.t('pvp.opponent')"
         >
           @if ((game.opponent_hand_count ?? 0) > 0) {
             <div class="opponent-card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -92,16 +102,19 @@
             <div class="bot-avatar" aria-hidden="true">P2</div>
           }
           <div class="opponent-copy">
-            <span>Соперник</span
-            ><strong
-              >{{ game.opponent?.display_name ?? 'Подключается…' }} ·
-              {{ game.opponent_hand_count ?? 0 }} карт</strong
-            >
+            <span>{{ i18n.t('pvp.opponent') }}</span
+            ><strong>{{
+              i18n.t('pvp.opponentCards', {
+                name: game.opponent?.display_name ?? i18n.t('pvp.connectingOpponent'),
+                count: game.opponent_hand_count ?? 0,
+                cards: i18n.cardCount(game.opponent_hand_count ?? 0),
+              })
+            }}</strong>
           </div>
         </section>
 
-        <section class="table-stage" aria-label="Игровое поле">
-          <aside class="draw-zone" aria-label="Колода и козырь">
+        <section class="table-stage" [attr.aria-label]="i18n.t('game.boardLabel')">
+          <aside class="draw-zone" [attr.aria-label]="i18n.t('game.deckTrumpLabel')">
             <app-trump-indicator
               [trump]="game.trump"
               [exposedCard]="game.exposed_top_card"
@@ -116,36 +129,43 @@
             [directAnchors]="game.direct_anchor_cards"
             [final]="game.game_phase === 'complete'"
           />
-          <aside class="discard-zone" aria-label="Бито, сброшенные карты">
-            <span class="pile-label">Бито</span>
+          <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
+            <span class="pile-label">{{ i18n.t('game.discard') }}</span>
             <div class="discard-stack" aria-hidden="true"><i></i><i></i><i></i></div>
             <strong>{{ game.discard_count }}</strong
-            ><small>карт</small>
+            ><small>{{ i18n.cardCount(game.discard_count) }}</small>
           </aside>
         </section>
 
         @if (game.game_phase === 'complete') {
           <section class="result-panel" aria-live="polite">
-            <span>Игра окончена</span>
+            <span>{{ i18n.t('game.finished') }}</span>
             <h2>{{ resultTitle() }}</h2>
             @if (game.result_saved) {
-              <p class="result-history-note">Результат сохранён в статистике.</p>
+              <p class="result-history-note">{{ i18n.t('pvp.saved') }}</p>
               @if (game.progression_award; as award) {
-                <section class="result-progression" aria-label="Полученный прогресс">
+                <section
+                  class="result-progression"
+                  [attr.aria-label]="i18n.t('game.progressionLabel')"
+                >
                   <strong>+{{ award.total_awarded_xp }} XP</strong>
                   <span>
-                    За партию {{ award.base_xp }} XP
+                    {{ i18n.t('game.matchXp', { xp: award.base_xp }) }}
                     @if (award.achievement_bonus_xp > 0) {
-                      · достижения +{{ award.achievement_bonus_xp }} XP
+                      · {{ i18n.t('game.achievementXp', { xp: award.achievement_bonus_xp }) }}
                     }
                   </span>
                   <span>
-                    Уровень {{ award.level }} · до следующего
-                    {{ award.xp_needed_for_next_level }} XP
+                    {{
+                      i18n.t('game.levelProgress', {
+                        level: award.level,
+                        xp: award.xp_needed_for_next_level,
+                      })
+                    }}
                   </span>
                   @if (award.new_achievements.length > 0) {
                     <div class="new-achievements">
-                      <small>Новые достижения</small>
+                      <small>{{ i18n.t('game.newAchievements') }}</small>
                       @for (achievement of award.new_achievements; track achievement.code) {
                         <article>
                           <span aria-hidden="true">🏅</span>
@@ -160,13 +180,13 @@
                   }
                   @if (award.new_cosmetics.length > 0) {
                     <div class="new-cosmetics">
-                      <small>Новая награда</small>
+                      <small>{{ i18n.t('game.newReward') }}</small>
                       @for (cosmetic of award.new_cosmetics; track cosmetic.code) {
                         <article>
                           <span aria-hidden="true">🎴</span>
                           <div>
                             <strong>{{ cosmetic.title }}</strong>
-                            <small>Новое оформление открыто</small>
+                            <small>{{ i18n.t('game.cosmeticUnlocked') }}</small>
                           </div>
                         </article>
                       }
@@ -175,28 +195,36 @@
                 </section>
               }
               <div class="result-links">
-                <a class="result-history-link" routerLink="/profile">Открыть профиль</a>
-                <a class="result-history-link" routerLink="/profile/history">Открыть историю</a>
+                <a class="result-history-link" routerLink="/profile">{{
+                  i18n.t('game.openProfile')
+                }}</a>
+                <a class="result-history-link" routerLink="/profile/history">{{
+                  i18n.t('game.openHistory')
+                }}</a>
               </div>
             } @else if (!game.you.authenticated) {
               <p class="result-history-note">
-                Создайте аккаунт, чтобы сохранять следующие PvP-партии и прогресс.
+                {{ i18n.t('pvp.guestSavedCta') }}
               </p>
-              <a class="result-history-link" routerLink="/register">Создать аккаунт</a>
+              <a class="result-history-link" routerLink="/register">{{
+                i18n.t('game.createAccount')
+              }}</a>
             } @else {
               <p class="result-history-note">
-                Сохранение результата ещё не подтверждено. Переподключитесь позже.
+                {{ i18n.t('pvp.savePending') }}
               </p>
             }
-            <a class="room-again" routerLink="/pvp">Создать новую комнату</a>
+            <a class="room-again" routerLink="/pvp">{{ i18n.t('pvp.newRoom') }}</a>
           </section>
         } @else {
           <div class="status-banner" aria-live="polite">
             <span class="status-dot" aria-hidden="true"></span><strong>{{ statusText() }}</strong
-            ><small
-              >Атака {{ game.total_attack_card_count ?? 0 }} / лимит
-              {{ game.attack_card_limit ?? '—' }}</small
-            >
+            ><small>{{
+              i18n.t('game.attackLimit', {
+                count: game.total_attack_card_count ?? 0,
+                limit: game.attack_card_limit ?? '—',
+              })
+            }}</small>
           </div>
         }
 
@@ -216,12 +244,14 @@
             <div
               class="local-player turn-player activity-ring"
               [title]="game.you.display_name"
-              aria-label="Сейчас ваш ход"
+              [attr.aria-label]="i18n.t('game.currentTurnLabel')"
             >
-              Вы
+              {{ i18n.t('game.you') }}
             </div>
           } @empty {
-            <div class="local-player turn-player" [title]="game.you.display_name">Вы</div>
+            <div class="local-player turn-player" [title]="game.you.display_name">
+              {{ i18n.t('game.you') }}
+            </div>
           }
           <span class="local-player-name">{{ game.you.display_name }}</span>
         </div>
@@ -254,7 +284,7 @@
       <div class="welcome-copy">
         <span class="loading-mark" aria-hidden="true">K</span>
         <h1>{{ statusText() }}</h1>
-        <p>Восстанавливаем ваше место и последнее состояние партии.</p>
+        <p>{{ i18n.t('pvp.recovering') }}</p>
       </div>
     </main>
   }

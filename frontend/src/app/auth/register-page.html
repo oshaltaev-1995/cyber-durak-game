@@ -1,9 +1,7 @@
 <main class="auth-card" aria-labelledby="register-title">
-  <span class="kicker">Профиль игрока</span>
-  <h1 id="register-title">Создать аккаунт</h1>
-  <p class="intro">
-    Аккаунт нужен только для сохранения статистики и будущих наград. Играть можно и без регистрации.
-  </p>
+  <span class="kicker">{{ i18n.t('auth.playerProfile') }}</span>
+  <h1 id="register-title">{{ i18n.t('auth.register') }}</h1>
+  <p class="intro">{{ i18n.t('auth.registerIntro') }}</p>
 
   <form [formGroup]="form" (ngSubmit)="submit()">
     <label>
@@ -11,11 +9,11 @@
       <input type="email" formControlName="email" autocomplete="email" />
     </label>
     <label>
-      Имя игрока
+      {{ i18n.t('auth.displayName') }}
       <input type="text" formControlName="display_name" autocomplete="nickname" maxlength="50" />
     </label>
     <label>
-      Пароль
+      {{ i18n.t('auth.password') }}
       <input
         type="password"
         formControlName="password"
@@ -24,17 +22,17 @@
         maxlength="128"
         aria-describedby="password-help"
       />
-      <small id="password-help">Минимум 8 символов.</small>
+      <small id="password-help">{{ i18n.t('auth.passwordHelp') }}</small>
     </label>
     @if (error(); as message) {
       <p class="error" role="alert">{{ message }}</p>
     }
     <div class="form-actions">
       <button type="submit" [disabled]="pending()">
-        {{ pending() ? 'Создаём…' : 'Создать аккаунт' }}
+        {{ i18n.t(pending() ? 'auth.registering' : 'auth.register') }}
       </button>
-      <a class="secondary-action" routerLink="/login">Уже есть аккаунт</a>
-      <a class="secondary-action" routerLink="/play">Играть без регистрации</a>
+      <a class="secondary-action" routerLink="/login">{{ i18n.t('auth.alreadyAccount') }}</a>
+      <a class="secondary-action" routerLink="/play">{{ i18n.t('auth.playWithoutRegister') }}</a>
     </div>
   </form>
 </main>

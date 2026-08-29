@@ -1,17 +1,17 @@
-<section class="trump-panel" aria-label="Козырь и колода">
+<section class="trump-panel" [attr.aria-label]="i18n.t('game.deckTrumpLabel')">
   @if (exposedCard(); as card) {
     <div class="pile-visual">
       <div class="deck-stack" aria-hidden="true"><i></i><i></i><i></i></div>
       <app-playing-card [card]="card" [compact]="true" />
     </div>
     <span class="deck-count">{{ drawPileCount() }}</span>
-    <span class="label">Колода</span>
+    <span class="label">{{ i18n.t('game.deck') }}</span>
     <strong>{{ explanation() }}</strong>
-    <small>Открытая карта</small>
+    <small>{{ i18n.t('game.exposed') }}</small>
   } @else {
     <div class="empty-deck" aria-hidden="true">∅</div>
     <span class="deck-count">0</span>
-    <span class="label">Колода пуста</span>
-    <strong>Без козыря</strong>
+    <span class="label">{{ i18n.t('game.deckEmpty') }}</span>
+    <strong>{{ i18n.t('game.noTrumpShort') }}</strong>
   }
 </section>

@@ -4,6 +4,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
+import { TranslationService } from '../core/i18n/translation.service';
 
 @Component({
   selector: 'app-login-page',
@@ -15,6 +16,7 @@ import { AuthService } from '../core/auth/auth.service';
 export class LoginPageComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  protected readonly i18n = inject(TranslationService);
 
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -44,11 +46,11 @@ export class LoginPageComponent {
 
   private messageFor(error: unknown): string {
     if (error instanceof HttpErrorResponse && error.status === 401) {
-      return 'Неверный email или пароль.';
+      return this.i18n.t('auth.error.invalid_credentials');
     }
     if (error instanceof HttpErrorResponse && error.status === 429) {
-      return 'Слишком много попыток. Подождите минуту и попробуйте снова.';
+      return this.i18n.t('auth.error.rate_limited');
     }
-    return 'Не удалось войти. Проверьте соединение и попробуйте снова.';
+    return this.i18n.t('auth.error.login');
   }
 }

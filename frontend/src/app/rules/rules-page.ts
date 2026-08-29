@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { GameCard } from '../core/api/game-api.models';
+import { TranslationService } from '../core/i18n/translation.service';
 import { PlayingCardComponent } from '../game/components/playing-card/playing-card';
 
 const card = (
@@ -27,6 +28,7 @@ const card = (
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RulesPageComponent {
+  protected readonly i18n = inject(TranslationService);
   protected readonly trumpExamples = [
     card('7S', '7', 'spades', 7, 14, true),
     card('8H', '8', 'hearts', 8, 16, true),

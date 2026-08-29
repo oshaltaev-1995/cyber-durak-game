@@ -2,13 +2,13 @@
   @if (complete()) {
     <section class="tutorial-complete" aria-labelledby="tutorial-complete-title">
       <span class="completion-mark" aria-hidden="true">✓</span>
-      <p class="eyebrow">Обучение завершено</p>
-      <h1 id="tutorial-complete-title">Готово!</h1>
-      <p>Теперь можно сыграть настоящую партию и вернуться к примерам в любое время.</p>
+      <p class="eyebrow">{{ i18n.t('tutorial.completeEyebrow') }}</p>
+      <h1 id="tutorial-complete-title">{{ i18n.t('tutorial.completeTitle') }}</h1>
+      <p>{{ i18n.t('tutorial.completeText') }}</p>
       <div class="completion-actions">
-        <a class="primary" routerLink="/play">Играть</a>
-        <a routerLink="/rules">Правила</a>
-        <button type="button" (click)="restart()">Пройти ещё раз</button>
+        <a class="primary" routerLink="/play">{{ i18n.t('nav.play') }}</a>
+        <a routerLink="/rules">{{ i18n.t('nav.rules') }}</a>
+        <button type="button" (click)="restart()">{{ i18n.t('tutorial.restart') }}</button>
       </div>
     </section>
   } @else {
@@ -16,18 +16,18 @@
     <section class="tutorial-card" [attr.data-lesson]="current.id">
       <header class="lesson-header">
         <div>
-          <p class="eyebrow">Короткое обучение</p>
+          <p class="eyebrow">{{ i18n.t('tutorial.eyebrow') }}</p>
           <h1>{{ current.title }}</h1>
         </div>
         <div
           class="progress"
           role="progressbar"
           [attr.aria-valuemin]="1"
-          [attr.aria-valuemax]="lessons.length"
+          [attr.aria-valuemax]="lessons().length"
           [attr.aria-valuenow]="stepIndex() + 1"
         >
-          <strong>{{ stepIndex() + 1 }} / {{ lessons.length }}</strong>
-          <span><i [style.width.%]="((stepIndex() + 1) / lessons.length) * 100"></i></span>
+          <strong>{{ stepIndex() + 1 }} / {{ lessons().length }}</strong>
+          <span><i [style.width.%]="((stepIndex() + 1) / lessons().length) * 100"></i></span>
         </div>
       </header>
 
@@ -35,7 +35,7 @@
         <div class="lesson-copy">
           <p class="lead">{{ current.lead }}</p>
           <ul>
-            @for (point of current.points; track point) {
+            @for (point of current.points; track $index) {
               <li>{{ point }}</li>
             }
           </ul>
@@ -44,7 +44,7 @@
           }
         </div>
 
-        <div class="lesson-example" aria-label="Пример">
+        <div class="lesson-example" [attr.aria-label]="i18n.t('tutorial.example')">
           @if (current.cards.length > 0) {
             <div class="tutorial-cards">
               @for (card of current.cards; track card.code) {
@@ -56,7 +56,7 @@
             <p class="card-caption">{{ current.cardCaption }}</p>
           }
           <div class="equations">
-            @for (equation of current.equations; track equation) {
+            @for (equation of current.equations; track $index) {
               <strong>{{ equation }}</strong>
             }
           </div>
@@ -90,11 +90,15 @@
 
       <footer class="tutorial-controls">
         <button type="button" class="quiet" [disabled]="stepIndex() === 0" (click)="previous()">
-          Назад
+          {{ i18n.t('common.back') }}
         </button>
-        <a routerLink="/play">Пропустить</a>
+        <a routerLink="/play">{{ i18n.t('tutorial.skip') }}</a>
         <button type="button" class="next" [disabled]="!canContinue()" (click)="next()">
-          {{ stepIndex() === lessons.length - 1 ? 'Завершить' : 'Далее' }}
+          {{
+            stepIndex() === lessons().length - 1
+              ? i18n.t('tutorial.finish')
+              : i18n.t('tutorial.next')
+          }}
         </button>
       </footer>
     </section>

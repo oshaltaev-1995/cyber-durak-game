@@ -121,7 +121,10 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
         result=_serialize_result(room),
         result_saved=completion.saved if completion is not None else False,
         progression_award=(
-            serialize_progression_award(completion.progression_award)
+            serialize_progression_award(
+                completion.progression_award,
+                viewer.preferred_locale,
+            )
             if completion is not None
             else None
         ),

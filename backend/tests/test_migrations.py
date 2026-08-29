@@ -123,6 +123,7 @@ def test_initial_migration_upgrades_and_downgrades_clean_database(
         "user_cosmetic_loadout",
     } == set(inspector.get_table_names())
     assert "email_verified_at" in {column["name"] for column in inspector.get_columns("users")}
+    assert "preferred_locale" in {column["name"] for column in inspector.get_columns("users")}
     assert {"user_id", "token_type"} in [
         set(index["column_names"]) for index in inspector.get_indexes("account_tokens")
     ]
@@ -166,6 +167,7 @@ def test_initial_migration_upgrades_and_downgrades_clean_database(
     ]
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM users")) == 1
+        assert connection.scalar(text("SELECT preferred_locale FROM users")) == "ru"
         assert connection.scalar(text("SELECT count(*) FROM auth_sessions")) == 1
         assert connection.scalar(text("SELECT count(*) FROM completed_matches")) == 1
         assert connection.scalar(text("SELECT opponent_type FROM completed_matches")) == "BOT"

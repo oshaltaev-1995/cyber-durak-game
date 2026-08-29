@@ -28,6 +28,7 @@ from kiba_api.game import (
     create_new_game,
     start_game_bout,
 )
+from kiba_api.locale import Locale
 from kiba_api.sessions import (
     ActionCounters,
     HumanActionType,
@@ -108,6 +109,7 @@ class PvPParticipant:
     display_name: str
     user_id: UUID | None
     reconnect_token: str
+    preferred_locale: Locale = Locale.RU
     connection_id: str | None = None
 
     def __post_init__(self) -> None:
@@ -117,6 +119,8 @@ class PvPParticipant:
             raise TypeError("participant seat must be a Seat")
         if self.user_id is not None and not isinstance(self.user_id, UUID):
             raise TypeError("participant user_id must be a UUID or None")
+        if not isinstance(self.preferred_locale, Locale):
+            raise TypeError("participant preferred_locale must be a Locale")
         if self.connection_id is not None and not self.connection_id:
             raise ValueError("connection_id must be non-empty or None")
 
@@ -351,12 +355,13 @@ class PvPRoomService:
         display_name: str,
         *,
         user_id: UUID | None = None,
+        preferred_locale: Locale = Locale.RU,
     ) -> tuple[PvPRoom, PvPParticipant]:
         """Create a waiting room and assign its creator to Seat.ONE."""
         now = self._now()
         self._store.cleanup(now, self._ttl)
         invite_code = self._unique_invite_code()
-        creator = self._new_participant(Seat.ONE, display_name, user_id)
+        creator = self._new_participant(Seat.ONE, display_name, user_id, preferred_locale)
         room = PvPRoom(
             room_id=self._token_factory(18),
             invite_code=invite_code,
@@ -381,6 +386,7 @@ class PvPRoomService:
         display_name: str,
         *,
         user_id: UUID | None = None,
+        preferred_locale: Locale = Locale.RU,
     ) -> tuple[PvPRoom, PvPParticipant]:
         """Assign Seat.TWO and start the authoritative game exactly once."""
         now = self._now()
@@ -389,7 +395,12 @@ class PvPRoomService:
             self._raise_if_expired(record, now)
             if len(record.room.participants) >= 2:
                 raise PvPError(PvPErrorCode.ROOM_FULL)
-            participant = self._new_participant(Seat.TWO, display_name, user_id)
+            participant = self._new_participant(
+                Seat.TWO,
+                display_name,
+                user_id,
+                preferred_locale,
+            )
             state = self._game_factory()
             if state.phase is not GamePhase.READY_FOR_BOUT:
                 raise ValueError("PvP game factory must return READY_FOR_BOUT")
@@ -543,6 +554,7 @@ class PvPRoomService:
         seat: Seat,
         display_name: str,
         user_id: UUID | None,
+        preferred_locale: Locale,
     ) -> PvPParticipant:
         if not display_name:
             raise PvPError(PvPErrorCode.INVALID_NICKNAME)
@@ -552,6 +564,7 @@ class PvPRoomService:
             display_name=display_name,
             user_id=user_id,
             reconnect_token=self._token_factory(32),
+            preferred_locale=preferred_locale,
         )
 
     def _unique_invite_code(self) -> str:

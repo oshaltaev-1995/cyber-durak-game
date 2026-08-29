@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
 import { GameCard } from '../../../core/api/game-api.models';
 import { PlayingCardComponent } from '../playing-card/playing-card';
+import { TranslationService } from '../../../core/i18n/translation.service';
 
 @Component({
   selector: 'app-hand',
@@ -10,6 +11,7 @@ import { PlayingCardComponent } from '../playing-card/playing-card';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HandComponent {
+  protected readonly i18n = inject(TranslationService);
   readonly cards = input.required<readonly GameCard[]>();
   readonly selectedCodes = input.required<ReadonlySet<string>>();
   readonly disabled = input(false);

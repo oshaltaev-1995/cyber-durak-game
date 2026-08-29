@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
 import {
   AttackPacket,
   GameCard,
@@ -6,6 +6,7 @@ import {
   ThrowInReasonType,
 } from '../../../core/api/game-api.models';
 import { PlayingCardComponent } from '../playing-card/playing-card';
+import { TranslationService } from '../../../core/i18n/translation.service';
 
 @Component({
   selector: 'app-game-table',
@@ -15,6 +16,7 @@ import { PlayingCardComponent } from '../playing-card/playing-card';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameTableComponent {
+  protected readonly i18n = inject(TranslationService);
   readonly packets = input.required<readonly AttackPacket[]>();
   readonly arithmetic = input.required<TableArithmetic>();
   readonly activeAttackValue = input.required<number | null>();
@@ -26,13 +28,6 @@ export class GameTableComponent {
   }
 
   protected reasonLabel(reason: ThrowInReasonType): string {
-    return {
-      same_rank: 'Подкинуто по рангу',
-      existing_value: 'Подкинуто по доступному значению',
-      defense_total: 'Подкинуто по сумме защиты',
-      table_total: 'Подкинуто по сумме стола',
-      arithmetic_mean: 'Подкинуто по среднему',
-      rank_run: 'Ряд',
-    }[reason];
+    return this.i18n.t(`reason.${reason}`);
   }
 }

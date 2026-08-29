@@ -9,12 +9,13 @@ from typing import Annotated
 from urllib.parse import quote, urlsplit
 
 from fastapi import APIRouter, Depends, Request, Response
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 from kiba_api.auth import AuthError, AuthErrorCode, AuthService, normalize_email
 from kiba_api.config import Settings
 from kiba_api.emailing import EmailDeliveryError, EmailSender
+from kiba_api.locale import Locale, parse_locale
 from kiba_api.persistence import Database, User
 
 router = APIRouter(tags=["auth"])
@@ -29,6 +30,7 @@ class RegisterRequest(_StrictRequest):
     email: EmailStr
     display_name: str = Field(min_length=1, max_length=50)
     password: str = Field(min_length=8, max_length=128)
+    preferred_locale: Locale = Locale.RU
 
     @field_validator("display_name")
     @classmethod
@@ -44,14 +46,23 @@ class LoginRequest(_StrictRequest):
 
 
 class ProfileUpdateRequest(_StrictRequest):
-    display_name: str = Field(min_length=1, max_length=50)
+    display_name: str | None = Field(default=None, min_length=1, max_length=50)
+    preferred_locale: Locale | None = None
 
     @field_validator("display_name")
     @classmethod
-    def display_name_not_blank(cls, value: str) -> str:
+    def display_name_not_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         if not value.strip():
             raise ValueError("display name must not be blank")
         return value.strip()
+
+    @model_validator(mode="after")
+    def require_update(self) -> ProfileUpdateRequest:
+        if self.display_name is None and self.preferred_locale is None:
+            raise ValueError("at least one profile field is required")
+        return self
 
 
 class TokenRequest(_StrictRequest):
@@ -76,6 +87,7 @@ class UserResponse(BaseModel):
     display_name: str
     created_at: str
     email_verified: bool
+    preferred_locale: Locale
     verification_email_sent: bool | None = None
 
 
@@ -175,7 +187,12 @@ def register(
     email_sender: EmailSenderDependency,
 ) -> UserResponse:
     _check_rate_limit(request, "register")
-    authenticated = service.register(str(payload.email), payload.display_name, payload.password)
+    authenticated = service.register(
+        str(payload.email),
+        payload.display_name,
+        payload.password,
+        payload.preferred_locale,
+    )
     _set_auth_cookie(response, authenticated.token, settings)
     sent = _send_verification(service, email_sender, authenticated.user, settings)
     return _serialize_user(authenticated.user, verification_email_sent=sent)
@@ -276,7 +293,11 @@ def forgot_password(
         user, raw_token = delivery
         link = f"{settings.public_base_url}/reset-password?token={quote(raw_token)}"
         try:
-            email_sender.send_password_reset(user.email, link)
+            email_sender.send_password_reset(
+                user.email,
+                link,
+                parse_locale(user.preferred_locale),
+            )
         except EmailDeliveryError:
             logger.exception("password_reset_email_delivery_failed")
     return MessageResponse(message="password_reset_requested")
@@ -313,7 +334,13 @@ def update_profile(
     user: CurrentUser,
     service: AuthServiceDependency,
 ) -> UserResponse:
-    return _serialize_user(service.update_display_name(user, payload.display_name))
+    return _serialize_user(
+        service.update_profile(
+            user,
+            display_name=payload.display_name,
+            preferred_locale=payload.preferred_locale,
+        )
+    )
 
 
 def _check_rate_limit(
@@ -365,6 +392,7 @@ def _serialize_user(
         display_name=user.display_name,
         created_at=user.created_at.isoformat(),
         email_verified=user.email_verified_at is not None,
+        preferred_locale=parse_locale(user.preferred_locale),
         verification_email_sent=verification_email_sent,
     )
 
@@ -380,7 +408,7 @@ def _send_verification(
         return False
     link = f"{settings.public_base_url}/verify-email?token={quote(raw_token)}"
     try:
-        sender.send_verification(user.email, link)
+        sender.send_verification(user.email, link, parse_locale(user.preferred_locale))
     except EmailDeliveryError:
         logger.exception("verification_email_delivery_failed")
         return False

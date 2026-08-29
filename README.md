@@ -9,6 +9,8 @@ Alpha 2 also provides process-local private two-player rooms with invite links, 
 authoritative WebSocket actions, and browser-session reconnect credentials.
 Registration is never required to play. Completed authenticated bot and private-PvP matches persist
 history and progression; guest results remain unsaved, and guests always use the classic appearance.
+The single Angular application supports Russian and English, detects the browser language on a
+first visit, and provides an instant `RU | EN` switch without reloading or resetting active play.
 
 ## Repository structure
 
@@ -38,8 +40,9 @@ The simplest complete setup is Docker Compose because it includes PostgreSQL and
 docker compose up --build
 ```
 
-Open <http://localhost:14200>, then choose **Играть с ботом** or **Играть с другом**. Guest play works immediately without an
-account. **Войти** in the navigation provides optional registration, login, and profile identity.
+Open <http://localhost:14200>, then choose **Играть с ботом / Play vs bot** or **Играть с другом /
+Play with friend**. Guest play works immediately without an account. **Войти / Log in** in the
+navigation provides optional registration, login, and profile identity.
 
 To run the application services directly, first provide a PostgreSQL database URL and apply the
 schema:
@@ -70,7 +73,7 @@ The product shell provides these routes:
 - **Играть** (`/play`) creates or resumes the current in-memory browser session;
 - **Играть с другом** (`/pvp`) creates an invite-only room; `/join/<code>` opens a shared invite;
 - **Обучение** (`/tutorial`) is a short interactive introduction to Kiba's core mechanics;
-- **Правила** (`/rules`) is the complete user-facing Russian rulebook.
+- **Правила / Rules** (`/rules`) is the complete user-facing rulebook in both supported languages.
 - **Войти** (`/login`) and **Создать аккаунт** (`/register`) provide optional identity;
 - **Профиль** (`/profile`) allows an authenticated player to update their display name or log out.
 - **История партий** (`/profile/history`) shows private completed-match summaries for an
@@ -88,6 +91,11 @@ game; returning to Play preserves the current frontend session while the page re
 Angular development server proxies `/api` to the local backend, so both services must be running.
 The UI works from public server state only: bot cards and future draw-pile order remain hidden, and
 the backend decides whether every submitted move is legal.
+
+Guest language choice is stored in browser `localStorage`. An authenticated account stores its
+preferred language, restores it after login on another device, and uses it for verification and
+password-reset email. API presentation catalogues use `Accept-Language`; game and protocol codes
+remain language-neutral.
 
 Create and inspect an Alpha human-versus-bot game with:
 

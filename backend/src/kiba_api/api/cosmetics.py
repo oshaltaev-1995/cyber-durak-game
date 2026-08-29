@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from kiba_api.api.auth import CsrfDependency, CurrentUser
+from kiba_api.api.locale import RequestLocale
+from kiba_api.locale import Locale
 from kiba_api.persistence import (
     ACHIEVEMENTS,
     CosmeticCatalogueState,
@@ -77,9 +79,13 @@ CosmeticDependency = Annotated[CosmeticService, Depends(get_cosmetic_service)]
 
 
 @router.get("/api/cosmetics", response_model=CosmeticsResponse, summary="Get cosmetic catalogue")
-def get_cosmetics(user: CurrentUser, service: CosmeticDependency) -> CosmeticsResponse:
+def get_cosmetics(
+    user: CurrentUser,
+    service: CosmeticDependency,
+    locale: RequestLocale,
+) -> CosmeticsResponse:
     """Synchronize rewards and return the account's catalogue and loadout."""
-    return _serialize_catalogue(service.get_catalogue(user.id))
+    return _serialize_catalogue(service.get_catalogue(user.id), locale)
 
 
 @router.patch(
@@ -92,6 +98,7 @@ def equip_cosmetics(
     _csrf: CsrfDependency,
     user: CurrentUser,
     service: CosmeticDependency,
+    locale: RequestLocale,
 ) -> CosmeticsResponse:
     """Update only supplied loadout categories after server-side ownership checks."""
     return _serialize_catalogue(
@@ -100,19 +107,22 @@ def equip_cosmetics(
             card_back_code=payload.card_back_code,
             table_theme_code=payload.table_theme_code,
             profile_frame_code=payload.profile_frame_code,
-        )
+        ),
+        locale,
     )
 
 
-def _serialize_catalogue(state: CosmeticCatalogueState) -> CosmeticsResponse:
-    achievement_titles = {definition.code.value: definition.title for definition in ACHIEVEMENTS}
+def _serialize_catalogue(state: CosmeticCatalogueState, locale: Locale) -> CosmeticsResponse:
+    achievement_titles = {
+        definition.code.value: definition.localized_title(locale) for definition in ACHIEVEMENTS
+    }
     return CosmeticsResponse(
         items=[
             CosmeticItemResponse(
                 code=item.definition.code.value,
                 category=item.definition.category.value,
-                title=item.definition.title,
-                description=item.definition.description,
+                title=item.definition.localized_title(locale),
+                description=item.definition.localized_description(locale),
                 unlocked=item.unlocked,
                 equipped=item.equipped,
                 unlock=CosmeticUnlockResponse(

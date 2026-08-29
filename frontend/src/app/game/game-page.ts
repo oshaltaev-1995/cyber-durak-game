@@ -18,21 +18,23 @@ import {
 } from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
 import { AuthService } from '../core/auth/auth.service';
+import { TranslationService } from '../core/i18n/translation.service';
+import { TranslationKey } from '../core/i18n/translations/ru';
 import { ActionBarComponent } from './components/action-bar/action-bar';
 import { GameTableComponent } from './components/game-table/game-table';
 import { HandComponent } from './components/hand/hand';
 import { TrumpIndicatorComponent } from './components/trump-indicator/trump-indicator';
 import { GameSessionState } from './game-session-state';
 
-const ERROR_MESSAGES: Readonly<Record<string, string>> = {
-  illegal_initial_attack: 'Эти карты нельзя объединить для первого хода.',
-  illegal_defense: 'Недостаточно очков для покрытия текущей атаки.',
-  illegal_transfer: 'Перевод должен точно совпадать со значением атаки.',
-  illegal_throw_in: 'Эти карты сейчас нельзя подкинуть.',
-  attack_card_limit_exceeded: 'Превышен лимит атакующих карт в этом коне.',
-  card_not_owned: 'Выбранной карты больше нет в вашей руке.',
-  not_human_turn: 'Сейчас ход бота. Обновите состояние игры.',
-  game_complete: 'Эта игра уже завершена.',
+const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
+  illegal_initial_attack: 'error.illegal_initial_attack',
+  illegal_defense: 'error.illegal_defense',
+  illegal_transfer: 'error.illegal_transfer',
+  illegal_throw_in: 'error.illegal_throw_in',
+  attack_card_limit_exceeded: 'error.attack_card_limit_exceeded',
+  card_not_owned: 'error.card_not_owned',
+  not_human_turn: 'error.wrong_turn',
+  game_complete: 'game.matchComplete',
 };
 
 @Component({
@@ -52,6 +54,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private readonly api = inject(GameApiService);
   private readonly session = inject(GameSessionState);
   protected readonly auth = inject(AuthService);
+  protected readonly i18n = inject(TranslationService);
 
   protected readonly game = this.session.game;
   protected readonly pending = signal(false);
@@ -167,9 +170,9 @@ export class GamePageComponent implements OnInit, OnDestroy {
 
   protected resultTitle(game: GameResponse): string {
     if (game.result?.outcome === 'DRAW') {
-      return 'Ничья 🤝';
+      return this.i18n.t('game.draw');
     }
-    return game.result?.winner === 'HUMAN' ? 'Вы победили! 🏆' : 'Бот победил';
+    return game.result?.winner === 'HUMAN' ? this.i18n.t('game.win') : this.i18n.t('game.botWin');
   }
 
   private getStatusText(): string {
@@ -178,27 +181,29 @@ export class GamePageComponent implements OnInit, OnDestroy {
       return this.botEventText(event);
     }
     if (this.pending()) {
-      return 'Бот думает…';
+      return this.i18n.t('game.botThinking');
     }
     const game = this.game();
     if (game === null) {
-      return 'Новая партия ждёт вас';
+      return this.i18n.t('game.newMatchWaiting');
     }
     if (game.phase === 'complete') {
-      return 'Партия завершена';
+      return this.i18n.t('game.matchComplete');
     }
     if (game.available_actions.includes('INITIAL_ATTACK')) {
-      return 'Ваш ход — выберите карты для атаки';
+      return this.i18n.t('game.attackPrompt');
     }
     if (game.available_actions.includes('DEFEND')) {
       return game.active_attack_value === null
-        ? 'Ваш ход — ответьте на атаку'
-        : `Нужно покрыть больше ${game.active_attack_value}`;
+        ? this.i18n.t('game.respondPrompt')
+        : this.i18n.t('game.defendAgainst', { value: game.active_attack_value });
     }
     if (game.available_actions.includes('THROW_IN')) {
-      return 'Можно подкинуть карты или закончить кон';
+      return this.i18n.t('game.mayThrow');
     }
-    return game.required_actor === 'BOT' ? 'Бот ходит…' : 'Ваш ход';
+    return game.required_actor === 'BOT'
+      ? this.i18n.t('game.botMoves')
+      : this.i18n.t('game.yourTurn');
   }
 
   private presentUpdatedGame(updatedGame: GameResponse): void {
@@ -243,42 +248,36 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private botEventText(event: BotPresentationEvent): string {
     switch (event.type) {
       case 'BOT_INITIAL_ATTACK':
-        return 'Бот ходит…';
+        return this.i18n.t('game.botMoves');
       case 'BOT_DEFEND':
-        return 'Бот покрывает…';
+        return this.i18n.t('game.botDefends');
       case 'BOT_TRANSFER':
-        return 'Бот переводит…';
+        return this.i18n.t('game.botTransfers');
       case 'BOT_THROW_IN':
-        return 'Бот подкидывает…';
+        return this.i18n.t('game.botThrows');
       case 'BOT_TAKE':
         return event.card_count > 0
-          ? `Бот берёт ${event.card_count} ${this.cardCountWord(event.card_count)}…`
-          : 'Бот берёт карты…';
+          ? this.i18n.t('game.botTakes', {
+              count: event.card_count,
+              cards: this.i18n.cardCount(event.card_count),
+            })
+          : this.i18n.t('game.botTakesCards');
       case 'BOT_BITO':
-        return 'Бито';
+        return this.i18n.t('game.endBout');
     }
-  }
-
-  private cardCountWord(count: number): string {
-    const lastTwo = count % 100;
-    if (lastTwo >= 11 && lastTwo <= 14) return 'карт';
-    const last = count % 10;
-    if (last === 1) return 'карту';
-    if (last >= 2 && last <= 4) return 'карты';
-    return 'карт';
   }
 
   private messageForError(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       const body = error.error as { detail?: { code?: string } } | null;
       const code = body?.detail?.code;
-      if (code !== undefined && ERROR_MESSAGES[code] !== undefined) {
-        return ERROR_MESSAGES[code];
+      if (code !== undefined && ERROR_KEYS[code] !== undefined) {
+        return this.i18n.t(ERROR_KEYS[code]);
       }
       if (error.status === 0) {
-        return 'Сервер недоступен. Проверьте, что backend запущен, и попробуйте снова.';
+        return this.i18n.t('game.serverUnavailable');
       }
     }
-    return 'Ход не принят. Измените выбор карт и попробуйте снова.';
+    return this.i18n.t('game.moveRejected');
   }
 }

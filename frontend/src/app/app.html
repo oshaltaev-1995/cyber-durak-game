@@ -1,12 +1,12 @@
 <header class="app-header">
-  <a class="brand" routerLink="/" aria-label="Kiba — главная">
+  <a class="brand" routerLink="/" [attr.aria-label]="i18n.t('shell.home')">
     <span class="brand-mark" aria-hidden="true">K</span>
     <span>KIBA</span>
   </a>
-  <nav aria-label="Основная навигация">
-    <a routerLink="/play" routerLinkActive="active">Играть</a>
-    <a routerLink="/tutorial" routerLinkActive="active">Обучение</a>
-    <a routerLink="/rules" routerLinkActive="active">Правила</a>
+  <nav [attr.aria-label]="i18n.t('shell.navigation')">
+    <a routerLink="/play" routerLinkActive="active">{{ i18n.t('nav.play') }}</a>
+    <a routerLink="/tutorial" routerLinkActive="active">{{ i18n.t('nav.tutorial') }}</a>
+    <a routerLink="/rules" routerLinkActive="active">{{ i18n.t('nav.rules') }}</a>
     @if (auth.currentUser(); as user) {
       <a
         class="account-link"
@@ -18,8 +18,32 @@
         {{ user.display_name }}
       </a>
     } @else {
-      <a class="account-link" routerLink="/login" routerLinkActive="active">Войти</a>
+      <a class="account-link" routerLink="/login" routerLinkActive="active">{{
+        i18n.t('nav.login')
+      }}</a>
     }
+    <div class="locale-switch" role="group" [attr.aria-label]="i18n.t('locale.label')">
+      <button
+        type="button"
+        [class.active]="i18n.locale() === 'ru'"
+        [attr.aria-pressed]="i18n.locale() === 'ru'"
+        (click)="chooseLocale('ru')"
+      >
+        RU
+      </button>
+      <span aria-hidden="true">|</span>
+      <button
+        type="button"
+        [class.active]="i18n.locale() === 'en'"
+        [attr.aria-pressed]="i18n.locale() === 'en'"
+        (click)="chooseLocale('en')"
+      >
+        EN
+      </button>
+    </div>
   </nav>
 </header>
+@if (localeSaveError) {
+  <p class="locale-error" role="status">{{ localeSaveError }}</p>
+}
 <router-outlet />

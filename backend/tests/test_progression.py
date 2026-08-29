@@ -286,6 +286,13 @@ def test_progression_and_achievement_apis_sync_history_and_protect_guests(
     ]
     assert "source_key" not in progression.text + achievements.text
 
+    english = client.get("/api/achievements", headers={"Accept-Language": "en-US,en;q=0.9"})
+    russian = client.get("/api/achievements", headers={"Accept-Language": "ru-RU"})
+    assert english.status_code == russian.status_code == 200
+    assert english.json()[0]["code"] == russian.json()[0]["code"]
+    assert english.json()[0]["title"] == "First match"
+    assert russian.json()[0]["title"] == "Первая партия"
+
 
 def test_completed_game_response_contains_server_confirmed_progression_delta(
     database: Database,

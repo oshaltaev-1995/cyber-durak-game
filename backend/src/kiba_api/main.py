@@ -77,6 +77,7 @@ def create_app(
                     code=definition.code.value,
                     category=definition.category.value,
                     title=definition.title,
+                    title_en=definition.title_en,
                 )
                 for definition in cosmetic_sync.new_unlocks
             ),

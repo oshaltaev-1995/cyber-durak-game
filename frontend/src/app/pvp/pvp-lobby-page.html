@@ -1,34 +1,36 @@
 <main class="pvp-lobby">
   <section class="lobby-card" aria-labelledby="pvp-title">
-    <span class="eyebrow">Приватная игра</span>
-    <h1 id="pvp-title">Играть с другом</h1>
-    <p>Создайте комнату и отправьте ссылку второму игроку. Регистрация не требуется.</p>
+    <span class="eyebrow">{{ i18n.t('pvp.privateGame') }}</span>
+    <h1 id="pvp-title">{{ i18n.t('pvp.title') }}</h1>
+    <p>{{ i18n.t('pvp.registrationFree') }}</p>
 
     @if (auth.currentUser(); as user) {
       <div class="identity-note">
-        Вы войдёте как <strong>{{ user.display_name }}</strong>
+        {{ i18n.t('pvp.enterAs') }} <strong>{{ user.display_name }}</strong>
       </div>
     } @else {
       <label>
-        <span>Ваше имя</span>
+        <span>{{ i18n.t('pvp.nickname') }}</span>
         <input
           type="text"
           maxlength="24"
           autocomplete="nickname"
           [ngModel]="nickname()"
           (ngModelChange)="nickname.set($event)"
-          placeholder="Например, Алиса"
+          [placeholder]="i18n.t('pvp.nicknamePlaceholder')"
         />
       </label>
     }
     <button class="primary" type="button" [disabled]="pending()" (click)="createRoom()">
-      {{ pending() ? 'Создаём…' : 'Создать комнату' }}
+      {{ i18n.t(pending() ? 'pvp.creating' : 'pvp.create') }}
     </button>
 
-    <div class="divider"><span>или</span></div>
+    <div class="divider">
+      <span>{{ i18n.t('pvp.or') }}</span>
+    </div>
     <form (ngSubmit)="openInvite()">
       <label>
-        <span>Код комнаты</span>
+        <span>{{ i18n.t('pvp.roomCode') }}</span>
         <input
           type="text"
           autocomplete="off"
@@ -38,11 +40,11 @@
           placeholder="K7F9Q2"
         />
       </label>
-      <button type="submit">Войти по коду</button>
+      <button type="submit">{{ i18n.t('pvp.joinByCode') }}</button>
     </form>
     @if (error(); as message) {
       <div class="error" role="alert">{{ message }}</div>
     }
-    <a routerLink="/">Вернуться на главную</a>
+    <a routerLink="/">{{ i18n.t('pvp.home') }}</a>
   </section>
 </main>

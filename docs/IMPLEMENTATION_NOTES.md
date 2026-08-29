@@ -647,6 +647,32 @@ backend workers are unsafe because active games, rooms, reconnect state, and rat
 process-local. Production migrations are an explicit release step. Operational details live in
 `docs/PRODUCTION_READINESS.md`.
 
+### 10.11 Runtime Russian/English localization
+
+Player-facing localization is a presentation/application concern. One Angular build contains typed
+Russian and English catalogues and switches them at runtime; routes, `GameState`, `BoutState`, REST
+action codes, and the PvP WebSocket protocol remain language-neutral. A first guest visit maps a
+`ru-*` browser locale to Russian and other browser locales to English. The effective guest choice is
+stored as `kiba.preferred-locale` in `localStorage`, updates `<html lang>` and browser titles, and
+does not reload or replace active game/PvP state.
+
+Authenticated users persist constrained `users.preferred_locale` (`ru` or `en`). Registration sends
+the current UI locale; `/api/auth/me` and login restore the account locale across devices. A runtime
+switch applies immediately and patches the existing profile. Failure to persist is shown as a
+recoverable warning while the local choice stays active; logout preserves that current guest choice.
+
+Angular adds `Accept-Language` to HTTP requests. Backend-owned achievement and cosmetic display
+metadata is localized at serialization while stable catalogue codes, database enum values, error
+codes, and gameplay state remain unchanged. PvP participant identity captures locale at room
+create/join only for participant-private completion metadata; the core WebSocket state is not
+localized.
+
+Verification and password-reset messages use the account's stored locale through the existing
+provider-neutral development/SMTP sender seam. Request-browser language never overrides a known
+account preference. Russian remains the backend compatibility fallback for absent or unsupported
+request languages and for migrated existing users. Adding another locale should primarily require
+a new frontend catalogue and backend catalogue/email copy, not a separate build or rules engine.
+
 Possible bot priorities:
 
 ### Defense

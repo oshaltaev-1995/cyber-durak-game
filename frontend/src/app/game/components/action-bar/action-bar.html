@@ -1,4 +1,4 @@
-<section class="action-bar" aria-label="Действия игрока">
+<section class="action-bar" [attr.aria-label]="i18n.t('game.actionsLabel')">
   <div
     class="selection-summary"
     [class.has-selection]="selectedCards().length > 0"
@@ -8,11 +8,11 @@
   >
     <div class="selection-heading" aria-hidden="true">
       <span
-        >Выбрано: <strong>{{ selectedCards().length }}</strong></span
+        >{{ i18n.t('game.selected') }}: <strong>{{ selectedCards().length }}</strong></span
       >
       @if (selectedCards().length > 0) {
         <span
-          >Сумма: <strong>{{ selectedTotal() }}</strong></span
+          >{{ i18n.t('game.selectedTotal') }}: <strong>{{ selectedTotal() }}</strong></span
         >
       }
     </div>
@@ -36,7 +36,7 @@
         [disabled]="actionDisabled(action)"
         (click)="actionSelected.emit(action)"
       >
-        {{ labels[action] }}
+        {{ actionLabel(action) }}
       </button>
     }
   </div>

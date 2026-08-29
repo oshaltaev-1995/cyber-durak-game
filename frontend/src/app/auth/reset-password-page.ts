@@ -4,6 +4,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
+import { TranslationService } from '../core/i18n/translation.service';
 
 @Component({
   selector: 'app-reset-password-page',
@@ -16,10 +17,13 @@ export class ResetPasswordPageComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  protected readonly i18n = inject(TranslationService);
   protected readonly token = this.route.snapshot.queryParamMap.get('token') ?? '';
   protected readonly pending = signal(false);
   protected readonly complete = signal(false);
-  protected readonly error = signal<string | null>(this.token ? null : 'Ссылка недействительна.');
+  protected readonly error = signal<string | null>(
+    this.token ? null : this.i18n.t('auth.invalidToken'),
+  );
   protected readonly form = new FormGroup({
     password: new FormControl('', {
       nonNullable: true,
@@ -40,7 +44,7 @@ export class ResetPasswordPageComponent implements OnInit {
     const value = this.form.getRawValue();
     if (this.pending() || this.form.invalid || !this.token || value.password !== value.confirm) {
       this.form.markAllAsTouched();
-      if (value.password !== value.confirm) this.error.set('Пароли не совпадают.');
+      if (value.password !== value.confirm) this.error.set(this.i18n.t('auth.passwordMismatch'));
       return;
     }
     this.pending.set(true);
@@ -53,8 +57,8 @@ export class ResetPasswordPageComponent implements OnInit {
         error: (error: unknown) =>
           this.error.set(
             error instanceof HttpErrorResponse && error.status === 400
-              ? 'Ссылка истекла или уже использована.'
-              : 'Не удалось изменить пароль.',
+              ? this.i18n.t('auth.tokenExpired')
+              : this.i18n.t('auth.resetFailed'),
           ),
       });
   }

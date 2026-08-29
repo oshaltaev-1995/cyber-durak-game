@@ -6,7 +6,7 @@
   <span class="suit" [class]="colorClass()" aria-hidden="true">{{ suitSymbol() }}</span>
   <span class="value">{{ card().effective_value }}</span>
   @if (card().is_trump) {
-    <span class="trump-badge">Козырь</span>
+    <span class="trump-badge">{{ i18n.t('game.trump') }}</span>
   }
 </ng-template>
 

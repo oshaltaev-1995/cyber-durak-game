@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from kiba_api.api.auth import CurrentUser
 from kiba_api.api.cosmetics import CosmeticDependency
+from kiba_api.api.locale import RequestLocale
 from kiba_api.persistence import ProgressionService, ProgressionSummary
 
 router = APIRouter(tags=["progression"])
@@ -62,6 +63,7 @@ def get_achievements(
     user: CurrentUser,
     service: ProgressionDependency,
     cosmetics: CosmeticDependency,
+    locale: RequestLocale,
 ) -> list[AchievementResponse]:
     """Return the authoritative catalogue with current account unlock state."""
     service.synchronize(user.id)
@@ -69,8 +71,8 @@ def get_achievements(
     return [
         AchievementResponse(
             code=state.definition.code.value,
-            title=state.definition.title,
-            description=state.definition.description,
+            title=state.definition.localized_title(locale),
+            description=state.definition.localized_description(locale),
             bonus_xp=state.definition.bonus_xp,
             unlocked=state.unlocked,
             unlocked_at=state.unlocked_at,

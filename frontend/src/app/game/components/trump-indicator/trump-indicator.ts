@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { GameCard, SUIT_SYMBOLS, TrumpState } from '../../../core/api/game-api.models';
 import { PlayingCardComponent } from '../playing-card/playing-card';
+import { TranslationService } from '../../../core/i18n/translation.service';
 
 @Component({
   selector: 'app-trump-indicator',
@@ -10,6 +11,7 @@ import { PlayingCardComponent } from '../playing-card/playing-card';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TrumpIndicatorComponent {
+  protected readonly i18n = inject(TranslationService);
   readonly trump = input.required<TrumpState>();
   readonly exposedCard = input.required<GameCard | null>();
   readonly drawPileCount = input.required<number>();
@@ -17,8 +19,11 @@ export class TrumpIndicatorComponent {
   protected readonly explanation = computed(() => {
     const trump = this.trump();
     if (!trump.active || trump.trump_suit === null || trump.trump_rank === null) {
-      return 'Козырей нет';
+      return this.i18n.t('game.noTrump');
     }
-    return `${SUIT_SYMBOLS[trump.trump_suit]} и все ${trump.trump_rank}`;
+    return this.i18n.t('game.trumpPattern', {
+      suit: SUIT_SYMBOLS[trump.trump_suit],
+      rank: trump.trump_rank,
+    });
   });
 }

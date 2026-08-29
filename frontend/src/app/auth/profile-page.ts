@@ -7,6 +7,7 @@ import { CurrentUser } from '../core/auth/auth.models';
 import { AuthService } from '../core/auth/auth.service';
 import { MatchStatistics, ProgressionSummary } from '../core/profile/profile.models';
 import { ProfileService } from '../core/profile/profile.service';
+import { TranslationService } from '../core/i18n/translation.service';
 
 @Component({
   selector: 'app-profile-page',
@@ -19,6 +20,7 @@ export class ProfilePageComponent implements OnInit {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   protected readonly profile = inject(ProfileService);
+  protected readonly i18n = inject(TranslationService);
 
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -111,19 +113,19 @@ export class ProfilePageComponent implements OnInit {
         next: (value) =>
           this.securityMessage.set(
             value.message === 'already_verified'
-              ? 'Email уже подтверждён.'
-              : 'Письмо отправлено. Проверьте почту.',
+              ? this.i18n.t('profile.alreadyVerified')
+              : this.i18n.t('profile.verificationSent'),
           ),
-        error: () => this.error.set('Не удалось отправить письмо. Попробуйте позже.'),
+        error: () => this.error.set(this.i18n.t('profile.verificationFailed')),
       });
   }
 
   protected joinedAt(user: CurrentUser): string {
-    return new Intl.DateTimeFormat('ru', { dateStyle: 'long' }).format(new Date(user.created_at));
+    return this.i18n.formatDate(user.created_at, { dateStyle: 'long' });
   }
 
   protected winRate(value: number): string {
-    return new Intl.NumberFormat('ru', { maximumFractionDigits: 1 }).format(value);
+    return this.i18n.formatNumber(value, { maximumFractionDigits: 1 });
   }
 
   private loadUser(user: CurrentUser): void {
@@ -156,8 +158,8 @@ export class ProfilePageComponent implements OnInit {
 
   private messageFor(error: unknown): string {
     if (error instanceof HttpErrorResponse && error.status === 401) {
-      return 'Сессия завершилась. Войдите снова.';
+      return this.i18n.t('profile.sessionEnded');
     }
-    return 'Не удалось сохранить профиль. Попробуйте снова.';
+    return this.i18n.t('profile.saveFailed');
   }
 }

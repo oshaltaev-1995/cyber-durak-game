@@ -48,6 +48,10 @@ active-session architecture exists. PostgreSQL stores accounts and completed pro
 `EmailSender` isolates the application from vendors. Development uses a process-local outbox and
 local link logging. Production uses generic SMTP configured by environment. A transient delivery
 failure does not roll back registration; the user can retry from the profile.
+Verification and reset copy is selected from the persisted RU/EN account preference and passes
+through the same generic SMTP adapter. Deployment needs only the single Angular artifact—runtime
+catalogues provide both languages, so no separate locale build or locale-specific deployment is
+required.
 
 ## Backup and restore
 

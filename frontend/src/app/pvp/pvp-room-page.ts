@@ -16,18 +16,20 @@ import { ActionBarComponent } from '../game/components/action-bar/action-bar';
 import { GameTableComponent } from '../game/components/game-table/game-table';
 import { HandComponent } from '../game/components/hand/hand';
 import { TrumpIndicatorComponent } from '../game/components/trump-indicator/trump-indicator';
+import { TranslationService } from '../core/i18n/translation.service';
+import { TranslationKey } from '../core/i18n/translations/ru';
 
-const ERROR_MESSAGES: Readonly<Record<string, string>> = {
-  WRONG_TURN: 'Сейчас ход соперника.',
-  STALE_VERSION: 'Состояние обновилось. Повторите ход.',
-  RATE_LIMITED: 'Слишком много действий. Подождите секунду.',
-  GAME_COMPLETE: 'Эта партия уже завершена.',
-  INVALID_CREDENTIAL: 'Не удалось восстановить место в комнате.',
-  illegal_initial_attack: 'Эти карты нельзя объединить для первого хода.',
-  illegal_defense: 'Недостаточно очков для покрытия текущей атаки.',
-  illegal_transfer: 'Перевод должен точно совпадать со значением атаки.',
-  illegal_throw_in: 'Эти карты сейчас нельзя подкинуть.',
-  attack_card_limit_exceeded: 'Превышен лимит атакующих карт в этом коне.',
+const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
+  WRONG_TURN: 'error.wrong_turn',
+  STALE_VERSION: 'pvp.stale',
+  RATE_LIMITED: 'pvp.rateLimited',
+  GAME_COMPLETE: 'pvp.gameCompleteError',
+  INVALID_CREDENTIAL: 'pvp.invalidCredential',
+  illegal_initial_attack: 'error.illegal_initial_attack',
+  illegal_defense: 'error.illegal_defense',
+  illegal_transfer: 'error.illegal_transfer',
+  illegal_throw_in: 'error.illegal_throw_in',
+  attack_card_limit_exceeded: 'error.attack_card_limit_exceeded',
 };
 
 @Component({
@@ -48,6 +50,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   protected readonly socket = inject(PvPWebSocketService);
+  protected readonly i18n = inject(TranslationService);
   protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
   protected readonly copyStatus = signal<'idle' | 'copied' | 'failed'>('idle');
   protected readonly leaveConfirmation = signal(false);
@@ -144,7 +147,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   protected async shareInvite(): Promise<void> {
     if (navigator.share === undefined) return;
     try {
-      await navigator.share({ title: 'Kiba — приватная игра', url: this.inviteUrl() });
+      await navigator.share({ title: this.i18n.t('pvp.shareTitle'), url: this.inviteUrl() });
     } catch {
       // Dismissed or unavailable native sharing leaves the copy fallback usable.
     }
@@ -165,30 +168,30 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
 
   protected connectionMessage(): string | null {
     const status = this.socket.status();
-    if (status === 'connecting') return 'Подключаемся…';
-    if (status === 'reconnecting') return 'Переподключение…';
-    if (status === 'offline') return 'Нет соединения';
-    if (status === 'disconnected') return 'Связь потеряна';
+    if (status === 'connecting') return this.i18n.t('pvp.connecting');
+    if (status === 'reconnecting') return this.i18n.t('pvp.reconnecting');
+    if (status === 'offline') return this.i18n.t('pvp.offline');
+    if (status === 'disconnected') return this.i18n.t('pvp.disconnected');
     if (status === 'error') {
       return this.socket.actionError()?.code === 'CONNECTION_REPLACED'
-        ? 'Комната открыта в другой вкладке'
-        : 'Не удалось подключиться';
+        ? this.i18n.t('pvp.roomOtherTab')
+        : this.i18n.t('pvp.connectFailed');
     }
     if (this.socket.opponentStatus() === 'disconnected') {
-      return 'Соперник отключился. Ждём возвращения…';
+      return this.i18n.t('pvp.opponentDisconnected');
     }
-    if (this.socket.opponentStatus() === 'returned') return 'Соперник вернулся';
+    if (this.socket.opponentStatus() === 'returned') return this.i18n.t('pvp.opponentReturned');
     return null;
   }
 
   protected connectionNoticeText(): string | null {
     switch (this.socket.connectionNotice()) {
       case 'connection_restored':
-        return 'Соединение восстановлено.';
+        return this.i18n.t('pvp.restored');
       case 'action_recovered':
-        return 'Соединение восстановлено. Показано актуальное состояние.';
+        return this.i18n.t('pvp.restoredCurrent');
       case 'state_updated':
-        return 'Состояние игры обновилось.';
+        return this.i18n.t('pvp.stateUpdated');
       default:
         return null;
     }
@@ -202,18 +205,20 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     const error = this.socket.actionError();
     if (error === null) return null;
     return (
-      ERROR_MESSAGES[error.domain_code ?? ''] ??
-      ERROR_MESSAGES[error.code] ??
-      'Ход не принят. Измените выбор и попробуйте снова.'
+      (ERROR_KEYS[error.domain_code ?? ''] && this.i18n.t(ERROR_KEYS[error.domain_code ?? ''])) ??
+      (ERROR_KEYS[error.code] && this.i18n.t(ERROR_KEYS[error.code])) ??
+      this.i18n.t('game.moveRejected')
     );
   }
 
   protected resultTitle(): string {
     const state = this.state();
-    if (state?.result?.outcome === 'DRAW') return 'Ничья 🤝';
+    if (state?.result?.outcome === 'DRAW') return this.i18n.t('game.draw');
     return state?.result?.winner_participant_id === state?.you.participant_id
-      ? 'Вы победили! 🏆'
-      : `Победил ${state?.result?.winner_display_name ?? 'соперник'}`;
+      ? this.i18n.t('game.win')
+      : this.i18n.t('pvp.winner', {
+          name: state?.result?.winner_display_name ?? this.i18n.t('pvp.opponent'),
+        });
   }
 
   protected leave(): void {
@@ -225,23 +230,24 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
 
   private getStatusText(): string {
     const state = this.state();
-    if (this.socket.status() === 'connecting') return 'Подключаемся…';
-    if (this.socket.status() === 'reconnecting') return 'Переподключение…';
-    if (this.socket.status() === 'offline') return 'Нет соединения';
+    if (this.socket.status() === 'connecting') return this.i18n.t('pvp.connecting');
+    if (this.socket.status() === 'reconnecting') return this.i18n.t('pvp.reconnecting');
+    if (this.socket.status() === 'offline') return this.i18n.t('pvp.offline');
     if (this.socket.status() === 'disconnected' || this.socket.status() === 'error') {
-      return 'Связь с комнатой потеряна';
+      return this.i18n.t('pvp.connectionLost');
     }
-    if (state === null) return 'Загружаем комнату…';
-    if (state.room_phase === 'WAITING_FOR_OPPONENT') return 'Ждём второго игрока…';
-    if (state.game_phase === 'complete') return 'Партия завершена';
+    if (state === null) return this.i18n.t('pvp.loadingRoom');
+    if (state.room_phase === 'WAITING_FOR_OPPONENT') return this.i18n.t('pvp.waiting');
+    if (state.game_phase === 'complete') return this.i18n.t('pvp.complete');
     if (state.required_participant_id !== state.you.participant_id) {
-      return `${state.opponent?.display_name ?? 'Соперник'} думает…`;
+      return this.i18n.t('pvp.opponentThinking', {
+        name: state.opponent?.display_name ?? this.i18n.t('pvp.opponent'),
+      });
     }
-    if (state.available_actions.includes('INITIAL_ATTACK'))
-      return 'Ваш ход — выберите карты для атаки';
+    if (state.available_actions.includes('INITIAL_ATTACK')) return this.i18n.t('pvp.attackPrompt');
     if (state.available_actions.includes('DEFEND'))
-      return `Покройте больше ${state.active_attack_value ?? 0}`;
-    if (state.available_actions.includes('THROW_IN')) return 'Можно подкинуть или закончить кон';
-    return 'Ваш ход';
+      return this.i18n.t('game.defendAgainst', { value: state.active_attack_value ?? 0 });
+    if (state.available_actions.includes('THROW_IN')) return this.i18n.t('game.mayThrow');
+    return this.i18n.t('game.yourTurn');
   }
 }

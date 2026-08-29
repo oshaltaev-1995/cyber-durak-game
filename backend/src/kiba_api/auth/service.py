@@ -17,6 +17,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from kiba_api.locale import Locale
 from kiba_api.persistence import AccountToken, AuthSession, User
 
 
@@ -109,7 +110,13 @@ class AuthService:
         self._reset_lifetime = timedelta(minutes=password_reset_token_minutes)
         self._password_hasher = password_hasher or PasswordHasher()
 
-    def register(self, email: str, display_name: str, password: str) -> AuthenticatedSession:
+    def register(
+        self,
+        email: str,
+        display_name: str,
+        password: str,
+        preferred_locale: Locale = Locale.RU,
+    ) -> AuthenticatedSession:
         """Create a unique account and its first authenticated session."""
         self.cleanup_security_records()
         normalized_email = normalize_email(email)
@@ -121,6 +128,7 @@ class AuthService:
             normalized_email=normalized_email,
             display_name=display_name.strip(),
             password_hash=self._password_hasher.hash(password),
+            preferred_locale=preferred_locale.value,
             is_active=True,
         )
         self._db.add(user)
@@ -268,12 +276,25 @@ class AuthService:
         self._db.commit()
         return int(token_result.rowcount or 0) + int(session_result.rowcount or 0)
 
-    def update_display_name(self, user: User, display_name: str) -> User:
-        """Update the only Phase 4A mutable profile field."""
-        user.display_name = display_name.strip()
+    def update_profile(
+        self,
+        user: User,
+        *,
+        display_name: str | None = None,
+        preferred_locale: Locale | None = None,
+    ) -> User:
+        """Update supplied account presentation preferences."""
+        if display_name is not None:
+            user.display_name = display_name.strip()
+        if preferred_locale is not None:
+            user.preferred_locale = preferred_locale.value
         user.updated_at = utc_now()
         self._db.commit()
         return user
+
+    def update_display_name(self, user: User, display_name: str) -> User:
+        """Backward-compatible display-name helper."""
+        return self.update_profile(user, display_name=display_name)
 
     def _find_user(self, normalized_email: str) -> User | None:
         return self._db.scalar(select(User).where(User.normalized_email == normalized_email))

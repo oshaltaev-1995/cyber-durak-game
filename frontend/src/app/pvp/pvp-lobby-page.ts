@@ -6,6 +6,7 @@ import { finalize } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
 import { PvPApiService } from '../core/pvp/pvp-api.service';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
+import { TranslationService } from '../core/i18n/translation.service';
 
 @Component({
   selector: 'app-pvp-lobby-page',
@@ -19,6 +20,7 @@ export class PvPLobbyPageComponent {
   private readonly credentials = inject(PvPCredentialStore);
   private readonly router = inject(Router);
   protected readonly auth = inject(AuthService);
+  protected readonly i18n = inject(TranslationService);
   protected readonly nickname = signal('');
   protected readonly inviteCode = signal('');
   protected readonly pending = signal(false);
@@ -47,8 +49,8 @@ export class PvPLobbyPageComponent {
 
   private errorMessage(error: unknown): string {
     if (error instanceof HttpErrorResponse && error.status === 422) {
-      return 'Введите имя длиной от 1 до 24 символов.';
+      return this.i18n.t('pvp.invalidNickname');
     }
-    return 'Не удалось создать комнату. Попробуйте ещё раз.';
+    return this.i18n.t('pvp.createFailed');
   }
 }

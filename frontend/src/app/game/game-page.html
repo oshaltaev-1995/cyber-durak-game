@@ -11,10 +11,12 @@
     <main class="welcome">
       <div class="welcome-copy">
         <span class="loading-mark" aria-hidden="true">K</span>
-        <h1>{{ pending() ? 'Раздаём карты…' : 'Не удалось начать игру' }}</h1>
-        <p>{{ pending() ? 'Готовим колоду и выбираем первый ход' : 'Попробуйте ещё раз.' }}</p>
+        <h1>{{ i18n.t(pending() ? 'game.dealing' : 'game.startFailed') }}</h1>
+        <p>{{ i18n.t(pending() ? 'game.preparingDeck' : 'game.tryAgain') }}</p>
         @if (!pending()) {
-          <button class="play-button" type="button" (click)="startNewGame()">Повторить</button>
+          <button class="play-button" type="button" (click)="startNewGame()">
+            {{ i18n.t('common.retry') }}
+          </button>
         }
         @if (errorMessage(); as error) {
           <div class="error-message" role="alert">{{ error }}</div>
@@ -25,10 +27,10 @@
     <main class="game-board">
       <div class="game-utilities">
         <span>{{
-          currentGame.phase === 'complete' ? 'Партия завершена' : 'Партия против бота'
+          i18n.t(currentGame.phase === 'complete' ? 'game.matchComplete' : 'game.vsBot')
         }}</span>
         <button class="new-game" type="button" [disabled]="pending()" (click)="requestNewGame()">
-          Новая игра
+          {{ i18n.t('game.new') }}
         </button>
       </div>
 
@@ -40,15 +42,17 @@
           aria-describedby="restart-description"
         >
           <div>
-            <strong id="restart-title">Начать новую игру?</strong>
-            <span id="restart-description">Текущая партия будет потеряна.</span>
+            <strong id="restart-title">{{ i18n.t('game.restartTitle') }}</strong>
+            <span id="restart-description">{{ i18n.t('game.restartDescription') }}</span>
           </div>
-          <button type="button" class="cancel" (click)="cancelNewGame()">Отмена</button>
-          <button type="button" (click)="startNewGame()">Начать</button>
+          <button type="button" class="cancel" (click)="cancelNewGame()">
+            {{ i18n.t('common.cancel') }}
+          </button>
+          <button type="button" (click)="startNewGame()">{{ i18n.t('game.start') }}</button>
         </section>
       }
 
-      <section class="opponent-zone" aria-label="Карты бота">
+      <section class="opponent-zone" [attr.aria-label]="i18n.t('game.botCardsLabel')">
         @if (currentGame.bot_hand_count > 0) {
           <div class="opponent-card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
         }
@@ -58,13 +62,18 @@
           <div class="bot-avatar" aria-hidden="true">BOT</div>
         }
         <div class="opponent-copy">
-          <span>Соперник</span>
-          <strong>Бот · {{ currentGame.bot_hand_count }} карт</strong>
+          <span>{{ i18n.t('game.opponent') }}</span>
+          <strong>{{
+            i18n.t('game.botCards', {
+              count: currentGame.bot_hand_count,
+              cards: i18n.cardCount(currentGame.bot_hand_count),
+            })
+          }}</strong>
         </div>
       </section>
 
-      <section class="table-stage" aria-label="Игровое поле">
-        <aside class="draw-zone" aria-label="Колода и козырь">
+      <section class="table-stage" [attr.aria-label]="i18n.t('game.boardLabel')">
+        <aside class="draw-zone" [attr.aria-label]="i18n.t('game.deckTrumpLabel')">
           <app-trump-indicator
             [trump]="currentGame.trump"
             [exposedCard]="currentGame.exposed_top_card"
@@ -81,35 +90,43 @@
           [final]="currentGame.phase === 'complete'"
         />
 
-        <aside class="discard-zone" aria-label="Бито, сброшенные карты">
-          <span class="pile-label">Бито</span>
+        <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
+          <span class="pile-label">{{ i18n.t('game.discard') }}</span>
           <div class="discard-stack" aria-hidden="true"><i></i><i></i><i></i></div>
           <strong>{{ currentGame.discard_count }}</strong>
-          <small>карт</small>
+          <small>{{ i18n.cardCount(currentGame.discard_count) }}</small>
         </aside>
       </section>
 
       @if (currentGame.phase === 'complete') {
         <section class="result-panel" aria-live="polite">
-          <span>Игра окончена</span>
+          <span>{{ i18n.t('game.finished') }}</span>
           <h2>{{ resultTitle(currentGame) }}</h2>
           @if (currentGame.result_saved) {
-            <p class="result-history-note">Результат сохранён в статистике.</p>
+            <p class="result-history-note">{{ i18n.t('game.saved') }}</p>
             @if (currentGame.progression_award; as award) {
-              <section class="result-progression" aria-label="Полученный прогресс">
+              <section
+                class="result-progression"
+                [attr.aria-label]="i18n.t('game.progressionLabel')"
+              >
                 <strong>+{{ award.total_awarded_xp }} XP</strong>
                 <span>
-                  За партию {{ award.base_xp }} XP
+                  {{ i18n.t('game.matchXp', { xp: award.base_xp }) }}
                   @if (award.achievement_bonus_xp > 0) {
-                    · достижения +{{ award.achievement_bonus_xp }} XP
+                    · {{ i18n.t('game.achievementXp', { xp: award.achievement_bonus_xp }) }}
                   }
                 </span>
                 <span>
-                  Уровень {{ award.level }} · до следующего {{ award.xp_needed_for_next_level }} XP
+                  {{
+                    i18n.t('game.levelProgress', {
+                      level: award.level,
+                      xp: award.xp_needed_for_next_level,
+                    })
+                  }}
                 </span>
                 @if (award.new_achievements.length > 0) {
                   <div class="new-achievements">
-                    <small>Новые достижения</small>
+                    <small>{{ i18n.t('game.newAchievements') }}</small>
                     @for (achievement of award.new_achievements; track achievement.code) {
                       <article>
                         <span aria-hidden="true">🏅</span>
@@ -124,13 +141,13 @@
                 }
                 @if (award.new_cosmetics.length > 0) {
                   <div class="new-cosmetics">
-                    <small>Новая награда</small>
+                    <small>{{ i18n.t('game.newReward') }}</small>
                     @for (cosmetic of award.new_cosmetics; track cosmetic.code) {
                       <article>
                         <span aria-hidden="true">🎴</span>
                         <div>
                           <strong>{{ cosmetic.title }}</strong>
-                          <small>Новое оформление открыто</small>
+                          <small>{{ i18n.t('game.cosmeticUnlocked') }}</small>
                         </div>
                       </article>
                     }
@@ -139,27 +156,36 @@
               </section>
             }
             <div class="result-links">
-              <a class="result-history-link" routerLink="/profile">Открыть профиль</a>
-              <a class="result-history-link" routerLink="/profile/history">Открыть историю</a>
-              <a class="result-history-link" routerLink="/profile/achievements">Достижения</a>
-              <a class="result-history-link" routerLink="/profile/cosmetics">Оформление</a>
+              <a class="result-history-link" routerLink="/profile">{{
+                i18n.t('game.openProfile')
+              }}</a>
+              <a class="result-history-link" routerLink="/profile/history">{{
+                i18n.t('game.openHistory')
+              }}</a>
+              <a class="result-history-link" routerLink="/profile/achievements">{{
+                i18n.t('profile.achievements')
+              }}</a>
+              <a class="result-history-link" routerLink="/profile/cosmetics">{{
+                i18n.t('profile.cosmetics')
+              }}</a>
             </div>
           } @else if (!currentGame.account_associated) {
             @if (auth.currentUser()) {
               <p class="result-history-note">
-                Эта партия началась гостевой и не сохранена. Следующие партии, начатые после входа,
-                будут сохраняться.
+                {{ i18n.t('game.guestStarted') }}
               </p>
             } @else {
-              <p class="result-history-note">Создайте аккаунт, чтобы сохранять следующие партии.</p>
+              <p class="result-history-note">{{ i18n.t('game.guestProgress') }}</p>
             }
           }
           <div class="result-actions" [class.guest-actions]="!currentGame.account_associated">
             <button type="button" [disabled]="pending()" (click)="startNewGame()">
-              Сыграть ещё
+              {{ i18n.t('game.playAgain') }}
             </button>
             @if (!currentGame.account_associated && !auth.currentUser()) {
-              <a class="result-register" routerLink="/register">Создать аккаунт</a>
+              <a class="result-register" routerLink="/register">{{
+                i18n.t('game.createAccount')
+              }}</a>
             }
           </div>
         </section>
@@ -168,8 +194,12 @@
           <span class="status-dot" aria-hidden="true"></span>
           <strong>{{ statusText() }}</strong>
           <small>
-            Атака {{ currentGame.total_attack_card_count ?? 0 }} / лимит
-            {{ currentGame.attack_card_limit ?? '—' }}
+            {{
+              i18n.t('game.attackLimit', {
+                count: currentGame.total_attack_card_count ?? 0,
+                limit: currentGame.attack_card_limit ?? '—',
+              })
+            }}
           </small>
         </div>
       }
@@ -179,9 +209,14 @@
       }
 
       @for (turn of activityTurn(currentGame, 'HUMAN'); track turn) {
-        <div class="local-player turn-player activity-ring" aria-label="Сейчас ваш ход">Вы</div>
+        <div
+          class="local-player turn-player activity-ring"
+          [attr.aria-label]="i18n.t('game.currentTurnLabel')"
+        >
+          {{ i18n.t('game.you') }}
+        </div>
       } @empty {
-        <div class="local-player turn-player">Вы</div>
+        <div class="local-player turn-player">{{ i18n.t('game.you') }}</div>
       }
       <app-hand
         class="player-hand-region"

@@ -28,6 +28,7 @@ from kiba_api.api.pvp_serialization import (
 )
 from kiba_api.auth import AuthError
 from kiba_api.game import GamePhase
+from kiba_api.locale import parse_locale
 from kiba_api.pvp import (
     PvPActionError,
     PvPError,
@@ -99,6 +100,7 @@ PvPHubDependency = Annotated[PvPConnectionHub, Depends(get_pvp_hub)]
 @router.post("", response_model=RoomJoinResponse, status_code=201, summary="Create a private room")
 async def create_room(
     payload: RoomIdentityRequest,
+    request: Request,
     service: PvPServiceDependency,
     user: OptionalCurrentUser,
 ) -> RoomJoinResponse:
@@ -107,6 +109,11 @@ async def create_room(
     room, participant = service.create_room(
         display_name,
         user_id=user.id if user is not None else None,
+        preferred_locale=(
+            parse_locale(user.preferred_locale)
+            if user is not None
+            else parse_locale(request.headers.get("accept-language"))
+        ),
     )
     return serialize_room_join(room, participant)
 
@@ -119,6 +126,7 @@ async def create_room(
 async def join_room(
     invite_code: str,
     payload: RoomIdentityRequest,
+    request: Request,
     service: PvPServiceDependency,
     hub: PvPHubDependency,
     user: OptionalCurrentUser,
@@ -129,6 +137,11 @@ async def join_room(
         invite_code,
         display_name,
         user_id=user.id if user is not None else None,
+        preferred_locale=(
+            parse_locale(user.preferred_locale)
+            if user is not None
+            else parse_locale(request.headers.get("accept-language"))
+        ),
     )
     await _broadcast_event(room, hub, "OPPONENT_CONNECTED", exclude=participant.participant_id)
     await _broadcast_state(room, hub)

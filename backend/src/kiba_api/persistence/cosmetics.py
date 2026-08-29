@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from kiba_api.locale import Locale
 from kiba_api.persistence.database import Database
 from kiba_api.persistence.models import (
     UserAchievement,
@@ -50,8 +51,16 @@ class CosmeticDefinition:
     category: CosmeticCategory
     title: str
     description: str
+    title_en: str
+    description_en: str
     unlock_type: CosmeticUnlockType
     unlock_requirement: int | AchievementCode | None = None
+
+    def localized_title(self, locale: Locale) -> str:
+        return self.title if locale is Locale.RU else self.title_en
+
+    def localized_description(self, locale: Locale) -> str:
+        return self.description if locale is Locale.RU else self.description_en
 
 
 COSMETICS: tuple[CosmeticDefinition, ...] = (
@@ -60,6 +69,8 @@ COSMETICS: tuple[CosmeticDefinition, ...] = (
         CosmeticCategory.CARD_BACK,
         "Классика",
         "Стандартная рубашка Kiba.",
+        "Classic",
+        "The standard KIBA card back.",
         CosmeticUnlockType.DEFAULT,
     ),
     CosmeticDefinition(
@@ -67,6 +78,8 @@ COSMETICS: tuple[CosmeticDefinition, ...] = (
         CosmeticCategory.CARD_BACK,
         "Тёмная",
         "Спокойная тёмная рубашка.",
+        "Dark",
+        "A restrained dark card back.",
         CosmeticUnlockType.LEVEL,
         3,
     ),
@@ -75,6 +88,8 @@ COSMETICS: tuple[CosmeticDefinition, ...] = (
         CosmeticCategory.CARD_BACK,
         "Снежный ком",
         "Награда за большой перевод.",
+        "Snowball",
+        "A reward for a large transfer.",
         CosmeticUnlockType.ACHIEVEMENT,
         AchievementCode.SNOWBALL_36,
     ),
@@ -83,6 +98,8 @@ COSMETICS: tuple[CosmeticDefinition, ...] = (
         CosmeticCategory.CARD_BACK,
         "Лавина",
         "Для тех, кто довёл перевод до 72.",
+        "Avalanche",
+        "For reaching a transfer target of 72.",
         CosmeticUnlockType.ACHIEVEMENT,
         AchievementCode.AVALANCHE_72,
     ),
@@ -91,6 +108,8 @@ COSMETICS: tuple[CosmeticDefinition, ...] = (
         CosmeticCategory.TABLE_THEME,
         "Классический стол",
         "Знакомый зелёный стол Kiba.",
+        "Classic table",
+        "The familiar green KIBA table.",
         CosmeticUnlockType.DEFAULT,
     ),
     CosmeticDefinition(
@@ -98,6 +117,8 @@ COSMETICS: tuple[CosmeticDefinition, ...] = (
         CosmeticCategory.TABLE_THEME,
         "Ночной стол",
         "Более тёмный вариант игрового стола.",
+        "Night table",
+        "A darker version of the game table.",
         CosmeticUnlockType.LEVEL,
         4,
     ),
@@ -106,6 +127,8 @@ COSMETICS: tuple[CosmeticDefinition, ...] = (
         CosmeticCategory.TABLE_THEME,
         "Математик",
         "Стол для любителей арифметики Kiba.",
+        "Mathematician",
+        "A table for fans of KIBA arithmetic.",
         CosmeticUnlockType.ACHIEVEMENT,
         AchievementCode.ARITHMETIC_MEAN,
     ),
@@ -114,6 +137,8 @@ COSMETICS: tuple[CosmeticDefinition, ...] = (
         CosmeticCategory.PROFILE_FRAME,
         "Без рамки",
         "Чистое оформление профиля.",
+        "No frame",
+        "A clean profile appearance.",
         CosmeticUnlockType.DEFAULT,
     ),
     CosmeticDefinition(
@@ -121,6 +146,8 @@ COSMETICS: tuple[CosmeticDefinition, ...] = (
         CosmeticCategory.PROFILE_FRAME,
         "Новичок",
         "Первая рамка постоянного игрока.",
+        "Newcomer",
+        "A first frame for a regular player.",
         CosmeticUnlockType.LEVEL,
         2,
     ),
@@ -129,6 +156,8 @@ COSMETICS: tuple[CosmeticDefinition, ...] = (
         CosmeticCategory.PROFILE_FRAME,
         "Победитель",
         "Рамка за десять побед.",
+        "Winner",
+        "A frame awarded for ten wins.",
         CosmeticUnlockType.ACHIEVEMENT,
         AchievementCode.TEN_WINS,
     ),

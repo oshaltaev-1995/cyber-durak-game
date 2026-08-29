@@ -42,6 +42,36 @@ nav {
   gap: 0.15rem;
 }
 
+.locale-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.locale-switch button {
+  padding: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-strong);
+  cursor: pointer;
+  font: inherit;
+  opacity: 0.58;
+}
+
+.locale-switch button.active {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+
+.locale-error {
+  margin: 0;
+  padding: 0.45rem 1rem;
+  background: #612828;
+  color: #fff5ed;
+  text-align: center;
+}
+
 nav a {
   padding: 0.5rem 0.55rem;
   border-radius: 0.55rem;

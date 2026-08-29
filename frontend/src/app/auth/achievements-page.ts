@@ -4,6 +4,7 @@ import { finalize } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
 import { Achievement } from '../core/profile/profile.models';
 import { ProfileService } from '../core/profile/profile.service';
+import { TranslationService } from '../core/i18n/translation.service';
 
 @Component({
   selector: 'app-achievements-page',
@@ -15,6 +16,7 @@ import { ProfileService } from '../core/profile/profile.service';
 export class AchievementsPageComponent implements OnInit {
   protected readonly auth = inject(AuthService);
   private readonly profile = inject(ProfileService);
+  protected readonly i18n = inject(TranslationService);
 
   protected readonly achievements = signal<readonly Achievement[]>([]);
   protected readonly pending = signal(false);
@@ -33,7 +35,7 @@ export class AchievementsPageComponent implements OnInit {
   }
 
   protected unlockedAt(value: string): string {
-    return new Intl.DateTimeFormat('ru', { dateStyle: 'long' }).format(new Date(value));
+    return this.i18n.formatDate(value, { dateStyle: 'long' });
   }
 
   private load(): void {
