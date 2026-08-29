@@ -273,6 +273,32 @@ def test_human_defense_transfer_take_throw_in_and_bito_routes() -> None:
     )
     assert transfer.status_code == 200
 
+    extended_transfer_state = start_game_bout(
+        game(
+            (card(Rank.SEVEN), card(Rank.SEVEN, Suit.DIAMONDS), card(Rank.SIX)),
+            (
+                card(Rank.SEVEN, Suit.HEARTS),
+                card(Rank.EIGHT),
+                card(Rank.NINE),
+                card(Rank.TEN),
+                card(Rank.JACK),
+            ),
+            attacker=Seat.TWO,
+        )
+    )
+    extended_transfer_state = play_game_initial_attack(
+        extended_transfer_state,
+        Seat.TWO,
+        (card(Rank.SEVEN, Suit.HEARTS),),
+    )
+    client, game_id = client_for_state(extended_transfer_state)
+    extended_transfer = client.post(
+        f"/api/games/{game_id}/actions",
+        json={"action": "TRANSFER", "cards": ["7C", "7D"]},
+    )
+    assert extended_transfer.status_code == 200
+    assert extended_transfer.json()["packets"][0]["attack_value"] == 21
+
     take_state = start_game_bout(
         game(
             (card(Rank.SIX),),
@@ -408,6 +434,49 @@ def test_throw_in_packet_exposes_server_confirmed_latest_defense_total() -> None
             "target_value": 20,
             "expression": "12 + 8 = 20",
         }
+    ]
+
+
+def test_throw_in_packet_exposes_server_confirmed_rank_run_metadata() -> None:
+    ten = card(Rank.TEN)
+    attack_jack = card(Rank.JACK, Suit.DIAMONDS)
+    attack_king = card(Rank.KING, Suit.DIAMONDS)
+    queen = card(Rank.QUEEN)
+    defense_jack = card(Rank.JACK)
+    defense_king = card(Rank.KING)
+    ace = card(Rank.ACE)
+    state = start_game_bout(
+        game(
+            (ten, attack_jack, attack_king, queen, card(Rank.SIX)),
+            (defense_jack, defense_king, ace, card(Rank.SEVEN)),
+        )
+    )
+    state = play_game_initial_attack(state, Seat.ONE, (ten,))
+    state = play_game_defense(state, Seat.TWO, (defense_jack,))
+    state = play_game_throw_in(state, Seat.ONE, (attack_jack,))
+    state = play_game_defense(state, Seat.TWO, (defense_king,))
+    state = play_game_throw_in(state, Seat.ONE, (attack_king,))
+    state = play_game_defense(state, Seat.TWO, (ace,))
+    state = play_game_throw_in(state, Seat.ONE, (queen,))
+    client, game_id = client_for_state(state)
+
+    body = client.get(f"/api/games/{game_id}").json()
+
+    assert body["packets"][3]["throw_in_reasons"] == [
+        {
+            "type": "arithmetic_mean",
+            "target_value": 15,
+            "expression": "90 / 6 = 15",
+        },
+        {
+            "type": "rank_run",
+            "target_value": None,
+            "expression": "10–A",
+            "run_start": "10",
+            "run_end": "A",
+            "run_length": 5,
+            "run_ranks": ["10", "J", "Q", "K", "A"],
+        },
     ]
 
 

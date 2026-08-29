@@ -51,6 +51,7 @@ _THROW_IN_REASON_ORDER = (
     ThrowInReason.DEFENSE_TOTAL,
     ThrowInReason.TABLE_TOTAL,
     ThrowInReason.ARITHMETIC_MEAN,
+    ThrowInReason.RANK_RUN,
 )
 
 
@@ -218,6 +219,10 @@ def _serialize_throw_in_reasons(
             continue
         expression: str | None = None
         target_value: int | None = analysis.selected_value
+        run_start: str | None = None
+        run_end: str | None = None
+        run_length: int | None = None
+        run_ranks: list[str] | None = None
         if reason is ThrowInReason.SAME_RANK:
             target_value = None
         elif reason is ThrowInReason.EXISTING_VALUE:
@@ -243,11 +248,24 @@ def _serialize_throw_in_reasons(
                 f"{summary.total_effective_value} / {summary.physical_card_count}"
                 f" = {analysis.selected_value}"
             )
+        elif reason is ThrowInReason.RANK_RUN:
+            target_value = None
+            if analysis.rank_run is None:
+                raise ValueError("rank_run reason requires rank-run metadata")
+            run_start = analysis.rank_run.start.value
+            run_end = analysis.rank_run.end.value
+            run_length = analysis.rank_run.length
+            run_ranks = [rank.value for rank in analysis.rank_run.ranks]
+            expression = f"{run_start}–{run_end}"
         responses.append(
             ThrowInReasonResponse(
                 type=reason.value,
                 target_value=target_value,
                 expression=expression,
+                run_start=run_start,
+                run_end=run_end,
+                run_length=run_length,
+                run_ranks=run_ranks,
             )
         )
     return responses

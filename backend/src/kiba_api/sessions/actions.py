@@ -15,6 +15,7 @@ from kiba_api.game import (
     ThrowInReason,
     analyze_throw_in,
     finish_game_bout,
+    get_cards_value,
     play_defense,
     play_game_defense,
     play_game_initial_attack,
@@ -79,7 +80,8 @@ def record_accepted_action(
     if action_type is HumanActionType.TRANSFER:
         transfer_count += 1
         if bout is not None and bout.transfer_target is not None:
-            max_transfer_target = max(max_transfer_target, bout.transfer_target)
+            resulting_target = bout.transfer_target + get_cards_value(selected, bout.trump_state)
+            max_transfer_target = max(max_transfer_target, resulting_target)
     elif action_type is HumanActionType.TAKE:
         take_count += 1
     elif action_type is HumanActionType.THROW_IN:

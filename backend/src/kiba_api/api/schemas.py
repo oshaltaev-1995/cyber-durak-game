@@ -73,9 +73,14 @@ class ThrowInReasonResponse(BaseModel):
         "defense_total",
         "table_total",
         "arithmetic_mean",
+        "rank_run",
     ]
     target_value: int | None
     expression: str | None
+    run_start: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    run_end: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    run_length: int | None = Field(default=None, exclude_if=lambda value: value is None)
+    run_ranks: list[str] | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class PacketResponse(BaseModel):

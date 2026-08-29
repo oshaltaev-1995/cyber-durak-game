@@ -9,7 +9,7 @@ from kiba_api.game.attack import analyze_initial_attack
 from kiba_api.game.cards import Card, TrumpState
 from kiba_api.game.moves import analyze_throw_in, is_legal_defense
 from kiba_api.game.scoring import get_cards_value
-from kiba_api.game.transfer import analyze_transfer
+from kiba_api.game.transfer import analyze_packet_transfer
 
 
 class Seat(StrEnum):
@@ -326,7 +326,12 @@ def play_transfer(
     _require_cards_available(state, actor, len(selected))
 
     packet = _get_active_packet(state)
-    analysis = analyze_transfer(selected, packet.attack_value, state.trump_state)
+    analysis = analyze_packet_transfer(
+        selected,
+        packet.attack_cards,
+        packet.attack_value,
+        state.trump_state,
+    )
     if not analysis.legal or analysis.next_target is None:
         raise BoutActionError(BoutErrorCode.ILLEGAL_TRANSFER)
 

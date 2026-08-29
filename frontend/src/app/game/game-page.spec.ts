@@ -359,6 +359,39 @@ describe('GamePageComponent', () => {
     expect(tableText).toContain('12 + 8 = 20');
   });
 
+  it('renders a server-confirmed rank run without inferring legality', () => {
+    create(
+      makeGame({
+        packets: [
+          {
+            attack_cards: [queenDiamonds],
+            attack_value: 15,
+            defense_cards: [],
+            defense_value: null,
+            closed: false,
+            throw_in_reasons: [
+              {
+                type: 'rank_run',
+                target_value: null,
+                expression: '10–A',
+                run_start: '10',
+                run_end: 'A',
+                run_length: 5,
+                run_ranks: ['10', 'J', 'Q', 'K', 'A'],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const tableText = (fixture.nativeElement as HTMLElement).querySelector(
+      'app-game-table',
+    )?.textContent;
+    expect(tableText).toContain('Ряд');
+    expect(tableText).toContain('10–A');
+  });
+
   it('renders an exact integer arithmetic mean without decimal formatting', () => {
     create(
       makeGame({

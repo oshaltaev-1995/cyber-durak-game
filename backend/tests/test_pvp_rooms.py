@@ -178,6 +178,50 @@ def test_action_versions_are_monotonic_and_concurrent_submission_commits_once() 
     assert len(updated.state.hand(participant.seat)) == 6
 
 
+def test_private_pvp_routes_same_rank_extended_transfer_authoritatively() -> None:
+    seven_one = Card(Rank.SEVEN, Suit.CLUBS)
+    seven_two = Card(Rank.SEVEN, Suit.DIAMONDS)
+    attack_seven = Card(Rank.SEVEN, Suit.HEARTS)
+
+    def transfer_game() -> GameState:
+        return GameState(
+            seat_one_hand=(seven_one, seven_two, Card(Rank.SIX, Suit.CLUBS)),
+            seat_two_hand=(
+                attack_seven,
+                Card(Rank.EIGHT, Suit.CLUBS),
+                Card(Rank.NINE, Suit.CLUBS),
+                Card(Rank.TEN, Suit.CLUBS),
+                Card(Rank.JACK, Suit.CLUBS),
+            ),
+            draw_pile=(),
+            discard_pile=(),
+            current_attacker=Seat.TWO,
+        )
+
+    service = PvPRoomService(game_factory=transfer_game, token_factory=TokenFactory())
+    room, creator, joiner = create_started_room(service)
+    attacked = service.play_action(
+        room.invite_code,
+        joiner.reconnect_token,
+        HumanActionType.INITIAL_ATTACK,
+        (attack_seven,),
+        expected_version=0,
+    )
+    transferred = service.play_action(
+        room.invite_code,
+        creator.reconnect_token,
+        HumanActionType.TRANSFER,
+        (seven_one, seven_two),
+        expected_version=attacked.version,
+    )
+
+    assert transferred.state is not None
+    assert transferred.state.active_bout is not None
+    assert transferred.state.active_bout.active_packet is not None
+    assert transferred.state.active_bout.active_packet.attack_value == 21
+    assert transferred.state.active_bout.attacker is Seat.ONE
+
+
 def test_authoritative_completion_records_once_and_reconnect_reuses_result() -> None:
     completions = []
 

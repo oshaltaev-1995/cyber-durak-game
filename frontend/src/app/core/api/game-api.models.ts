@@ -27,12 +27,16 @@ export interface TrumpState {
 }
 
 export type ThrowInReasonType =
-  'same_rank' | 'existing_value' | 'defense_total' | 'table_total' | 'arithmetic_mean';
+  'same_rank' | 'existing_value' | 'defense_total' | 'table_total' | 'arithmetic_mean' | 'rank_run';
 
 export interface ThrowInReason {
   readonly type: ThrowInReasonType;
   readonly target_value: number | null;
   readonly expression: string | null;
+  readonly run_start?: string | null;
+  readonly run_end?: string | null;
+  readonly run_length?: number | null;
+  readonly run_ranks?: readonly string[] | null;
 }
 
 export interface AttackPacket {

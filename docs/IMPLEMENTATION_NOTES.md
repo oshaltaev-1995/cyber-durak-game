@@ -350,12 +350,16 @@ Candidate ordering uses effective values from the fixed bout trump snapshot. Ini
 need single-card candidates because every single card is legal and all card values are positive, so
 no multi-card candidate can improve the policy's primary lowest-total criterion. For defense,
 transfer, and throw-ins, a value-indexed dynamic program retains one preferred subset for each
-reachable effective total. This avoids power-set growth after TAKE creates a large hand. Every
-retained candidate is still submitted to the authoritative `GameState` action before the bot may
-choose it.
+reachable effective total. This avoids power-set growth after TAKE creates a large hand. Two
+bounded rank-focused supplements cover rules that cannot be reduced to one effective total:
+same-rank transfer candidates contain at most the four physical cards of the packet rank, while
+rank-run throw-in candidates use at most one cheapest held card per normal rank. Every retained or
+supplemental candidate is still submitted to the authoritative `GameState` action before the bot
+may choose it.
 
 The baseline prioritizes the cheapest legal defense and defends before transferring. It transfers
-only when no defense exists and an exact legal transfer survives bout limits; otherwise it takes.
+only when no defense exists and an exact or same-rank-extended legal transfer survives bout limits;
+otherwise it takes.
 After defense it chooses the cheapest legal throw-in or finishes as bito when none exists. This is a
 legality-and-completion baseline, not an optimal or difficulty-ranked strategy.
 
@@ -404,6 +408,8 @@ table, packet structure, and exact arithmetic visible without changing game-comp
 putting UI history into the rules model. Later throw-in packets also include explanation metadata
 derived by the existing authoritative `analyze_throw_in` primitive. Angular renders those confirmed
 reason codes and expressions after acceptance; it does not infer throw-in legality before submission.
+Rank-run explanations additionally carry the server-confirmed start, end, length, and ordered ranks;
+Angular renders that metadata but never derives run legality.
 
 Human-vs-bot action responses may additionally carry a response-scoped `recent_events` trace for
 confirmed bot actions. The trace contains only safe public action type/count/value metadata, is not
@@ -459,7 +465,8 @@ retries the same idempotent write without replaying an action. Guests skip this 
 
 Completed rows contain outcome from the account owner's perspective, timestamps/duration, seat and
 initial-attacker metadata, final hand counts, and bounded counters for accepted human actions,
-transfers, takes, throw-ins, highest transfer target, and arithmetic-mean throw-ins. Rejected moves
+transfers, takes, throw-ins, highest resulting unresolved-packet target after a transfer, and
+arithmetic-mean throw-ins. Rejected moves
 never affect them. `/api/stats` derives totals, percentage win rate, and win streaks from match rows
 (losses and draws both break a streak); `/api/matches` returns only the current user's newest
 summaries with bounded limit/offset pagination. There is no mutable aggregate stats row and no

@@ -32,6 +32,7 @@ export class GameTableComponent {
       defense_total: 'Подкинуто по сумме защиты',
       table_total: 'Подкинуто по сумме стола',
       arithmetic_mean: 'Подкинуто по среднему',
+      rank_run: 'Ряд',
     }[reason];
   }
 }

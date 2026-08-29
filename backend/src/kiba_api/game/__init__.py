@@ -56,9 +56,11 @@ from kiba_api.game.game import (
     take_game_bout,
 )
 from kiba_api.game.moves import (
+    RankRun,
     ThrowInAnalysis,
     ThrowInReason,
     ThrowInTargets,
+    analyze_rank_run_throw_in,
     analyze_throw_in,
     get_throw_in_targets,
     is_legal_defense,
@@ -69,7 +71,13 @@ from kiba_api.game.scoring import (
     get_effective_value,
     is_trump,
 )
-from kiba_api.game.transfer import TransferAnalysis, analyze_transfer
+from kiba_api.game.transfer import (
+    PacketTransferAnalysis,
+    PacketTransferMode,
+    TransferAnalysis,
+    analyze_packet_transfer,
+    analyze_transfer,
+)
 
 __all__ = [
     "AttackPacket",
@@ -93,6 +101,7 @@ __all__ = [
     "InitialAttackReason",
     "JokerColor",
     "Rank",
+    "RankRun",
     "Seat",
     "Suit",
     "TableArithmeticSummary",
@@ -100,8 +109,12 @@ __all__ = [
     "ThrowInReason",
     "ThrowInTargets",
     "TransferAnalysis",
+    "PacketTransferAnalysis",
+    "PacketTransferMode",
     "TrumpState",
     "analyze_initial_attack",
+    "analyze_packet_transfer",
+    "analyze_rank_run_throw_in",
     "analyze_transfer",
     "analyze_throw_in",
     "cards_have_same_rank",

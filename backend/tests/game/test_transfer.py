@@ -4,10 +4,13 @@ import pytest
 
 from kiba_api.game import (
     Card,
+    PacketTransferAnalysis,
+    PacketTransferMode,
     Rank,
     Suit,
     TransferAnalysis,
     TrumpState,
+    analyze_packet_transfer,
     analyze_transfer,
 )
 
@@ -156,3 +159,81 @@ def test_transfer_analysis_does_not_mutate_input() -> None:
     analyze_transfer(selected, 18, NO_TRUMP)
 
     assert selected == original
+
+
+def test_same_rank_packet_transfer_accepts_exact_core_with_extra_card() -> None:
+    sevens = [card(Rank.SEVEN), card(Rank.SEVEN, Suit.DIAMONDS)]
+
+    analysis = analyze_packet_transfer(sevens, [card(Rank.SEVEN, Suit.HEARTS)], 7, NO_TRUMP)
+
+    assert analysis == PacketTransferAnalysis(
+        current_target=7,
+        selected_value=14,
+        next_target=21,
+        mode=PacketTransferMode.SAME_RANK_EXTENDED,
+    )
+
+
+def test_packet_transfer_reports_ordinary_exact_mode() -> None:
+    analysis = analyze_packet_transfer(
+        [card(Rank.NINE), card(Rank.NINE, Suit.DIAMONDS)],
+        [card(Rank.KING)],
+        18,
+        NO_TRUMP,
+    )
+
+    assert analysis.mode is PacketTransferMode.EXACT
+    assert analysis.next_target == 36
+
+
+def test_arithmetic_packet_does_not_allow_same_rank_extra_card() -> None:
+    analysis = analyze_packet_transfer(
+        [
+            card(Rank.NINE),
+            card(Rank.NINE, Suit.DIAMONDS),
+            card(Rank.NINE, Suit.HEARTS),
+        ],
+        [card(Rank.KING)],
+        18,
+        NO_TRUMP,
+    )
+
+    assert analysis.legal is False
+    assert analysis.mode is None
+
+
+def test_mixed_rank_packet_allows_only_ordinary_exact_transfer() -> None:
+    exact = analyze_packet_transfer(
+        [card(Rank.KING), card(Rank.KING, Suit.DIAMONDS)],
+        [card(Rank.KING), card(Rank.NINE), card(Rank.NINE, Suit.DIAMONDS)],
+        36,
+        NO_TRUMP,
+    )
+    extended = analyze_packet_transfer(
+        [
+            card(Rank.KING),
+            card(Rank.KING, Suit.DIAMONDS),
+            card(Rank.KING, Suit.HEARTS),
+        ],
+        [card(Rank.KING), card(Rank.NINE), card(Rank.NINE, Suit.DIAMONDS)],
+        36,
+        NO_TRUMP,
+    )
+
+    assert exact.mode is PacketTransferMode.EXACT
+    assert extended.legal is False
+
+
+def test_same_rank_extension_uses_trump_adjusted_core_and_full_value() -> None:
+    trump_state = TrumpState.from_source_card(card(Rank.SEVEN, Suit.HEARTS))
+
+    analysis = analyze_packet_transfer(
+        [card(Rank.SEVEN, Suit.DIAMONDS), card(Rank.SEVEN, Suit.SPADES)],
+        [card(Rank.SEVEN, Suit.CLUBS)],
+        14,
+        trump_state,
+    )
+
+    assert analysis.mode is PacketTransferMode.SAME_RANK_EXTENDED
+    assert analysis.selected_value == 28
+    assert analysis.next_target == 42

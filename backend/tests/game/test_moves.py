@@ -12,6 +12,7 @@ from kiba_api.game import (
     ThrowInReason,
     ThrowInTargets,
     TrumpState,
+    analyze_rank_run_throw_in,
     analyze_throw_in,
     get_throw_in_targets,
     is_legal_defense,
@@ -73,6 +74,127 @@ def test_zero_attack_still_requires_non_empty_strictly_greater_defense() -> None
 def test_negative_attack_value_is_rejected() -> None:
     with pytest.raises(ValueError, match="must not be negative"):
         is_legal_defense([card(Rank.SIX)], -1, NO_TRUMP)
+
+
+def test_rank_run_fills_one_missing_rank_from_historical_table() -> None:
+    table = [card(Rank.TEN), card(Rank.JACK), card(Rank.KING), card(Rank.ACE)]
+
+    analysis = analyze_throw_in([card(Rank.QUEEN)], table, [], NO_TRUMP)
+
+    assert ThrowInReason.RANK_RUN in analysis.reasons
+    assert analysis.rank_run is not None
+    assert analysis.rank_run.start is Rank.TEN
+    assert analysis.rank_run.end is Rank.ACE
+    assert analysis.rank_run.length == 5
+
+    direct = analyze_rank_run_throw_in(table, [card(Rank.QUEEN)])
+    assert direct == analysis.rank_run
+
+
+def test_rank_run_selection_can_collectively_fill_multiple_gaps() -> None:
+    table = [card(Rank.SIX), card(Rank.NINE), card(Rank.JACK)]
+    selected = [card(Rank.SEVEN), card(Rank.EIGHT), card(Rank.TEN)]
+
+    analysis = analyze_throw_in(selected, table, [], NO_TRUMP)
+
+    assert analysis.reasons == frozenset({ThrowInReason.RANK_RUN})
+    assert analysis.rank_run is not None
+    assert analysis.rank_run.ranks == (
+        Rank.SIX,
+        Rank.SEVEN,
+        Rank.EIGHT,
+        Rank.NINE,
+        Rank.TEN,
+        Rank.JACK,
+    )
+
+
+def test_rank_run_can_extend_across_the_full_36_card_rank_order() -> None:
+    table = [card(Rank.TEN), card(Rank.JACK), card(Rank.KING), card(Rank.ACE)]
+    selected = [
+        card(Rank.QUEEN),
+        card(Rank.NINE),
+        card(Rank.EIGHT),
+        card(Rank.SEVEN),
+        card(Rank.SIX),
+    ]
+
+    analysis = analyze_throw_in(selected, table, [], NO_TRUMP)
+
+    assert ThrowInReason.RANK_RUN in analysis.reasons
+    assert analysis.rank_run is not None
+    assert analysis.rank_run.start is Rank.SIX
+    assert analysis.rank_run.end is Rank.ACE
+    assert analysis.rank_run.length == 9
+
+
+def test_rank_run_rejects_unrelated_selected_baggage() -> None:
+    table = [card(Rank.TEN), card(Rank.JACK), card(Rank.KING), card(Rank.ACE)]
+
+    analysis = analyze_throw_in(
+        [card(Rank.QUEEN), card(Rank.SIX)],
+        table,
+        [],
+        NO_TRUMP,
+    )
+
+    assert ThrowInReason.RANK_RUN not in analysis.reasons
+    assert analysis.rank_run is None
+
+
+def test_rank_run_ignores_duplicates_but_allows_selected_duplicates() -> None:
+    table = [
+        card(Rank.TEN),
+        card(Rank.JACK),
+        card(Rank.KING),
+        card(Rank.ACE),
+        card(Rank.TEN, Suit.DIAMONDS),
+    ]
+
+    analysis = analyze_throw_in(
+        [card(Rank.QUEEN), card(Rank.QUEEN, Suit.DIAMONDS)],
+        table,
+        [],
+        NO_TRUMP,
+    )
+
+    assert ThrowInReason.RANK_RUN in analysis.reasons
+    assert analysis.rank_run is not None
+    assert analysis.rank_run.length == 5
+
+
+def test_rank_run_requires_five_distinct_contiguous_ranks() -> None:
+    table = [card(Rank.TEN), card(Rank.JACK), card(Rank.KING)]
+
+    analysis = analyze_throw_in([card(Rank.QUEEN)], table, [], NO_TRUMP)
+
+    assert ThrowInReason.RANK_RUN not in analysis.reasons
+
+
+def test_rank_run_is_rank_based_and_can_coexist_with_other_reasons() -> None:
+    table = [card(Rank.TEN), card(Rank.JACK), card(Rank.QUEEN), card(Rank.KING), card(Rank.ACE)]
+    direct_anchor = table[2]
+    trump_state = TrumpState.from_source_card(card(Rank.SIX, Suit.HEARTS))
+
+    analysis = analyze_throw_in(
+        [card(Rank.QUEEN, Suit.DIAMONDS)],
+        table,
+        [direct_anchor],
+        trump_state,
+    )
+
+    assert ThrowInReason.RANK_RUN in analysis.reasons
+    assert ThrowInReason.SAME_RANK in analysis.reasons
+    assert ThrowInReason.EXISTING_VALUE in analysis.reasons
+
+
+def test_rank_run_does_not_apply_to_empty_table_or_selection() -> None:
+    assert (
+        ThrowInReason.RANK_RUN not in analyze_throw_in([card(Rank.QUEEN)], [], [], NO_TRUMP).reasons
+    )
+    assert (
+        ThrowInReason.RANK_RUN not in analyze_throw_in([], [card(Rank.TEN)], [], NO_TRUMP).reasons
+    )
 
 
 def test_non_integer_attack_value_is_rejected() -> None:

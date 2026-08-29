@@ -272,7 +272,40 @@ def test_session_tracks_only_accepted_transfer_take_and_mean_throw_in_actions() 
     )
     assert transferred.human_action_count == 1
     assert transferred.human_transfer_count == 1
-    assert transferred.max_transfer_target == 18
+    assert transferred.max_transfer_target == 36
+
+    extended_state = start_game_bout(
+        GameState(
+            seat_one_hand=(
+                card(Rank.SEVEN),
+                card(Rank.SEVEN, Suit.DIAMONDS),
+                card(Rank.SIX),
+            ),
+            seat_two_hand=(
+                card(Rank.SEVEN, Suit.HEARTS),
+                card(Rank.EIGHT),
+                card(Rank.NINE),
+                card(Rank.TEN),
+                card(Rank.JACK),
+            ),
+            draw_pile=(),
+            discard_pile=(),
+            current_attacker=Seat.TWO,
+        )
+    )
+    extended_state = play_game_initial_attack(
+        extended_state,
+        Seat.TWO,
+        (card(Rank.SEVEN, Suit.HEARTS),),
+    )
+    extended_service = GameSessionService(game_factory=lambda: extended_state)
+    extended_session = extended_service.create_game()
+    extended = extended_service.play_human_action(
+        extended_session.game_id,
+        HumanActionType.TRANSFER,
+        (card(Rank.SEVEN), card(Rank.SEVEN, Suit.DIAMONDS)),
+    )
+    assert extended.max_transfer_target == 21
 
     jack = card(Rank.JACK)
     queen = card(Rank.QUEEN)

@@ -86,6 +86,8 @@ describe('TutorialPageComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('J(12) + 8(8) = 20');
     expect(text).toContain('A = 20');
+    expect(text).toContain('ряд минимум из пяти рангов');
+    expect(text).toContain('10, J, K, A + Q → ряд 10–A');
   });
 
   it('shows the exact transfer snowball lesson', () => {
@@ -94,6 +96,8 @@ describe('TutorialPageComponent', () => {
     expect(text).toContain('Перевод');
     expect(text).toContain('18 → 36 → 72');
     expect(text).toContain('После первой успешной защиты');
+    expect(text).toContain('точное ядро');
+    expect(text).toContain('7 → 7 + 7 → 21');
   });
 
   it('finishes all eight lessons with play, rules, and replay choices', () => {

@@ -10,7 +10,7 @@ from kiba_api.game.arithmetic import (
     matches_exact_value,
     summarize_table_arithmetic,
 )
-from kiba_api.game.cards import Card, TrumpState
+from kiba_api.game.cards import Card, Rank, TrumpState
 from kiba_api.game.scoring import get_cards_value, get_effective_value
 
 
@@ -22,6 +22,17 @@ class ThrowInReason(StrEnum):
     DEFENSE_TOTAL = "defense_total"
     TABLE_TOTAL = "table_total"
     ARITHMETIC_MEAN = "arithmetic_mean"
+    RANK_RUN = "rank_run"
+
+
+@dataclass(frozen=True, slots=True)
+class RankRun:
+    """One server-confirmed contiguous normal-rank run."""
+
+    start: Rank
+    end: Rank
+    length: int
+    ranks: tuple[Rank, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +51,7 @@ class ThrowInAnalysis:
 
     selected_value: int
     reasons: frozenset[ThrowInReason]
+    rank_run: RankRun | None = None
 
     @property
     def legal(self) -> bool:
@@ -141,7 +153,57 @@ def analyze_throw_in(
     ):
         reasons.add(ThrowInReason.ARITHMETIC_MEAN)
 
-    return ThrowInAnalysis(selected_value=selected_value, reasons=frozenset(reasons))
+    rank_run = analyze_rank_run_throw_in(table, selected)
+    if rank_run is not None:
+        reasons.add(ThrowInReason.RANK_RUN)
+
+    return ThrowInAnalysis(
+        selected_value=selected_value,
+        reasons=frozenset(reasons),
+        rank_run=rank_run,
+    )
+
+
+_RUN_RANKS = (
+    Rank.SIX,
+    Rank.SEVEN,
+    Rank.EIGHT,
+    Rank.NINE,
+    Rank.TEN,
+    Rank.JACK,
+    Rank.QUEEN,
+    Rank.KING,
+    Rank.ACE,
+)
+
+
+def analyze_rank_run_throw_in(
+    table_cards: Iterable[Card],
+    selected_cards: Iterable[Card],
+) -> RankRun | None:
+    """Find the maximal five-plus rank run containing every selected rank."""
+    table = tuple(table_cards)
+    selected = tuple(selected_cards)
+    selected_ranks = {card.rank for card in selected}
+    if not selected or not table or Rank.JOKER in selected_ranks:
+        return None
+
+    represented_ranks = {card.rank for card in (*table, *selected)}
+    block: list[Rank] = []
+    for rank in (*_RUN_RANKS, None):
+        if rank is not None and rank in represented_ranks:
+            block.append(rank)
+            continue
+        if len(block) >= 5 and selected_ranks <= set(block):
+            ranks = tuple(block)
+            return RankRun(
+                start=ranks[0],
+                end=ranks[-1],
+                length=len(ranks),
+                ranks=ranks,
+            )
+        block = []
+    return None
 
 
 def _has_represented_same_rank(

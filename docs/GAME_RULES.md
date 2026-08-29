@@ -336,12 +336,13 @@ After cards have been played onto the table, further legal throw-ins can be gene
 
 The table is recalculated after every legal addition.
 
-Four major arithmetic mechanisms are currently confirmed:
+Five independent post-defense mechanisms are currently confirmed:
 
 1. **Existing rank / existing card-value relations**
 2. **Latest defense packet total**
 3. **Total table sum**
 4. **Arithmetic mean of all physical cards on the table**
+5. **A contiguous run of at least five represented ranks**
 
 A legal target value may be satisfied by:
 
@@ -478,11 +479,34 @@ Example:
 
 No exact integer target is produced.
 
+### 10.6 Rank run
+
+A throw-in may also complete or extend one contiguous run of at least five distinct ranks across
+all physical cards already on the table and every card selected in the new action. The canonical
+rank order is:
+
+`6, 7, 8, 9, 10, J, Q, K, A`
+
+Run eligibility uses ranks only. Trump and effective values do not change the order, and duplicate
+cards of one rank do not increase the run length. Every selected card's rank must belong to the same
+qualifying run; unrelated extra selected cards cannot be justified by another part of the table.
+
+Examples:
+
+- table `10, J, K, A`, selected `Q` → run `10–A` ✅
+- table `6, 9, J`, selected `7, 8, 10` → run `6–J` ✅
+- table `10, J, K, A`, selected `Q + 6` → no one run contains both selected ranks ❌
+
+Historical covered cards remain physical table cards and therefore participate in the run. Direct
+anchor lifecycle is irrelevant to this mechanism. A rank run is a post-defense throw-in rule only;
+it does not make the initial attack legal.
+
 ---
 
 ## 11. Transfer
 
-Instead of defending, a player may transfer the attack to the next player if they can play cards whose total effective value is **exactly equal to the current accumulated attack value**.
+Instead of defending, a player may ordinarily transfer the attack to the next player if they can
+play cards whose total effective value is **exactly equal to the current accumulated attack value**.
 
 Transfer is available only before the first successful defense of the bout. It does not reopen for
 later throw-in packets.
@@ -508,6 +532,23 @@ Transfer:
 `9 + 9 = 18`
 
 ✅ Legal transfer.
+
+### 11.1 Same-rank transfer extension
+
+One narrow extension applies when the entire unresolved attack packet contains one rank `R`. The
+defender may select only cards of rank `R` when a non-empty subset of that selection exactly matches
+the current transfer target. The remaining selected cards are same-rank extras, and every selected
+card joins the same unresolved packet.
+
+Example:
+
+`7` attacks with target `7`; selecting `7 + 7` contains an exact one-card core of `7`, so the
+extended transfer is legal. The new packet value is `7 + 14 = 21`.
+
+This exception does not apply to an arithmetic or mixed-rank packet. For example, after `K = 18`,
+`9 + 9 + 9` is not a transfer: although `9 + 9` equals 18, the attack rank is King rather than Nine.
+Ordinary exact transfers remain legal for mixed packets. Normal bout card-count limits and the
+receiving-defender limit reset apply to every selected extension card.
 
 ---
 

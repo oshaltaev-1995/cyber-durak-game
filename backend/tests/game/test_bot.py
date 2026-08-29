@@ -257,6 +257,32 @@ def test_throw_in_supports_same_rank_existing_value_total_and_mean(
     assert action == BotAction(BotActionType.THROW_IN, expected_cards)
 
 
+def test_bot_discovers_a_multi_card_rank_run_throw_in() -> None:
+    attack_six = card(Rank.SIX)
+    attack_nine = card(Rank.NINE, Suit.DIAMONDS)
+    seven = card(Rank.SEVEN)
+    eight = card(Rank.EIGHT)
+    ten = card(Rank.TEN)
+    state = active_game(
+        (attack_six, attack_nine, seven, eight, ten),
+        (
+            card(Rank.NINE),
+            card(Rank.JACK),
+            card(Rank.QUEEN),
+            card(Rank.KING),
+            card(Rank.ACE),
+        ),
+    )
+    state = play_game_initial_attack(state, Seat.ONE, (attack_six,))
+    state = play_game_defense(state, Seat.TWO, (card(Rank.NINE),))
+    state = play_game_throw_in(state, Seat.ONE, (attack_nine,))
+    state = play_game_defense(state, Seat.TWO, (card(Rank.JACK),))
+
+    action = choose_bot_action(state, Seat.ONE)
+
+    assert action == BotAction(BotActionType.THROW_IN, (seven, eight, ten))
+
+
 def test_throw_in_prefers_lower_effective_legal_candidate() -> None:
     queen = card(Rank.QUEEN)
     state = covered_jack((card(Rank.TEN), card(Rank.EIGHT), queen))

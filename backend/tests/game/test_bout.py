@@ -179,6 +179,36 @@ def test_exact_transfer_extends_same_packet_swaps_roles_and_resets_limit() -> No
     assert transferred.transfer_open is True
 
 
+def test_same_rank_extended_transfer_adds_every_selected_card_to_packet() -> None:
+    attack = card(Rank.SEVEN)
+    transfer_cards = (card(Rank.SEVEN, Suit.DIAMONDS), card(Rank.SEVEN, Suit.HEARTS))
+    state = play_initial_attack(start_bout(), Seat.ONE, [attack])
+
+    transferred = play_transfer(state, Seat.TWO, transfer_cards)
+
+    assert transferred.active_packet == AttackPacket((attack, *transfer_cards), 21)
+    assert transferred.transfer_target == 21
+    assert transferred.total_attack_card_count == 3
+    assert transferred.attacker is Seat.TWO
+    assert transferred.defender is Seat.ONE
+
+
+def test_same_rank_extended_transfer_still_obeys_new_defender_limit() -> None:
+    state = play_initial_attack(
+        start_bout(seat_one_hand_count=2),
+        Seat.ONE,
+        [card(Rank.SEVEN)],
+    )
+
+    assert_bout_error(
+        BoutErrorCode.ATTACK_CARD_LIMIT_EXCEEDED,
+        play_transfer,
+        state,
+        Seat.TWO,
+        [card(Rank.SEVEN, Suit.DIAMONDS), card(Rank.SEVEN, Suit.HEARTS)],
+    )
+
+
 def test_transfer_rejects_wrong_exact_value() -> None:
     state = play_initial_attack(start_bout(), Seat.ONE, [card(Rank.KING)])
 

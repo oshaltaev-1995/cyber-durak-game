@@ -46,6 +46,21 @@ def test_empty_initial_attack_is_illegal() -> None:
     assert analysis.legal is False
 
 
+def test_rank_run_does_not_bootstrap_initial_attack_legality() -> None:
+    analysis = analyze_initial_attack(
+        [
+            card(Rank.TEN),
+            card(Rank.JACK),
+            card(Rank.QUEEN),
+            card(Rank.KING),
+            card(Rank.ACE),
+        ],
+        NO_TRUMP,
+    )
+
+    assert analysis.legal is False
+
+
 @pytest.mark.parametrize("card_count", [2, 3])
 def test_same_rank_attack_is_legal(card_count: int) -> None:
     cards = [card(Rank.NINE, suit) for suit in list(Suit)[:card_count]]

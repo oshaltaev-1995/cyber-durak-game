@@ -62,5 +62,9 @@ describe('RulesPageComponent', () => {
     expect(text).toContain('После первой успешной защиты перевод закрыт');
     expect(text).toContain('последними картами');
     expect(text).toContain('максимально близкими');
+    expect(text).toContain('Продвинутое правило: Ряд');
+    expect(text).toContain('10–A');
+    expect(text).toContain('новая цель 7 + 14 = 21');
+    expect(text).toContain('9 + 9 + 9');
   });
 });

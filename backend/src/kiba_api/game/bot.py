@@ -3,6 +3,7 @@
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import StrEnum
+from itertools import combinations
 
 from kiba_api.game.bout import BoutActionError, BoutPhase, Seat
 from kiba_api.game.cards import Card, JokerColor, Rank, Suit, TrumpState
@@ -161,9 +162,9 @@ def _choose_defender_response(state: GameState, bot_seat: Seat) -> BotAction:
 
     transfer_target = bout.transfer_target
     if transfer_target is not None:
-        candidate = subsets.get(transfer_target)
-        if candidate and _is_legal_card_action(play_game_transfer, state, bot_seat, candidate):
-            return BotAction(BotActionType.TRANSFER, candidate)
+        for candidate in _packet_transfer_candidates(state, bot_seat, subsets):
+            if _is_legal_card_action(play_game_transfer, state, bot_seat, candidate):
+                return BotAction(BotActionType.TRANSFER, candidate)
 
     return BotAction(BotActionType.TAKE)
 
@@ -175,13 +176,71 @@ def _choose_throw_in_or_bito(state: GameState, bot_seat: Seat) -> BotAction:
 
     trump_state = bout.trump_state
     subsets = _best_subsets_by_total(state.hand(bot_seat), trump_state)
-    for candidate in sorted(subsets.values(), key=lambda cards: _selection_key(cards, trump_state)):
+    candidates = {*subsets.values(), *_rank_run_candidates(state, bot_seat)}
+    for candidate in sorted(candidates, key=lambda cards: _selection_key(cards, trump_state)):
         if not candidate:
             continue
         if _is_legal_card_action(play_game_throw_in, state, bot_seat, candidate):
             return BotAction(BotActionType.THROW_IN, candidate)
 
     return BotAction(BotActionType.BITO)
+
+
+def _packet_transfer_candidates(
+    state: GameState,
+    bot_seat: Seat,
+    subsets: dict[int, tuple[Card, ...]],
+) -> tuple[tuple[Card, ...], ...]:
+    """Return deterministic exact and possible same-rank-extension selections."""
+    bout = state.active_bout
+    if bout is None or bout.active_packet is None or bout.transfer_target is None:
+        return ()
+
+    candidates: set[tuple[Card, ...]] = set()
+    exact = subsets.get(bout.transfer_target)
+    if exact:
+        candidates.add(exact)
+
+    attack_cards = bout.active_packet.attack_cards
+    if attack_cards and all(card.rank is attack_cards[0].rank for card in attack_cards):
+        matching = tuple(
+            sorted(
+                (card for card in state.hand(bot_seat) if card.rank is attack_cards[0].rank),
+                key=_card_order_key,
+            )
+        )
+        for size in range(1, len(matching) + 1):
+            candidates.update(combinations(matching, size))
+
+    return tuple(sorted(candidates, key=lambda cards: _selection_key(cards, bout.trump_state)))
+
+
+def _rank_run_candidates(state: GameState, bot_seat: Seat) -> tuple[tuple[Card, ...], ...]:
+    """Build a bounded rank-focused set for authoritative throw-in validation."""
+    bout = state.active_bout
+    if bout is None:
+        return ()
+
+    cards_by_rank: dict[Rank, list[Card]] = {}
+    for card in state.hand(bot_seat):
+        if card.rank is not Rank.JOKER:
+            cards_by_rank.setdefault(card.rank, []).append(card)
+    cheapest_by_rank = {
+        rank: min(
+            cards,
+            key=lambda card: (
+                get_cards_value((card,), bout.trump_state),
+                _card_order_key(card),
+            ),
+        )
+        for rank, cards in cards_by_rank.items()
+    }
+    distinct_cards = tuple(cheapest_by_rank.values())
+    max_size = min(len(distinct_cards), bout.attack_card_limit - bout.total_attack_card_count)
+    candidates: list[tuple[Card, ...]] = []
+    for size in range(1, max_size + 1):
+        candidates.extend(combinations(distinct_cards, size))
+    return tuple(candidates)
 
 
 _GameCardAction = Callable[[GameState, Seat, Iterable[Card]], GameState]
