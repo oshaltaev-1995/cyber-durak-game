@@ -254,6 +254,25 @@ class InMemoryGameSessionStore:
                 self._records.pop(game_id, None)
         return len(expired)
 
+    def detach_user(self, user_id: UUID) -> int:
+        """Turn every matching process-local game into a guest-associated session."""
+        detached = 0
+        with self._lock:
+            records = tuple(self._records.values())
+        for record in records:
+            with record.lock:
+                if record.session.user_id != user_id:
+                    continue
+                record.session = replace(
+                    record.session,
+                    user_id=None,
+                    completion_persisted=False,
+                    progression_award=None,
+                )
+                record.updated_at = self._clock()
+                detached += 1
+        return detached
+
     def _get_record(self, game_id: str) -> _SessionRecord:
         self.cleanup()
         with self._lock:
@@ -322,6 +341,10 @@ class GameSessionService:
         with self._store.locked_record(game_id) as record:
             self._persist_completed_match(record)
             return record.session
+
+    def detach_user(self, user_id: UUID) -> int:
+        """Prevent deleted accounts from receiving later session persistence."""
+        return self._store.detach_user(user_id)
 
     def play_human_action(
         self,

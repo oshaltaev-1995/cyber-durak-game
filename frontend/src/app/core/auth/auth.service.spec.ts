@@ -1,4 +1,5 @@
 import { provideHttpClient } from '@angular/common/http';
+import { HttpResponse } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { AuthService } from './auth.service';
@@ -112,6 +113,25 @@ describe('AuthService', () => {
 
     service.logoutAll().subscribe();
     http.expectOne('/api/auth/logout-all').flush(null);
+    expect(service.currentUser()).toBeNull();
+  });
+
+  it('downloads an account export and deletes with explicit confirmation', () => {
+    let exportResponse: HttpResponse<Blob> | undefined;
+    service.exportData().subscribe((response) => (exportResponse = response));
+    const exportRequest = http.expectOne('/api/account/export');
+    expect(exportRequest.request.method).toBe('GET');
+    exportRequest.flush(new Blob(['{"export_version":"1.0"}']), {
+      headers: { 'Content-Disposition': 'attachment; filename="kiba-data-export.json"' },
+    });
+    expect(exportResponse?.body).toBeInstanceOf(Blob);
+
+    service.currentUser.set(user);
+    service.deleteAccount('password123').subscribe();
+    const deletion = http.expectOne('/api/account/delete');
+    expect(deletion.request.method).toBe('POST');
+    expect(deletion.request.body).toEqual({ password: 'password123', confirmation: 'DELETE' });
+    deletion.flush(null);
     expect(service.currentUser()).toBeNull();
   });
 });

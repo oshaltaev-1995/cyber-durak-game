@@ -27,6 +27,13 @@
     @if (error(); as message) {
       <p class="error" role="alert">{{ message }}</p>
     }
+    <p class="legal-acknowledgement">
+      {{ i18n.t('auth.legalBeforeTerms') }}
+      <a routerLink="/terms">{{ i18n.t('auth.termsLink') }}</a>
+      {{ i18n.t('auth.legalBetweenPolicies') }}
+      <a routerLink="/privacy">{{ i18n.t('auth.privacyLink') }}</a
+      >{{ i18n.t('auth.legalAfterPrivacy') }}
+    </p>
     <div class="form-actions">
       <button type="submit" [disabled]="pending()">
         {{ i18n.t(pending() ? 'auth.registering' : 'auth.register') }}

@@ -1,5 +1,6 @@
 """PostgreSQL persistence primitives for accounts and match history."""
 
+from kiba_api.persistence.account_data import ACCOUNT_EXPORT_VERSION, AccountDataService
 from kiba_api.persistence.cosmetics import (
     COSMETICS,
     DEFAULT_COSMETIC_LOADOUT,
@@ -47,6 +48,8 @@ from kiba_api.persistence.progression import (
 )
 
 __all__ = [
+    "ACCOUNT_EXPORT_VERSION",
+    "AccountDataService",
     "AuthSession",
     "Base",
     "CompletedMatch",

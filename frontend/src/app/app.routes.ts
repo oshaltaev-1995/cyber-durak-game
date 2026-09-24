@@ -15,6 +15,8 @@ import { PvPLobbyPageComponent } from './pvp/pvp-lobby-page';
 import { PvPRoomPageComponent } from './pvp/pvp-room-page';
 import { RulesPageComponent } from './rules/rules-page';
 import { TutorialPageComponent } from './tutorial/tutorial-page';
+import { PrivacyPageComponent } from './legal/privacy-page';
+import { TermsPageComponent } from './legal/terms-page';
 
 export const routes: Routes = [
   { path: '', component: LandingPageComponent },
@@ -24,6 +26,8 @@ export const routes: Routes = [
   { path: 'join/:inviteCode', component: PvPJoinPageComponent },
   { path: 'tutorial', component: TutorialPageComponent },
   { path: 'rules', component: RulesPageComponent },
+  { path: 'privacy', component: PrivacyPageComponent },
+  { path: 'terms', component: TermsPageComponent },
   { path: 'login', component: LoginPageComponent },
   { path: 'register', component: RegisterPageComponent },
   { path: 'forgot-password', component: ForgotPasswordPageComponent },

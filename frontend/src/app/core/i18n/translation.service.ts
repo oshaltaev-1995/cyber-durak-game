@@ -1,7 +1,7 @@
 import { DOCUMENT } from '@angular/common';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { isLocale, KIBA_LOCALE_STORAGE_KEY, Locale, parseLocale } from './locale';
+import { isLocale, KIBA_LOCALE_STORAGE_KEY, Locale } from './locale';
 import { en } from './translations/en';
 import { ru, TranslationKey } from './translations/ru';
 
@@ -69,7 +69,7 @@ export class TranslationService {
   private initialLocale(): Locale {
     const stored = localStorage.getItem(KIBA_LOCALE_STORAGE_KEY);
     if (isLocale(stored)) return stored;
-    const locale = parseLocale(navigator.language);
+    const locale: Locale = 'en';
     localStorage.setItem(KIBA_LOCALE_STORAGE_KEY, locale);
     return locale;
   }

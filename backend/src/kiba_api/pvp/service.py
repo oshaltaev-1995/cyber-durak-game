@@ -323,6 +323,41 @@ class InMemoryPvPRoomStore:
             for invite_code in expired:
                 self._records.pop(invite_code, None)
 
+    def detach_user(self, user_id: UUID, now: datetime) -> int:
+        """Detach account persistence while retaining safe guest room continuity."""
+        detached = 0
+        with self._lock:
+            records = tuple(self._records.values())
+        for record in records:
+            with record.lock:
+                matching_ids = {
+                    participant.participant_id
+                    for participant in record.room.participants
+                    if participant.user_id == user_id
+                }
+                if not matching_ids:
+                    continue
+                participants = tuple(
+                    replace(participant, user_id=None)
+                    if participant.participant_id in matching_ids
+                    else participant
+                    for participant in record.room.participants
+                )
+                completions = tuple(
+                    replace(result, saved=False, progression_award=None)
+                    if result.participant_id in matching_ids
+                    else result
+                    for result in record.room.completion_results
+                )
+                record.room = replace(
+                    record.room,
+                    participants=participants,
+                    completion_results=completions,
+                    updated_at=now,
+                )
+                detached += len(matching_ids)
+        return detached
+
 
 _Clock = Callable[[], datetime]
 _GameFactory = Callable[[], GameState]
@@ -429,6 +464,10 @@ class PvPRoomService:
             self._raise_if_expired(record, now)
             self._persist_completed_room(record)
             return record.room
+
+    def detach_user(self, user_id: UUID) -> int:
+        """Keep current rooms playable but stop deleted-account persistence."""
+        return self._store.detach_user(user_id, self._now())
 
     def authenticate(
         self,

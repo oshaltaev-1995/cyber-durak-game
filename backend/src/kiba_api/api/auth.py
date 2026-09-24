@@ -240,7 +240,7 @@ def logout_all(
     settings: SettingsDependency,
 ) -> None:
     service.logout_all(user)
-    _clear_auth_cookie(response, settings)
+    clear_auth_cookie(response, settings)
 
 
 @router.post(
@@ -318,7 +318,7 @@ def reset_password(
 ) -> MessageResponse:
     _check_rate_limit(request, "reset", token_endpoint=True)
     service.reset_password(payload.token, payload.new_password)
-    _clear_auth_cookie(response, settings)
+    clear_auth_cookie(response, settings)
     return MessageResponse(message="password_reset")
 
 
@@ -371,7 +371,8 @@ def _set_auth_cookie(response: Response, token: str, settings: Settings) -> None
     )
 
 
-def _clear_auth_cookie(response: Response, settings: Settings) -> None:
+def clear_auth_cookie(response: Response, settings: Settings) -> None:
+    """Expire the browser's opaque authentication cookie."""
     response.delete_cookie(
         settings.auth_cookie_name,
         path="/",

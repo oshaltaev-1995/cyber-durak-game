@@ -1,4 +1,4 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpHeaders, HttpResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -33,6 +33,8 @@ interface AuthStub {
   logoutAll: ReturnType<typeof vi.fn<() => Observable<void>>>;
   sendVerification: ReturnType<typeof vi.fn<() => Observable<{ message: string }>>>;
   updateDisplayName: ReturnType<typeof vi.fn<(name: string) => Observable<CurrentUser>>>;
+  exportData: ReturnType<typeof vi.fn<() => Observable<HttpResponse<Blob>>>>;
+  deleteAccount: ReturnType<typeof vi.fn<(password: string) => Observable<void>>>;
 }
 
 const statistics: MatchStatistics = {
@@ -85,6 +87,17 @@ describe('account pages', () => {
       logoutAll: vi.fn(() => of(undefined)),
       sendVerification: vi.fn(() => of({ message: 'verification_sent' })),
       updateDisplayName: vi.fn((name) => of({ ...user, display_name: name })),
+      exportData: vi.fn(() =>
+        of(
+          new HttpResponse({
+            body: new Blob(['{}']),
+            headers: new HttpHeaders({
+              'Content-Disposition': 'attachment; filename="kiba-data-export.json"',
+            }),
+          }),
+        ),
+      ),
+      deleteAccount: vi.fn(() => of(undefined)),
     };
     profile = {
       getStatistics: vi.fn(() => of(statistics)),
@@ -157,6 +170,10 @@ describe('account pages', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Играть можно и без регистрации',
     );
+    expect((fixture.nativeElement as HTMLElement).querySelector('a[href="/terms"]')).not.toBeNull();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('a[href="/privacy"]'),
+    ).not.toBeNull();
     input(fixture, 'email', user.email);
     input(fixture, 'display_name', user.display_name);
     input(fixture, 'password', 'password123');
@@ -202,6 +219,77 @@ describe('account pages', () => {
     fixture.detectChanges();
     expect(auth.updateDisplayName).toHaveBeenCalledWith('Новое имя');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Имя сохранено');
+  });
+
+  it('downloads data and requires a deliberate password-confirmed account deletion', () => {
+    auth.currentUser.set(user);
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:export');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    const fixture = TestBed.createComponent(ProfilePageComponent);
+    fixture.detectChanges();
+
+    const buttons = () => [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')];
+    buttons()
+      .find((button) => button.textContent?.includes('Скачать мои данные'))
+      ?.click();
+    expect(auth.exportData).toHaveBeenCalledOnce();
+
+    buttons()
+      .find((button) => button.textContent?.trim() === 'Удалить аккаунт')
+      ?.click();
+    fixture.detectChanges();
+    input(fixture, 'password', 'password123');
+    const confirmation = (fixture.nativeElement as HTMLElement).querySelector(
+      '[formcontrolname="confirmed"]',
+    ) as HTMLInputElement;
+    confirmation.checked = true;
+    confirmation.dispatchEvent(new Event('change'));
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('.delete-form')
+      ?.dispatchEvent(new Event('submit'));
+    fixture.detectChanges();
+
+    expect(auth.deleteAccount).toHaveBeenCalledWith('password123');
+    expect(navigate).toHaveBeenCalledWith('/');
+  });
+
+  it('keeps the profile usable when export or account deletion is rejected', () => {
+    auth.currentUser.set(user);
+    auth.exportData.mockReturnValue(throwError(() => new Error('offline')));
+    auth.deleteAccount.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 401, statusText: 'Unauthorized' })),
+    );
+    const fixture = TestBed.createComponent(ProfilePageComponent);
+    fixture.detectChanges();
+
+    const buttons = () => [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')];
+    buttons()
+      .find((button) => button.textContent?.includes('Скачать мои данные'))
+      ?.click();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Не удалось скачать данные',
+    );
+
+    buttons()
+      .find((button) => button.textContent?.trim() === 'Удалить аккаунт')
+      ?.click();
+    fixture.detectChanges();
+    input(fixture, 'password', 'incorrect-password');
+    const confirmation = (fixture.nativeElement as HTMLElement).querySelector(
+      '[formcontrolname="confirmed"]',
+    ) as HTMLInputElement;
+    confirmation.checked = true;
+    confirmation.dispatchEvent(new Event('change'));
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('.delete-form')
+      ?.dispatchEvent(new Event('submit'));
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Неверный текущий пароль');
+    expect(auth.currentUser()).toEqual(user);
   });
 
   it('shows verification state and can resend without gating the profile', () => {

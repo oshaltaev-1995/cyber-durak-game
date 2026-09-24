@@ -47,3 +47,10 @@
   <p class="locale-error" role="status">{{ localeSaveError }}</p>
 }
 <router-outlet />
+@if (showLegalFooter()) {
+  <footer class="legal-footer" [attr.aria-label]="i18n.t('legal.footerLabel')">
+    <a routerLink="/privacy">{{ i18n.t('legal.privacy') }}</a>
+    <a routerLink="/terms">{{ i18n.t('legal.terms') }}</a>
+    <a href="mailto:support@cyberdurak.com">{{ i18n.t('legal.support') }}</a>
+  </footer>
+}

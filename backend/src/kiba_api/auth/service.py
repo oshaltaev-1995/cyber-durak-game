@@ -296,6 +296,11 @@ class AuthService:
         """Backward-compatible display-name helper."""
         return self.update_profile(user, display_name=display_name)
 
+    def verify_current_password(self, user: User, password: str) -> None:
+        """Require the current password before a destructive account operation."""
+        if not self._password_matches(user, password):
+            raise AuthError(AuthErrorCode.INVALID_CREDENTIALS)
+
     def _find_user(self, normalized_email: str) -> User | None:
         return self._db.scalar(select(User).where(User.normalized_email == normalized_email))
 

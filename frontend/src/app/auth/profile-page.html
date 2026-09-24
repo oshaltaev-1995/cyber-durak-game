@@ -61,6 +61,53 @@
       </div>
     </form>
 
+    <section class="data-rights" aria-labelledby="data-rights-title">
+      <div>
+        <span class="kicker">{{ i18n.t('profile.dataRights') }}</span>
+        <h2 id="data-rights-title">{{ i18n.t('profile.downloadData') }}</h2>
+      </div>
+      <p class="account-meta">{{ i18n.t('profile.dataRightsIntro') }}</p>
+      <button type="button" (click)="downloadData()" [disabled]="exportPending()">
+        {{ i18n.t(exportPending() ? 'profile.exporting' : 'profile.downloadData') }}
+      </button>
+      @if (exportError()) {
+        <p class="error" role="alert">{{ i18n.t('profile.exportFailed') }}</p>
+      }
+    </section>
+
+    <section class="danger-zone" aria-labelledby="danger-zone-title">
+      <span class="kicker">{{ i18n.t('profile.dangerZone') }}</span>
+      <h2 id="danger-zone-title">{{ i18n.t('profile.deleteAccount') }}</h2>
+      <p class="account-meta">{{ i18n.t('profile.deleteIntro') }}</p>
+      @if (!deleteOpen()) {
+        <button type="button" class="danger-button" (click)="showDeleteConfirmation()">
+          {{ i18n.t('profile.deleteAccount') }}
+        </button>
+      } @else {
+        <form class="delete-form" [formGroup]="deleteForm" (ngSubmit)="deleteAccount()">
+          <label>
+            {{ i18n.t('profile.deletePassword') }}
+            <input type="password" formControlName="password" autocomplete="current-password" />
+          </label>
+          <label class="confirmation-check">
+            <input type="checkbox" formControlName="confirmed" />
+            <span>{{ i18n.t('profile.deleteConfirm') }}</span>
+          </label>
+          @if (deleteError(); as message) {
+            <p class="error" role="alert">{{ message }}</p>
+          }
+          <div class="form-actions">
+            <button type="submit" class="danger-button" [disabled]="deletePending()">
+              {{ i18n.t(deletePending() ? 'profile.deleting' : 'profile.deleteFinal') }}
+            </button>
+            <button type="button" (click)="cancelDelete()" [disabled]="deletePending()">
+              {{ i18n.t('common.cancel') }}
+            </button>
+          </div>
+        </form>
+      }
+    </section>
+
     <section class="progression" aria-labelledby="progression-title">
       @if (progressionPending()) {
         <p class="account-meta" role="status">{{ i18n.t('common.loading') }}</p>

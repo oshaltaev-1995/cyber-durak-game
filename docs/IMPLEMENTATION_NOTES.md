@@ -650,11 +650,12 @@ process-local. Production migrations are an explicit release step. Operational d
 ### 10.11 Runtime Russian/English localization
 
 Player-facing localization is a presentation/application concern. One Angular build contains typed
-Russian and English catalogues and switches them at runtime; routes, `GameState`, `BoutState`, REST
-action codes, and the PvP WebSocket protocol remain language-neutral. A first guest visit maps a
-`ru-*` browser locale to Russian and other browser locales to English. The effective guest choice is
-stored as `kiba.preferred-locale` in `localStorage`, updates `<html lang>` and browser titles, and
-does not reload or replace active game/PvP state.
+English and Russian catalogues and switches them at runtime; routes, `GameState`, `BoutState`, REST
+action codes, and the PvP WebSocket protocol remain language-neutral. A first guest visit with no
+saved preference always starts in English for the EU/international release. The effective guest
+choice is stored as `kiba.preferred-locale` in `localStorage`, updates `<html lang>` and browser
+titles, and does not reload or replace active game/PvP state. Existing saved Russian preferences are
+not reset.
 
 Authenticated users persist constrained `users.preferred_locale` (`ru` or `en`). Registration sends
 the current UI locale; `/api/auth/me` and login restore the account locale across devices. A runtime
@@ -672,6 +673,35 @@ provider-neutral development/SMTP sender seam. Request-browser language never ov
 account preference. Russian remains the backend compatibility fallback for absent or unsupported
 request languages and for migrated existing users. Adding another locale should primarily require
 a new frontend catalogue and backend catalogue/email copy, not a separate build or rules engine.
+
+### 10.12 Phase 6A.6 privacy and account-data boundary
+
+Public Privacy and Terms use one `/privacy` and `/terms` route with runtime EN/RU content and
+centralized version/effective-date constants. The public controller is Oleg Shaltaev, Finland,
+`support@cyberdurak.com`. Legal pages and registration links are public; the compact footer is
+suppressed on active game/room routes so legal navigation does not disrupt play.
+
+`GET /api/account/export` creates a versioned JSON response in memory from the authenticated user's
+profile, own match summaries, XP ledger, achievements and cosmetics. It deliberately omits password
+hashes, session/account-token digests, opponent UUIDs, reconnect credentials and game secrets. No
+export file is persisted.
+
+`POST /api/account/delete` requires the current password and an explicit `DELETE` confirmation.
+One database transaction anonymizes the deleted identity in other users' retained PvP summaries,
+removes the user's owned match/progression/auth/token/profile rows, and permits later reuse of the
+email. The auth cookie is cleared only after commit. Process-local bot sessions and PvP participants
+are then detached from the deleted UUID and continue as guests, preventing later persistence to a
+missing user. A failed transaction rolls back without logging out the account.
+
+No schema migration is needed: existing `ON DELETE SET NULL` opponent references and nullable
+snapshot fields support anonymization, while owned records already reference the user. Active games
+and rooms remain process-local. Operational policy/data inventory is maintained in the privacy,
+retention, processor, incident, rights, processing-record, and legal-review documents rather than
+duplicated in code.
+
+No analytics/advertising/marketing tracker is present. The auth cookie, locale `localStorage`, and
+PvP reconnect `sessionStorage` are necessary/functional storage, so Phase 6A.6 adds no optional
+cookie banner. Any future non-essential tracking requires a fresh consent/privacy assessment.
 
 Possible bot priorities:
 

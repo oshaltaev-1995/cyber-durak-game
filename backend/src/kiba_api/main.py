@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from kiba_api.api.account import router as account_router
 from kiba_api.api.auth import router as auth_router
 from kiba_api.api.cards import CardCodeError
 from kiba_api.api.cosmetics import router as cosmetics_router
@@ -27,6 +28,7 @@ from kiba_api.emailing import EmailSender, create_email_sender
 from kiba_api.game import BoutActionError, GameActionError
 from kiba_api.observability import configure_logging
 from kiba_api.persistence import (
+    AccountDataService,
     CosmeticAward,
     CosmeticError,
     CosmeticService,
@@ -67,6 +69,7 @@ def create_app(
     match_history_service = MatchHistoryService(resolved_database)
     progression_service = ProgressionService(resolved_database)
     cosmetic_service = CosmeticService(resolved_database, progression_service)
+    account_data_service = AccountDataService(resolved_database)
 
     def with_cosmetics(award, user_id):
         cosmetic_sync = cosmetic_service.synchronize(user_id)
@@ -84,6 +87,8 @@ def create_app(
         )
 
     def record_completion(session):
+        if session.user_id is None or not account_data_service.user_exists(session.user_id):
+            return None
         match_history_service.record_completed_match(session)
         match = match_history_service.get_match_by_game_session(session.game_id)
         award = progression_service.synchronize_for_match(session.user_id, match.id)
@@ -93,7 +98,11 @@ def create_app(
         matches = match_history_service.record_completed_pvp_room(room)
         results = []
         for participant in room.participants:
-            if participant.user_id is None:
+            if (
+                participant.user_id is None
+                or participant.participant_id not in matches
+                or not account_data_service.user_exists(participant.user_id)
+            ):
                 results.append(PvPParticipantCompletion(participant.participant_id, False))
                 continue
             match = matches[participant.participant_id]
@@ -129,6 +138,7 @@ def create_app(
     application.state.match_history_service = match_history_service
     application.state.progression_service = progression_service
     application.state.cosmetic_service = cosmetic_service
+    application.state.account_data_service = account_data_service
     application.state.auth_rate_limiter = AuthRateLimiter(
         resolved_settings.auth_rate_limit_attempts,
         resolved_settings.auth_rate_limit_window_seconds,
@@ -142,6 +152,7 @@ def create_app(
         resolved_settings.pvp_action_rate_limit_window_seconds,
     )
     application.include_router(auth_router)
+    application.include_router(account_router)
     application.include_router(games_router)
     application.include_router(history_router)
     application.include_router(progression_router)

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from kiba_api.game import GameOutcome, GamePhase, GameResult, Seat
 from kiba_api.persistence.database import Database
-from kiba_api.persistence.models import CompletedMatch
+from kiba_api.persistence.models import CompletedMatch, User
 from kiba_api.sessions import GameSession
 
 if TYPE_CHECKING:
@@ -133,7 +133,20 @@ class MatchHistoryService:
         if room.game_started_at is None or room.initial_attacker is None:
             raise ValueError("a recorded PvP game requires start metadata")
 
-        authenticated = tuple(value for value in room.participants if value.user_id is not None)
+        candidates = tuple(value for value in room.participants if value.user_id is not None)
+        if not candidates:
+            return {}
+        with self._database.session() as database_session:
+            live_user_ids = set(
+                database_session.scalars(
+                    select(User.id).where(
+                        User.id.in_([participant.user_id for participant in candidates])
+                    )
+                )
+            )
+        authenticated = tuple(
+            participant for participant in candidates if participant.user_id in live_user_ids
+        )
         if not authenticated:
             return {}
         completed_at = _as_utc(room.updated_at)

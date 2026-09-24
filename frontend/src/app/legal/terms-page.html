@@ -1,0 +1,29 @@
+<main class="legal-page" aria-labelledby="terms-title">
+  <header>
+    <span class="eyebrow">{{ document().eyebrow }}</span>
+    <h1 id="terms-title">{{ document().title }}</h1>
+    <p class="summary">{{ document().summary }}</p>
+    <p class="metadata">{{ document().versionLabel }} · {{ document().effectiveLabel }}</p>
+  </header>
+
+  @for (section of document().sections; track section.heading) {
+    <section>
+      <h2>{{ section.heading }}</h2>
+      @for (paragraph of section.paragraphs; track paragraph) {
+        <p>{{ paragraph }}</p>
+      }
+      @if (section.bullets; as bullets) {
+        <ul>
+          @for (item of bullets; track item) {
+            <li>{{ item }}</li>
+          }
+        </ul>
+      }
+    </section>
+  }
+
+  <nav class="legal-actions" [attr.aria-label]="i18n.t('legal.footerLabel')">
+    <a routerLink="/privacy">{{ i18n.t('legal.privacy') }}</a>
+    <a [href]="'mailto:' + supportEmail">{{ i18n.t('legal.support') }}</a>
+  </nav>
+</main>

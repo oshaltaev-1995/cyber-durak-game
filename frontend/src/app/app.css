@@ -72,6 +72,23 @@ nav {
   text-align: center;
 }
 
+.legal-footer {
+  display: flex;
+  width: min(100% - 2rem, 52rem);
+  margin: 0 auto;
+  padding: 1.25rem 0 2rem;
+  justify-content: center;
+  gap: 0.65rem 1.2rem;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.legal-footer a {
+  color: inherit;
+  text-underline-offset: 0.2rem;
+}
+
 nav a {
   padding: 0.5rem 0.55rem;
   border-radius: 0.55rem;

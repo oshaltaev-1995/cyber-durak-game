@@ -21,18 +21,18 @@ describe('runtime localization', () => {
     expect(parseLocale('de-DE')).toBe('en');
   });
 
-  it.each([
-    ['ru-RU', 'ru'],
-    ['en-US', 'en'],
-  ] as const)('uses %s on a first visit', (browserLanguage, expected) => {
-    localStorage.removeItem(KIBA_LOCALE_STORAGE_KEY);
-    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue(browserLanguage);
-    const service = TestBed.inject(TranslationService);
+  it.each(['ru-RU', 'en-US', 'de-DE'])(
+    'defaults a new %s browser to English',
+    (browserLanguage) => {
+      localStorage.removeItem(KIBA_LOCALE_STORAGE_KEY);
+      vi.spyOn(window.navigator, 'language', 'get').mockReturnValue(browserLanguage);
+      const service = TestBed.inject(TranslationService);
 
-    expect(service.locale()).toBe(expected);
-    expect(localStorage.getItem(KIBA_LOCALE_STORAGE_KEY)).toBe(expected);
-    expect(document.documentElement.lang).toBe(expected);
-  });
+      expect(service.locale()).toBe('en');
+      expect(localStorage.getItem(KIBA_LOCALE_STORAGE_KEY)).toBe('en');
+      expect(document.documentElement.lang).toBe('en');
+    },
+  );
 
   it('lets persisted choice override the browser and switches immediately', () => {
     localStorage.setItem(KIBA_LOCALE_STORAGE_KEY, 'ru');

@@ -38,6 +38,19 @@ The game should work well on:
 
 The strongest product advantage of the web version is that the software can calculate combinations automatically and make a rule-heavy physical card game easy to understand.
 
+### 2.1 Current launch positioning
+
+The current target is an **EU/international portfolio public beta** with planned production
+infrastructure in the Netherlands/EEA. English is the primary/default language for new visitors;
+Russian remains an explicitly selectable secondary language. Existing saved guest and account
+preferences are preserved.
+
+The launch is not intentionally marketed to the Russian market: there is no VK Play integration,
+Russian payment flow, `.ru` product domain, or RF production/data region. Availability of Russian
+copy does not by itself define market targeting. Russian-market/data-residency obligations must be
+reassessed before any deliberate RF-market launch, VK Play publication, RF-targeted marketing, or
+RF-specific infrastructure.
+
 ---
 
 ## 3. Core product principle
@@ -61,7 +74,8 @@ Everything else depends on this.
 - one human vs bot
 - complete core rules
 - responsive desktop/mobile UI
-- complete Russian and English player-facing UI with an instant runtime language switch
+- complete English and Russian player-facing UI with an instant runtime language switch; English
+  is the first-visit default
 - New Game
 - short interactive rules/tutorial
 - automatic arithmetic hints

@@ -62,6 +62,13 @@ describe('App', () => {
     expect(compiled.querySelector('a[href="/register"]')?.textContent).toContain(
       'Создайте аккаунт',
     );
+    expect(compiled.querySelector('a[href="/privacy"]')?.textContent).toContain(
+      'Конфиденциальность',
+    );
+    expect(compiled.querySelector('a[href="/terms"]')?.textContent).toContain('Условия');
+    expect(compiled.querySelector('a[href^="mailto:"]')?.getAttribute('href')).toBe(
+      'mailto:support@cyberdurak.com',
+    );
   });
 
   it('shows the account display name in navigation after authentication', () => {

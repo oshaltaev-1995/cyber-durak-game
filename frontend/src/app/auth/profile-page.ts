@@ -32,10 +32,25 @@ export class ProfilePageComponent implements OnInit {
   protected readonly progression = signal<ProgressionSummary | null>(null);
   protected readonly progressionPending = signal(false);
   protected readonly progressionError = signal(false);
+  protected readonly exportPending = signal(false);
+  protected readonly exportError = signal(false);
+  protected readonly deleteOpen = signal(false);
+  protected readonly deletePending = signal(false);
+  protected readonly deleteError = signal<string | null>(null);
   protected readonly form = new FormGroup({
     display_name: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(50)],
+    }),
+  });
+  protected readonly deleteForm = new FormGroup({
+    password: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    confirmed: new FormControl(false, {
+      nonNullable: true,
+      validators: [Validators.requiredTrue],
     }),
   });
 
@@ -117,6 +132,67 @@ export class ProfilePageComponent implements OnInit {
               : this.i18n.t('profile.verificationSent'),
           ),
         error: () => this.error.set(this.i18n.t('profile.verificationFailed')),
+      });
+  }
+
+  protected downloadData(): void {
+    if (this.exportPending()) return;
+    this.exportPending.set(true);
+    this.exportError.set(false);
+    this.auth
+      .exportData()
+      .pipe(finalize(() => this.exportPending.set(false)))
+      .subscribe({
+        next: (response) => {
+          const blob = response.body;
+          if (blob === null) {
+            this.exportError.set(true);
+            return;
+          }
+          const disposition = response.headers.get('content-disposition') ?? '';
+          const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? 'kiba-data-export.json';
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          link.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => this.exportError.set(true),
+      });
+  }
+
+  protected showDeleteConfirmation(): void {
+    this.deleteError.set(null);
+    this.deleteOpen.set(true);
+  }
+
+  protected cancelDelete(): void {
+    if (this.deletePending()) return;
+    this.deleteOpen.set(false);
+    this.deleteError.set(null);
+    this.deleteForm.reset({ password: '', confirmed: false });
+  }
+
+  protected deleteAccount(): void {
+    if (this.deletePending() || this.deleteForm.invalid) {
+      this.deleteForm.markAllAsTouched();
+      return;
+    }
+    this.deletePending.set(true);
+    this.deleteError.set(null);
+    this.auth
+      .deleteAccount(this.deleteForm.controls.password.value)
+      .pipe(finalize(() => this.deletePending.set(false)))
+      .subscribe({
+        next: () => void this.router.navigateByUrl('/'),
+        error: (error: unknown) => {
+          this.deleteError.set(
+            error instanceof HttpErrorResponse && error.status === 401
+              ? this.i18n.t('profile.deleteWrongPassword')
+              : this.i18n.t('profile.deleteFailed'),
+          );
+        },
       });
   }
 

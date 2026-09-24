@@ -62,7 +62,7 @@ export class HistoryPageComponent implements OnInit {
   protected opponentLabel(match: MatchHistoryItem): string {
     return match.opponent_type === 'PVP'
       ? this.i18n.t('history.vsPlayer', {
-          name: match.opponent_display_name ?? this.i18n.t('pvp.opponent'),
+          name: match.opponent_display_name ?? this.i18n.t('history.deletedPlayer'),
         })
       : this.i18n.t('history.vsBot');
   }

@@ -132,6 +132,21 @@ describe('HistoryPageComponent', () => {
     );
   });
 
+  it('uses an anonymized label when a deleted PvP opponent has no snapshot', () => {
+    profile.getMatches.mockReturnValue(
+      of({
+        ...populated,
+        items: [{ ...populated.items[0], opponent_display_name: null }],
+        total: 1,
+      }),
+    );
+    const fixture = TestBed.createComponent(HistoryPageComponent);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('против Удалённый игрок');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Alice');
+  });
+
   it('does not request private history for a guest', () => {
     currentUser.set(null);
     const fixture = TestBed.createComponent(HistoryPageComponent);

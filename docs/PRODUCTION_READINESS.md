@@ -77,6 +77,28 @@ copies outside the running database volume/server where possible, and rehearse r
 Production startup does not run Alembic automatically. Destructive downgrade is never a production
 release step.
 
+## Phase 6A.6 privacy and legal gate
+
+Before public deployment:
+
+- the public EN/RU Privacy and Terms pages must be reviewed and current;
+- authenticated JSON export and password-confirmed transactional deletion must pass production
+  smoke tests, including retained PvP-history anonymization;
+- `support@cyberdurak.com` must receive mail and be monitored;
+- the processor register and public provider wording must be finalized after Phase 6B provider
+  selection, including DPA/location/transfer review;
+- 30-day targets for application/security logs and database backups, plus short expired-token/session
+  cleanup, must be configured and monitored;
+- backup restore/rotation and deletion-after-restore handling must be rehearsed;
+- the owner must review `LEGAL_REVIEW_CHECKLIST.md`, including the possible Finnish
+  geographical/business-address obligation, without publishing a private home address by default;
+- no analytics, advertising, marketing pixels, or other non-essential tracking may be enabled
+  without renewed cookie/privacy assessment.
+
+The controller is Oleg Shaltaev, Finland, `support@cyberdurak.com`. This is compliance readiness,
+not formal certification. Active games/rooms remain process-local and unfinished sessions are not
+part of account export or persistent deletion.
+
 ## Phase 6B deployment requirements
 
 - domain, DNS, TLS certificate, HTTPS reverse proxy, and HSTS;
@@ -91,4 +113,4 @@ release step.
 - Rate limits reset on restart and require reverse-proxy reinforcement.
 - No active-game persistence, Redis/shared room store, matchmaking/rating, or anti-farming controls.
 - No automatic offsite backup implementation in this repository.
-- A minimal privacy, terms, and account-deletion review remains required before broad launch.
+- Final human legal review and provider-specific policy details remain required before launch.

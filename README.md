@@ -9,8 +9,9 @@ Alpha 2 also provides process-local private two-player rooms with invite links, 
 authoritative WebSocket actions, and browser-session reconnect credentials.
 Registration is never required to play. Completed authenticated bot and private-PvP matches persist
 history and progression; guest results remain unsaved, and guests always use the classic appearance.
-The single Angular application supports Russian and English, detects the browser language on a
-first visit, and provides an instant `RU | EN` switch without reloading or resetting active play.
+The single Angular application defaults new visitors to English and provides an instant `EN | RU`
+switch without reloading or resetting active play. An explicitly saved guest or account language
+continues to be respected.
 
 ## Repository structure
 
@@ -82,6 +83,9 @@ The product shell provides these routes:
   the profile also shows ledger-derived XP and level progress.
 - **Оформление** (`/profile/cosmetics`) shows unlocked card backs, table themes, and profile frames
   and lets an authenticated player equip them.
+- **Privacy** (`/privacy`) and **Terms** (`/terms`) are public in English and Russian. An
+  authenticated profile can download a versioned JSON copy of account data or permanently delete
+  the account after password confirmation.
 
 Click **Играть с ботом** to create a bot game, or **Играть с другом** to create a private room and
 copy its current-origin invite link. The invited player may join with a guest nickname or their
@@ -96,6 +100,12 @@ Guest language choice is stored in browser `localStorage`. An authenticated acco
 preferred language, restores it after login on another device, and uses it for verification and
 password-reset email. API presentation catalogues use `Accept-Language`; game and protocol codes
 remain language-neutral.
+
+Kiba is being prepared as an EU/international portfolio public beta with planned Netherlands/EEA
+infrastructure. English is primary and Russian is an optional secondary language. Guest play stays
+registration-free. The public controller/contact shown in Privacy and Terms is Oleg Shaltaev,
+Finland, `support@cyberdurak.com`; that mailbox and all production processors must be finalized
+before launch. There are currently no analytics, advertising, or marketing trackers.
 
 Create and inspect an Alpha human-versus-bot game with:
 

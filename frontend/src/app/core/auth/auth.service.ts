@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpResponse } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { catchError, Observable, of, tap } from 'rxjs';
 import { AuthMessage, CurrentUser, LoginRequest, RegisterRequest } from './auth.models';
@@ -84,6 +84,19 @@ export class AuthService {
     return this.http
       .patch<CurrentUser>('/api/profile', { preferred_locale: preferredLocale })
       .pipe(tap((user) => this.setAuthenticated(user)));
+  }
+
+  exportData(): Observable<HttpResponse<Blob>> {
+    return this.http.get('/api/account/export', {
+      observe: 'response',
+      responseType: 'blob',
+    });
+  }
+
+  deleteAccount(password: string): Observable<void> {
+    return this.http
+      .post<void>('/api/account/delete', { password, confirmation: 'DELETE' })
+      .pipe(tap(() => this.setAuthenticated(null)));
   }
 
   private setAuthenticated(user: CurrentUser | null): void {

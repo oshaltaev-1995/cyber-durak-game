@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, OnInit, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from './core/auth/auth.service';
@@ -8,6 +16,8 @@ import { TranslationService } from './core/i18n/translation.service';
 import { TranslationKey } from './core/i18n/translations/ru';
 
 const TITLE_KEYS: readonly [string, TranslationKey][] = [
+  ['/privacy', 'meta.privacy'],
+  ['/terms', 'meta.terms'],
   ['/profile/achievements', 'meta.achievements'],
   ['/profile/cosmetics', 'meta.cosmetics'],
   ['/profile/history', 'meta.history'],
@@ -39,6 +49,10 @@ export class App implements OnInit {
   private readonly router = inject(Router);
   private readonly currentUrl = signal(this.router.url);
   protected localeSaveError = '';
+  protected readonly showLegalFooter = computed(() => {
+    const url = this.currentUrl();
+    return url !== '/play' && !url.startsWith('/pvp/room/');
+  });
 
   constructor() {
     this.router.events
