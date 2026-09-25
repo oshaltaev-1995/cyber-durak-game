@@ -26,13 +26,16 @@ From the exact reviewed Git revision:
 
 ```bash
 docker compose --env-file /etc/kiba/production.env -f docker-compose.prod.yml build backend
-docker compose --env-file /etc/kiba/production.env -f docker-compose.prod.yml build frontend
+docker compose --env-file /etc/kiba/production.env -f docker-compose.prod.yml build kiba-frontend
 docker compose --env-file /etc/kiba/production.env -f docker-compose.prod.yml up -d database
 docker compose --env-file /etc/kiba/production.env -f docker-compose.prod.yml run --rm --no-deps backend alembic upgrade head
-docker compose --env-file /etc/kiba/production.env -f docker-compose.prod.yml up -d backend frontend
+docker compose --env-file /etc/kiba/production.env -f docker-compose.prod.yml up -d backend kiba-frontend
 ```
 
-Before changing Caddy, verify database, backend, and frontend health from their Docker networks,
+The Compose service itself is deliberately named `kiba-frontend`, not the generic `frontend`.
+Docker adds service names as network aliases, and a generic alias on the shared ingress network can
+collide with another stack. Before changing Caddy, verify database, backend, and frontend health
+from their Docker networks,
 confirm that Kiba publishes no host ports, and test same-origin `/api` proxying from the frontend.
 The Caddy addition should route the complete `cyberdurak.com` origin to `kiba-frontend:8080` and
 redirect `www` to the canonical apex. Nginx retains SPA fallback and proxies `/api` and WebSocket
