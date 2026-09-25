@@ -1,0 +1,23 @@
+[Unit]
+Description=Kiba PostgreSQL backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/kiba/app
+Environment=KIBA_COMPOSE_FILE=/opt/kiba/app/docker-compose.prod.yml
+Environment=KIBA_ENV_FILE=/etc/kiba/production.env
+Environment=KIBA_COMPOSE_PROJECT_NAME=kiba-production
+Environment=KIBA_BACKUP_DIR=/var/backups/kiba
+Environment=KIBA_BACKUP_RETENTION_DAYS=30
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+ExecStart=/opt/kiba/app/scripts/run_production_backup.sh
+
+[Install]
+WantedBy=multi-user.target

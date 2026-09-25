@@ -101,11 +101,12 @@ preferred language, restores it after login on another device, and uses it for v
 password-reset email. API presentation catalogues use `Accept-Language`; game and protocol codes
 remain language-neutral.
 
-Kiba is being prepared as an EU/international portfolio public beta with planned Netherlands/EEA
+Kiba is prepared as an EU/international portfolio public beta hosted in the Netherlands/EEA
 infrastructure. English is primary and Russian is an optional secondary language. Guest play stays
 registration-free. The public controller/contact shown in Privacy and Terms is Oleg Shaltaev,
-Finland, `support@cyberdurak.com`; that mailbox and all production processors must be finalized
-before launch. There are currently no analytics, advertising, or marketing trackers.
+Finland, `support@cyberdurak.com`; the mailbox is monitored and current production providers are
+listed in `docs/PROCESSORS.md`. There are currently no analytics, advertising, or marketing
+trackers.
 
 Create and inspect an Alpha human-versus-bot game with:
 

@@ -1,6 +1,6 @@
 # Kiba privacy data map
 
-Status: Phase 6A.6 pre-launch audit, 2026-09-25. This is a technical processing inventory for an
+Status: Phase 6B launch audit, reviewed 2026-09-25. This is a technical processing inventory for an
 EU/international public beta, not a legal opinion. The controller is **Oleg Shaltaev, Finland,
 support@cyberdurak.com**.
 
@@ -34,8 +34,8 @@ association is explicitly detached so later completion cannot persist against a 
 The application uses the account email, display name, preferred locale, message purpose, and a
 one-use verification/reset URL to deliver **verification and password-recovery only**. There is no
 newsletter or marketing email. Development delivery is a process-local outbox plus local logs and
-must never run in production. Production SMTP is provider-neutral and not configured yet. A final
-processor/DPA/data-location review is a deployment gate.
+must never run in production. Production SMTP uses the provider-neutral adapter with Brevo.
+Provider DPA, subprocessor, retention and transfer details remain an owner/legal-review item.
 
 ## Request, abuse-prevention, and operational metadata
 
@@ -69,8 +69,8 @@ deleted data may remain until normal rotation and may be used only for disaster 
 a backup requires applying subsequent deletion obligations operationally where applicable —
 **LEGAL/OPERATIONS REVIEW REQUIRED**.
 
-The intended production region is the Netherlands/EEA. No production provider is active yet.
-Hosting, SMTP, DNS and any monitoring provider must be entered in `PROCESSORS.md`, reviewed for DPA
+The production host region is the Netherlands/EEA. VDSina hosting, Brevo transactional email and
+Cloudflare DNS/support-mail routing are entered in `PROCESSORS.md` and require final review for DPA
 and transfer safeguards, and reflected in the public policy before launch.
 
 ## Data-subject rights handling

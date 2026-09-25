@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Kiba PostgreSQL backup schedule
+
+[Timer]
+OnCalendar=*-*-* 05:30:00 Europe/Helsinki
+RandomizedDelaySec=10m
+Persistent=true
+Unit=kiba-backup.service
+
+[Install]
+WantedBy=timers.target

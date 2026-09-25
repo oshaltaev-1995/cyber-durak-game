@@ -16,7 +16,16 @@ mkdir -p "$(dirname "$output")"
 temporary="$output.partial"
 trap 'rm -f "$temporary"' EXIT
 
-docker compose -f "$compose_file" exec -T database sh -c \
+compose=(docker compose)
+if [[ -n "${KIBA_COMPOSE_PROJECT_NAME:-}" ]]; then
+  compose+=(--project-name "$KIBA_COMPOSE_PROJECT_NAME")
+fi
+if [[ -n "${KIBA_ENV_FILE:-}" ]]; then
+  compose+=(--env-file "$KIBA_ENV_FILE")
+fi
+compose+=(-f "$compose_file")
+
+"${compose[@]}" exec -T database sh -c \
   'pg_dump --format=custom --no-owner --no-acl --username="$POSTGRES_USER" "$POSTGRES_DB"' \
   >"$temporary"
 test -s "$temporary"

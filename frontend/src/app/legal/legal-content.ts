@@ -79,7 +79,7 @@ const privacyEn: LegalDocument = {
     {
       heading: 'Providers and international processing',
       paragraphs: [
-        'KIBA is pre-launch. Production infrastructure is planned in the Netherlands/EEA. Hosting, transactional-email, and domain/DNS providers must be finalized and reviewed before public launch; they are not described as active processors of production users yet.',
+        'KIBA uses a VDSina-hosted server in the Netherlands/EEA, Brevo for transactional verification and password-recovery email, and Cloudflare for authoritative DNS and inbound routing of the public support mailbox. These providers process only the categories needed for those functions.',
         'The controller does not promise that every future provider will always be inside the EEA. Any provider that handles personal data must receive an appropriate privacy and transfer review before use.',
       ],
     },
@@ -169,7 +169,7 @@ const privacyRu: LegalDocument = {
     {
       heading: 'Провайдеры и международная обработка',
       paragraphs: [
-        'KIBA ещё не запущена публично. Производственная инфраструктура планируется в Нидерландах/ЕЭЗ. Хостинг, транзакционная почта и DNS должны быть окончательно выбраны и проверены до запуска; они пока не указаны как активные обработчики производственных данных.',
+        'KIBA использует сервер VDSina в Нидерландах/ЕЭЗ, Brevo для транзакционных писем подтверждения и восстановления пароля, а Cloudflare — для авторитетного DNS и входящей маршрутизации публичного адреса поддержки. Эти провайдеры получают только категории данных, необходимые для соответствующей функции.',
         'Контролёр не обещает, что каждый будущий провайдер всегда будет находиться в ЕЭЗ. До подключения провайдера, работающего с персональными данными, проводится проверка конфиденциальности и передачи данных.',
       ],
     },

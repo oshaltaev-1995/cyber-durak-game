@@ -61,9 +61,10 @@ required.
 ```
 
 Restore requires a separate database name and refuses the active database. Remove a validated test
-database explicitly with `dropdb`. Phase 6B must schedule daily backups, define retention, store
-copies outside the running database volume/server where possible, and rehearse restores. Do not run
-`docker compose down -v` in production unless permanent data destruction is intended.
+database explicitly with `dropdb`. Phase 6B must schedule daily local backups, define retention,
+and rehearse restores. Off-host disaster-recovery storage is explicitly deferred for the initial
+portfolio beta: this accepted risk means total VPS/storage loss may also destroy local backups. Do
+not run `docker compose down -v` in production unless permanent data destruction is intended.
 
 ## Safe release sequence
 
@@ -126,8 +127,12 @@ the sanitized record. This focused change is not a claim that the entire host is
 
 - domain, DNS, TLS certificate, HTTPS reverse proxy, and HSTS;
 - real SMTP credentials and a unique production database password;
-- automated backup schedule/retention and off-host storage;
+- automated local backup schedule/retention and a demonstrated restore drill;
 - log retention, uptime/readiness monitoring, and restart maintenance communication.
+
+Off-host disaster-recovery copy: **DEFERRED**. It is a post-launch follow-up rather than a blocker
+for this intentionally small public beta. Local Kiba backups must remain isolated under
+`/var/backups/kiba`, protected, verified, and rotated at approximately 30 days.
 
 ## Known public-beta limitations
 
@@ -135,5 +140,5 @@ the sanitized record. This focused change is not a claim that the entire host is
 - Exactly one backend worker; no automated failover or multi-node scaling.
 - Rate limits reset on restart and require reverse-proxy reinforcement.
 - No active-game persistence, Redis/shared room store, matchmaking/rating, or anti-farming controls.
-- No automatic offsite backup implementation in this repository.
+- No off-host disaster-recovery copy; local backups share the VPS failure domain.
 - Final human legal review and provider-specific policy details remain required before launch.

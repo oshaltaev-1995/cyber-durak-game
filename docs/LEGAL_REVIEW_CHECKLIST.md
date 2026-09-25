@@ -11,7 +11,7 @@ This list records unresolved decisions rather than presenting them as settled la
   geographical/business address. Do not publish a private home address automatically.
 - [ ] Select Phase 6B providers; review locations, subprocessors, DPAs, transfer safeguards and
   provider retention; update `PROCESSORS.md` and the public Privacy Policy.
-- [ ] Make `support@cyberdurak.com` operational and monitored.
+- [x] Make `support@cyberdurak.com` operational and monitored (external receipt test passed).
 - [ ] Configure and verify 30-day log and backup rotation; review backup-deletion/restoration
   wording and downstream deletion procedure.
 - [ ] Review Terms under applicable Finnish/EU consumer and information-society rules, including

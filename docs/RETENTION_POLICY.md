@@ -1,7 +1,8 @@
 # Kiba retention policy
 
-Initial public-beta targets, version 1.0 (2026-09-25). Phase 6B must translate targets for logs,
-backups, and expired-row cleanup into monitored infrastructure jobs before launch.
+Initial public-beta targets, version 1.0 (2026-09-25). Phase 6B configures per-container log
+rotation and a monitored daily local database-backup job; expired-row cleanup remains an
+operational follow-up where it is not already performed by application access paths.
 
 | Data | Retention target | End-of-retention action |
 | --- | --- | --- |
@@ -22,5 +23,7 @@ disaster recovery, not ordinary user lookup. A restore procedure must consider d
 made after the restored snapshot.
 
 TAKE-created active game data, hidden hands, and reconnect credentials are not persistent records.
-No production log/backup schedule exists until Phase 6B; public launch is blocked until the targets
-above are actually configured and a restore/rotation rehearsal is complete.
+Production containers use bounded local logs. Kiba database dumps are isolated under
+`/var/backups/kiba`, protected, verified, and rotated at approximately 30 days. A restore drill is
+required before launch. Off-host disaster-recovery copy is explicitly deferred, so total VPS or
+storage loss can also destroy the local backups.
