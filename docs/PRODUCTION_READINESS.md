@@ -99,6 +99,19 @@ The controller is Oleg Shaltaev, Finland, `support@cyberdurak.com`. This is comp
 not formal certification. Active games/rooms remain process-local and unfinished sessions are not
 part of account export or persistent deletion.
 
+## Phase 6A.8 host-maintenance status
+
+Controlled VPS maintenance completed on 2026-09-25. Reviewed OS/security packages and kernel
+`6.8.0-142-generic` were installed, exactly one reboot completed, and Docker, Caddy, Kennel
+Operations, Husky Tracking, Amnezia, public HTTPS endpoints, swap, listeners, and firewall exposure
+were validated afterward. The previous `6.8.0-90-generic` kernel remains available as a recovery
+fallback.
+
+Docker Engine/containerd/runc upgrades were intentionally deferred to a dedicated runtime window;
+the installed runtime remains unchanged. This maintenance does not deploy Kiba or close the Phase
+6B domain, email, privacy-provider, backup, secret, ingress, and monitoring prerequisites. See
+`VPS_MAINTENANCE_REPORT.md` for the sanitized record.
+
 ## Phase 6B deployment requirements
 
 - domain, DNS, TLS certificate, HTTPS reverse proxy, and HSTS;
