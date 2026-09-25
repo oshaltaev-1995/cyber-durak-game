@@ -134,6 +134,21 @@ Off-host disaster-recovery copy: **DEFERRED**. It is a post-launch follow-up rat
 for this intentionally small public beta. Local Kiba backups must remain isolated under
 `/var/backups/kiba`, protected, verified, and rotated at approximately 30 days.
 
+### Phase 6B attempt status (2026-09-25)
+
+**DEPLOYMENT STOPPED SAFELY — SMTP EGRESS BLOCKED.** The exact release built and passed internal
+database/backend/frontend checks, Alembic migration/check, a verified local backup plus temporary-
+database restore drill, temporary public HTTPS/API/WSS gameplay smoke, and account export/deletion
+smoke. A generic shared-network alias collision was found during the first ingress check, corrected
+to the unique `kiba-frontend` service name, and verified without restarting existing services.
+
+Production verification email delivery then failed because the backend container could resolve the
+configured SMTP host but TCP connection to the configured endpoint timed out. No alternate endpoint
+was invented and no firewall change was attempted. Kiba's public Caddy route was rolled back, Kiba
+containers were stopped, and the backup timer was disabled. The original Caddyfile checksum was
+restored; Kennel Operations and Husky Tracking returned HTTP 200. See
+`PRODUCTION_DEPLOYMENT_REPORT.md` for the sanitized record and exact resume gate.
+
 ## Known public-beta limitations
 
 - Backend restart loses unfinished games and rooms.
