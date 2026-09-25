@@ -112,6 +112,16 @@ the installed runtime remains unchanged. This maintenance does not deploy Kiba o
 6B domain, email, privacy-provider, backup, secret, ingress, and monitoring prerequisites. See
 `VPS_MAINTENANCE_REPORT.md` for the sanitized record.
 
+## Phase 6A.9 SSH-hardening status
+
+Lockout-safe SSH authentication hardening completed on 2026-09-25. Password and
+keyboard-interactive SSH authentication are disabled; root remains available through the existing
+authorized public key on unchanged port 22. Configuration syntax and effective values were checked
+before reload, and a new independent key-only root login succeeded afterward. SSH was reloaded
+without a restart or reboot, and Docker, Caddy, Kennel Operations, Husky Tracking, Amnezia, public
+HTTPS endpoints, and the listener surface remained healthy. See `VPS_SSH_HARDENING_REPORT.md` for
+the sanitized record. This focused change is not a claim that the entire host is fully hardened.
+
 ## Phase 6B deployment requirements
 
 - domain, DNS, TLS certificate, HTTPS reverse proxy, and HSTS;
