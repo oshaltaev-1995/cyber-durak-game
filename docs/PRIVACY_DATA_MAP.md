@@ -56,6 +56,7 @@ Provider DPA, subprocessor, retention and transfer details remain an owner/legal
 | --- | --- | --- | --- |
 | `kiba_session` (configurable name) | Opaque auth token; `HttpOnly`, `SameSite=Lax`, `Secure` in production | Browser cookie backed by server session; logout/deletion clears it | Necessary authenticated session |
 | `kiba.preferred-locale` localStorage | `en` or `ru` | Until user changes it or clears site data | Functional language preference |
+| `kiba.activeBotGameId` sessionStorage | Opaque active bot-game identifier only; no cards or complete `GameState` | Browser-tab session, intentional replacement, definitive server expiry, or site-data clearing | Restore the same authoritative process-local bot game after page reload |
 | `kiba:pvp:<invite-code>` sessionStorage | Participant ID, seat, reconnect credential | Browser-tab session or explicit cleanup/site-data clearing | Functional private-room reconnect |
 
 No analytics, advertising, behavioural-tracking, or marketing scripts/cookies were found in the

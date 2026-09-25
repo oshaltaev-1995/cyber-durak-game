@@ -9,13 +9,13 @@
 >
   @if (game() === null) {
     <main class="welcome">
-      <div class="welcome-copy">
+      <div class="welcome-copy" aria-live="polite">
         <span class="loading-mark" aria-hidden="true">K</span>
-        <h1>{{ i18n.t(pending() ? 'game.dealing' : 'game.startFailed') }}</h1>
-        <p>{{ i18n.t(pending() ? 'game.preparingDeck' : 'game.tryAgain') }}</p>
+        <h1>{{ welcomeTitle() }}</h1>
+        <p>{{ welcomeDescription() }}</p>
         @if (!pending()) {
-          <button class="play-button" type="button" (click)="startNewGame()">
-            {{ i18n.t('common.retry') }}
+          <button class="play-button" type="button" (click)="retryInitialLoad()">
+            {{ welcomeActionLabel() }}
           </button>
         }
         @if (errorMessage(); as error) {

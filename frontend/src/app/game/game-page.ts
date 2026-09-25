@@ -18,6 +18,7 @@ import {
 } from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
 import { AuthService } from '../core/auth/auth.service';
+import { BotGameSessionStore } from '../core/game/bot-game-session.store';
 import { TranslationService } from '../core/i18n/translation.service';
 import { TranslationKey } from '../core/i18n/translations/ru';
 import { ActionBarComponent } from './components/action-bar/action-bar';
@@ -53,6 +54,7 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
 export class GamePageComponent implements OnInit, OnDestroy {
   private readonly api = inject(GameApiService);
   private readonly session = inject(GameSessionState);
+  private readonly storedSession = inject(BotGameSessionStore);
   protected readonly auth = inject(AuthService);
   protected readonly i18n = inject(TranslationService);
 
@@ -62,6 +64,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   protected readonly restartConfirmation = signal(false);
   protected readonly botPresentation = signal<BotPresentationEvent | null>(null);
   protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
+  protected readonly recoveryState = signal<'idle' | 'loading' | 'unavailable' | 'failed'>('idle');
   protected readonly selectedCards = computed<readonly GameCard[]>(() => {
     const selected = this.selectedCodes();
     return this.game()?.human_hand.filter((card) => selected.has(card.code)) ?? [];
@@ -71,9 +74,17 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private pendingAuthoritativeGame: GameResponse | null = null;
 
   ngOnInit(): void {
-    if (this.game() === null) {
-      this.startNewGame();
+    const currentGame = this.game();
+    if (currentGame !== null) {
+      this.storedSession.save(currentGame.game_id);
+      return;
     }
+    const gameId = this.storedSession.get();
+    if (gameId !== null) {
+      this.restoreGame(gameId);
+      return;
+    }
+    this.startNewGame();
   }
 
   ngOnDestroy(): void {
@@ -101,6 +112,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
     }
     this.cancelPresentation();
     this.restartConfirmation.set(false);
+    this.recoveryState.set('idle');
     this.pending.set(true);
     this.errorMessage.set(null);
     this.api
@@ -108,12 +120,57 @@ export class GamePageComponent implements OnInit, OnDestroy {
       .pipe(finalize(() => this.pending.set(false)))
       .subscribe({
         next: (game) => {
+          this.storedSession.save(game.game_id);
           this.game.set(game);
           this.selectedCodes.set(new Set());
           this.showBriefBotStatus(game.recent_events.at(-1) ?? null);
         },
         error: (error: unknown) => this.errorMessage.set(this.messageForError(error)),
       });
+  }
+
+  protected retryInitialLoad(): void {
+    if (this.pending()) return;
+    if (this.recoveryState() === 'failed') {
+      const gameId = this.storedSession.get();
+      if (gameId !== null) {
+        this.restoreGame(gameId);
+        return;
+      }
+    }
+    this.startNewGame();
+  }
+
+  protected welcomeTitle(): string {
+    if (this.pending()) {
+      return this.i18n.t(this.recoveryState() === 'loading' ? 'game.restoring' : 'game.dealing');
+    }
+    if (this.recoveryState() === 'unavailable') {
+      return this.i18n.t('game.previousUnavailableTitle');
+    }
+    if (this.recoveryState() === 'failed') {
+      return this.i18n.t('game.restoreFailed');
+    }
+    return this.i18n.t('game.startFailed');
+  }
+
+  protected welcomeDescription(): string {
+    if (this.pending()) {
+      return this.i18n.t(
+        this.recoveryState() === 'loading' ? 'game.restorePreparing' : 'game.preparingDeck',
+      );
+    }
+    if (this.recoveryState() === 'unavailable') {
+      return this.i18n.t('game.previousUnavailable');
+    }
+    if (this.recoveryState() === 'failed') {
+      return this.i18n.t('game.restoreRetry');
+    }
+    return this.i18n.t('game.tryAgain');
+  }
+
+  protected welcomeActionLabel(): string {
+    return this.i18n.t(this.recoveryState() === 'unavailable' ? 'game.start' : 'common.retry');
   }
 
   protected toggleCard(code: string): void {
@@ -225,6 +282,38 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.selectedCodes.set(new Set());
     this.pending.set(false);
     this.showBriefBotStatus(event);
+  }
+
+  private restoreGame(gameId: string): void {
+    if (this.pending()) return;
+    this.recoveryState.set('loading');
+    this.pending.set(true);
+    this.errorMessage.set(null);
+    this.api
+      .getGame(gameId)
+      .pipe(finalize(() => this.pending.set(false)))
+      .subscribe({
+        next: (game) => {
+          this.storedSession.save(game.game_id);
+          this.game.set(game);
+          this.selectedCodes.set(new Set());
+          this.recoveryState.set('idle');
+        },
+        error: (error: unknown) => {
+          if (this.isMissingGame(error)) {
+            this.storedSession.clear();
+            this.recoveryState.set('unavailable');
+            return;
+          }
+          this.recoveryState.set('failed');
+        },
+      });
+  }
+
+  private isMissingGame(error: unknown): boolean {
+    if (!(error instanceof HttpErrorResponse) || error.status !== 404) return false;
+    const body = error.error as { detail?: { code?: string } } | null;
+    return body?.detail?.code === 'game_not_found';
   }
 
   private showBriefBotStatus(event: BotPresentationEvent | null): void {

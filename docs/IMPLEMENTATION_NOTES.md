@@ -703,6 +703,24 @@ No analytics/advertising/marketing tracker is present. The auth cookie, locale `
 PvP reconnect `sessionStorage` are necessary/functional storage, so Phase 6A.6 adds no optional
 cookie banner. Any future non-essential tracking requires a fresh consent/privacy assessment.
 
+### 10.13 Human-vs-Bot refresh recovery
+
+The browser stores only the current opaque bot-game ID under `kiba.activeBotGameId` in
+`sessionStorage`. On `/play` initialization, Angular first requests the existing public state with
+`GET /api/games/{id}` and creates no replacement game when recovery succeeds. The server remains
+authoritative; hands, table state, draw order, bot cards, RNG state, and the complete `GameState`
+are never stored in the browser.
+
+A definitive `game_not_found` response clears the stale ID and presents an explicit localized
+message before the player may start a new game. Network failures and 5xx responses preserve the ID
+and offer recovery retry. New Game and Play Again replace the stored ID only after the new server
+session is created successfully. The existing in-memory snapshot still preserves ordinary Angular
+route navigation, while `sessionStorage` covers full page reload in the same tab.
+
+This does not add active-game database persistence. Recovery ends when the six-hour active or
+30-minute completed server-session TTL expires, or when the single backend process restarts. The
+independent PvP reconnect credential and flow are unchanged.
+
 Possible bot priorities:
 
 ### Defense

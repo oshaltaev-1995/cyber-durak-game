@@ -98,6 +98,39 @@ def test_get_game_returns_same_current_public_snapshot() -> None:
     expected["recent_events"] = []
     assert fetched.json() == expected
 
+    fetched_again = client.get(f"/api/games/{created['game_id']}")
+    assert fetched_again.status_code == 200
+    assert fetched_again.json() == expected
+
+
+def test_completed_game_remains_retrievable_without_exposing_hidden_state() -> None:
+    completed = GameState(
+        seat_one_hand=(),
+        seat_two_hand=(card(Rank.SIX),),
+        draw_pile=(),
+        discard_pile=(),
+        current_attacker=None,
+        phase=GamePhase.COMPLETE,
+        result=GameResult(GameOutcome.WIN, Seat.ONE),
+    )
+    service = GameSessionService(game_factory=lambda: completed)
+    client = TestClient(create_app(service))
+    created = client.post("/api/games").json()
+
+    recovered = client.get(f"/api/games/{created['game_id']}")
+
+    assert recovered.status_code == 200
+    body = recovered.json()
+    assert body["game_id"] == created["game_id"]
+    assert body["phase"] == GamePhase.COMPLETE.value
+    assert body["result"] == {
+        "outcome": "WIN",
+        "winner": "HUMAN",
+        "winner_seat": Seat.ONE.value,
+    }
+    assert "bot_hand" not in body
+    assert "draw_pile" not in body
+
 
 def test_action_response_contains_transient_safe_bot_take_event() -> None:
     initial = game(

@@ -107,6 +107,13 @@ export const en: Record<TranslationKey, string> = {
   'game.dealing': 'Dealing cards…',
   'game.preparingDeck': 'Preparing the deck and choosing the first attacker',
   'game.tryAgain': 'Please try again.',
+  'game.restoring': 'Restoring your game…',
+  'game.restorePreparing': 'Loading the latest state from the server',
+  'game.previousUnavailableTitle': 'Previous game unavailable',
+  'game.previousUnavailable':
+    'Your previous game is no longer available. Start a new game to continue.',
+  'game.restoreFailed': 'Could not restore the game',
+  'game.restoreRetry': 'The connection failed temporarily. Retry to restore the same game.',
   'game.vsBot': 'Match vs bot',
   'game.restartTitle': 'Start a new game?',
   'game.restartDescription': 'The current match will be lost.',

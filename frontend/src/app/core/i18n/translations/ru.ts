@@ -105,6 +105,13 @@ export const ru = {
   'game.dealing': 'Раздаём карты…',
   'game.preparingDeck': 'Готовим колоду и выбираем первый ход',
   'game.tryAgain': 'Попробуйте ещё раз.',
+  'game.restoring': 'Восстанавливаем партию…',
+  'game.restorePreparing': 'Загружаем актуальное состояние с сервера',
+  'game.previousUnavailableTitle': 'Предыдущая партия недоступна',
+  'game.previousUnavailable':
+    'Предыдущую партию больше нельзя восстановить. Начните новую игру, чтобы продолжить.',
+  'game.restoreFailed': 'Не удалось восстановить партию',
+  'game.restoreRetry': 'Произошёл временный сбой связи. Повторите попытку восстановления.',
   'game.vsBot': 'Партия против бота',
   'game.restartTitle': 'Начать новую игру?',
   'game.restartDescription': 'Текущая партия будет потеряна.',

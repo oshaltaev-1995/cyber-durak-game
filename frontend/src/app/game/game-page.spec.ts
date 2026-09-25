@@ -91,6 +91,7 @@ describe('GamePageComponent', () => {
   let api: ApiStub;
 
   beforeEach(async () => {
+    sessionStorage.clear();
     api = {
       createGame: vi.fn(),
       getGame: vi.fn(),
@@ -128,9 +129,123 @@ describe('GamePageComponent', () => {
     create();
     const element = fixture.nativeElement as HTMLElement;
     expect(api.createGame).toHaveBeenCalledOnce();
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-1');
     expect(element.textContent).toContain('Партия против бота');
     expect(element.textContent).toContain('Ваш ход');
   }, 15_000);
+
+  it('restores a stored authoritative game without creating a new deal', () => {
+    sessionStorage.setItem('kiba.activeBotGameId', 'progressed-game');
+    const progressed = makeGame({
+      game_id: 'progressed-game',
+      draw_pile_count: 11,
+      discard_count: 14,
+      human_hand: [queenDiamonds, sevenHearts],
+    });
+    api.getGame.mockReturnValue(of(progressed));
+
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(api.getGame).toHaveBeenCalledWith('progressed-game');
+    expect(api.createGame).not.toHaveBeenCalled();
+    expect(text).toContain('Бито');
+    expect(text).toContain('14');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('app-hand .playing-card'),
+    ).toHaveLength(2);
+  });
+
+  it('shows a recovery loading state without flashing a replacement game', () => {
+    sessionStorage.setItem('kiba.activeBotGameId', 'progressed-game');
+    const recovery = new Subject<GameResponse>();
+    api.getGame.mockReturnValue(recovery);
+
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Восстанавливаем партию…');
+    expect(api.createGame).not.toHaveBeenCalled();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.game-board')).toBeNull();
+  });
+
+  it('clears a definitively missing game and waits for an intentional new start', () => {
+    sessionStorage.setItem('kiba.activeBotGameId', 'expired-game');
+    api.getGame.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            error: { detail: { code: 'game_not_found' } },
+            status: 404,
+          }),
+      ),
+    );
+
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Предыдущую партию больше нельзя восстановить');
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBeNull();
+    expect(api.createGame).not.toHaveBeenCalled();
+
+    api.createGame.mockReturnValue(of(makeGame({ game_id: 'replacement' })));
+    clickButton('Начать');
+    expect(api.createGame).toHaveBeenCalledOnce();
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('replacement');
+  });
+
+  it('preserves the stored game after a transient recovery failure and retries GET', () => {
+    sessionStorage.setItem('kiba.activeBotGameId', 'recoverable-game');
+    api.getGame
+      .mockReturnValueOnce(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              error: { detail: { code: 'internal_error' } },
+              status: 503,
+            }),
+        ),
+      )
+      .mockReturnValueOnce(of(makeGame({ game_id: 'recoverable-game', discard_count: 8 })));
+
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Не удалось восстановить партию',
+    );
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('recoverable-game');
+    expect(api.createGame).not.toHaveBeenCalled();
+
+    clickButton('Повторить');
+    expect(api.getGame).toHaveBeenCalledTimes(2);
+    expect(api.createGame).not.toHaveBeenCalled();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Бито');
+  });
+
+  it('localizes the stale-game recovery message in English', () => {
+    localStorage.setItem('kiba.preferred-locale', 'en');
+    sessionStorage.setItem('kiba.activeBotGameId', 'expired-game');
+    api.getGame.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            error: { detail: { code: 'game_not_found' } },
+            status: 404,
+          }),
+      ),
+    );
+
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Your previous game is no longer available',
+    );
+  });
 
   it('keeps the active public game snapshot when the routed page is recreated', () => {
     create();
@@ -440,6 +555,31 @@ describe('GamePageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('[role="alertdialog"]')).toBeNull();
   });
 
+  it('keeps the previous recovery reference when replacement creation fails', () => {
+    create();
+    api.createGame.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 503, statusText: 'Unavailable' })),
+    );
+
+    clickButton('Новая игра');
+    clickButton('Начать');
+
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-1');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.game-board')).not.toBeNull();
+  });
+
+  it('replaces the recovery reference only after a confirmed new game succeeds', () => {
+    create();
+    api.createGame.mockReturnValue(of(makeGame({ game_id: 'game-2' })));
+
+    clickButton('Новая игра');
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-1');
+
+    clickButton('Начать');
+    expect(api.createGame).toHaveBeenCalledTimes(2);
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-2');
+  });
+
   it.each([
     [{ outcome: 'WIN', winner: 'HUMAN', winner_seat: 'one' } as const, 'Вы победили! 🏆'],
     [{ outcome: 'WIN', winner: 'BOT', winner_seat: 'two' } as const, 'Бот победил'],
@@ -477,7 +617,33 @@ describe('GamePageComponent', () => {
     api.createGame.mockReturnValue(of(makeGame({ game_id: 'game-2' })));
     clickButton('Сыграть ещё');
     expect(api.createGame).toHaveBeenCalledTimes(2);
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-2');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Ваш ход');
+  });
+
+  it('restores a completed result and keeps Play Again available', () => {
+    sessionStorage.setItem('kiba.activeBotGameId', 'completed-game');
+    api.getGame.mockReturnValue(
+      of(
+        makeGame({
+          game_id: 'completed-game',
+          phase: 'complete',
+          result: { outcome: 'DRAW', winner: null, winner_seat: null },
+          available_actions: [],
+        }),
+      ),
+    );
+
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+
+    expect(api.createGame).not.toHaveBeenCalled();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Ничья 🤝');
+    expect(
+      [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === 'Сыграть ещё',
+      ),
+    ).toBe(true);
   });
 
   it('shows saved history feedback for an authenticated completed game', () => {

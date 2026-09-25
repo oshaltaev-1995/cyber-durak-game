@@ -101,6 +101,11 @@ preferred language, restores it after login on another device, and uses it for v
 password-reset email. API presentation catalogues use `Accept-Language`; game and protocol codes
 remain language-neutral.
 
+The Human-vs-Bot page stores only its opaque active-game ID in tab-scoped `sessionStorage`. Reloading
+the page retrieves the same authoritative public state while that process-local server session
+exists; no cards or complete game state are stored in the browser. A backend restart, expiry, or
+deployment can still make an unfinished game unavailable by design.
+
 Kiba is available as an EU/international portfolio public beta at <https://cyberdurak.com>, hosted
 on Netherlands/EEA infrastructure. English is primary and Russian is an optional secondary
 language. Guest play stays
