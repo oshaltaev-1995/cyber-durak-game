@@ -1,14 +1,15 @@
 # Kiba processor register
 
-Production-launch register, reviewed 2026-09-25. `ACTIVE AT LAUNCH` means the provider is part of
-the approved Phase 6B production path once the public service begins accepting users; Kiba was not
-publicly deployed when this register was written.
+Production register, reviewed 2026-09-25 after Phase 6B deployment. `ACTIVE` means the provider is
+part of the current public-beta production path. The technical inventory is current; provider legal
+terms, DPAs, subprocessors, retention, locations and transfer safeguards still require owner/legal
+review.
 
 | Provider | Purpose | Data categories | Location | DPA/legal status | Status |
 | --- | --- | --- | --- | --- | --- |
-| VDSina | Netherlands VPS hosting for app, PostgreSQL, logs and local backups | All production service data | Netherlands/EEA host region | Legal entity, DPA, subprocessors and transfer safeguards require final owner/legal review | ACTIVE AT LAUNCH |
-| Brevo | Transactional verification and password-recovery email | Email, display name, locale, one-use link and delivery metadata | Provider-controlled email infrastructure | DPA, processing locations, subprocessors, retention and transfer safeguards require final owner/legal review | ACTIVE AT LAUNCH |
-| Cloudflare | Authoritative DNS and inbound routing for the public support mailbox | DNS queries, ordinary network metadata, inbound support-message routing metadata | Provider-controlled infrastructure | Terms, DPA/processor role, subprocessors and transfer safeguards require final owner/legal review | ACTIVE AT LAUNCH |
+| VDSina | Netherlands VPS hosting for app, PostgreSQL, logs and local backups | All production service data | Netherlands/EEA host region | Legal entity, DPA, subprocessors and transfer safeguards require final owner/legal review | ACTIVE |
+| Brevo | Transactional verification and password-recovery email | Email, display name, locale, one-use link and delivery metadata | Provider-controlled email infrastructure | DPA, processing locations, subprocessors, retention and transfer safeguards require final owner/legal review | ACTIVE |
+| Cloudflare | Authoritative DNS and inbound routing for the public support mailbox | DNS queries, ordinary network metadata, inbound support-message routing metadata | Provider-controlled infrastructure | Terms, DPA/processor role, subprocessors and transfer safeguards require final owner/legal review | ACTIVE |
 | Analytics/advertising/marketing provider | None | None | N/A | Must trigger cookie/privacy assessment before addition | NOT USED |
 
 Development Docker/PostgreSQL and the process-local development email outbox are local developer

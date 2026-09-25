@@ -134,20 +134,23 @@ Off-host disaster-recovery copy: **DEFERRED**. It is a post-launch follow-up rat
 for this intentionally small public beta. Local Kiba backups must remain isolated under
 `/var/backups/kiba`, protected, verified, and rotated at approximately 30 days.
 
-### Phase 6B attempt status (2026-09-25)
+### Phase 6B deployment status (2026-09-25)
 
-**DEPLOYMENT STOPPED SAFELY — SMTP EGRESS BLOCKED.** The exact release built and passed internal
-database/backend/frontend checks, Alembic migration/check, a verified local backup plus temporary-
-database restore drill, temporary public HTTPS/API/WSS gameplay smoke, and account export/deletion
-smoke. A generic shared-network alias collision was found during the first ingress check, corrected
-to the unique `kiba-frontend` service name, and verified without restarting existing services.
+**DEPLOYED — PUBLIC BETA READY.** The reviewed production release is live at
+<https://cyberdurak.com> with private PostgreSQL, exactly one backend worker, no Kiba host ports and
+the existing Caddy as sole HTTPS ingress. Database migrations, internal health, HTTPS/TLS,
+same-origin API and WSS, guest gameplay, account/data-rights flows, RU/EN presentation, and
+Kennel/Husky regressions passed. The generic shared-network alias found during the first ingress
+check was corrected to the unique `kiba-frontend` service name without restarting existing services.
 
-Production verification email delivery then failed because the backend container could resolve the
-configured SMTP host but TCP connection to the configured endpoint timed out. No alternate endpoint
-was invented and no firewall change was attempted. Kiba's public Caddy route was rolled back, Kiba
-containers were stopped, and the backup timer was disabled. The original Caddyfile checksum was
-restored; Kennel Operations and Husky Tracking returned HTTP 200. See
-`PRODUCTION_DEPLOYMENT_REPORT.md` for the sanitized record and exact resume gate.
+Production SMTP uses Brevo TCP 2525 with STARTTLS because the provider blocks 465/587. Host and
+backend-container connectivity, TLS, authentication, and actual verification-message receipt
+passed. Gmail placed the first test message in Spam; deliverability is a post-deployment follow-up.
+
+Daily protected local PostgreSQL backups are enabled with approximately 30-day retention, and a
+real restore drill into a disposable database passed. Off-host disaster recovery remains the
+explicitly accepted deferred limitation. External uptime monitoring is also a post-launch action.
+See `PRODUCTION_DEPLOYMENT_REPORT.md` for the sanitized deployment record.
 
 ## Known public-beta limitations
 
@@ -156,4 +159,6 @@ restored; Kennel Operations and Husky Tracking returned HTTP 200. See
 - Rate limits reset on restart and require reverse-proxy reinforcement.
 - No active-game persistence, Redis/shared room store, matchmaking/rating, or anti-farming controls.
 - No off-host disaster-recovery copy; local backups share the VPS failure domain.
-- Final human legal review and provider-specific policy details remain required before launch.
+- Final human legal review and provider-specific policy details remain an owner follow-up.
+- Verification/reset email deliverability needs monitoring; the first Gmail test landed in Spam.
+- External public uptime/readiness monitoring is not yet configured.
