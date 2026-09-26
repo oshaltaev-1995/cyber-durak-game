@@ -1,5 +1,10 @@
 # Cyber Durak / Kiba
 
+**Release status:** First stable Public Beta / portfolio release accepted on 2026-09-26.
+Production runs at <https://cyberdurak.com> from accepted revision
+`3b52855589aa8cdfb5c90bf8319cd60c9b294a7d`, tagged `public-beta-v1`. The frozen scope and
+non-blocking follow-ups are recorded in [`docs/PUBLIC_BETA_V1.md`](docs/PUBLIC_BETA_V1.md).
+
 Cyber Durak is a browser-based shedding card game with a custom arithmetic ruleset. Its historical
 gameplay codename is **Kiba**. The repository contains the complete two-player 36-card rules engine,
 a deterministic baseline bot, an Alpha process-local REST game-session layer, optional persistent
