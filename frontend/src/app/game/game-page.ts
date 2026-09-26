@@ -77,7 +77,11 @@ export class GamePageComponent implements OnInit, OnDestroy {
 
   protected readonly game = this.session.game;
   protected readonly pending = signal(false);
-  protected readonly errorMessage = signal<string | null>(null);
+  private readonly errorKey = signal<TranslationKey | null>(null);
+  protected readonly errorMessage = computed(() => {
+    const key = this.errorKey();
+    return key === null ? null : this.i18n.t(key);
+  });
   protected readonly restartConfirmation = signal(false);
   protected readonly botPresentation = signal<BotPresentationEvent | null>(null);
   protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
@@ -167,7 +171,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.restartConfirmation.set(false);
     this.recoveryState.set('idle');
     this.pending.set(true);
-    this.errorMessage.set(null);
+    this.errorKey.set(null);
     this.api
       .createGame()
       .pipe(finalize(() => this.pending.set(false)))
@@ -179,7 +183,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
           this.presentInitialBotAction(game);
           this.showBriefBotStatus(game.recent_events.at(-1) ?? null);
         },
-        error: (error: unknown) => this.errorMessage.set(this.messageForError(error)),
+        error: (error: unknown) => this.errorKey.set(this.messageKeyForError(error)),
       });
   }
 
@@ -240,7 +244,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
       }
       return updated;
     });
-    this.errorMessage.set(null);
+    this.errorKey.set(null);
   }
 
   protected submitAction(action: HumanActionType): void {
@@ -251,7 +255,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.submittedAction = action;
     this.submittedCards = CARD_ACTIONS.has(action) ? [...this.selectedCards()] : [];
     this.pending.set(true);
-    this.errorMessage.set(null);
+    this.errorKey.set(null);
     this.api
       .submitAction(
         game.game_id,
@@ -264,13 +268,19 @@ export class GamePageComponent implements OnInit, OnDestroy {
           this.submittedAction = null;
           this.submittedCards = [];
           this.pending.set(false);
-          this.errorMessage.set(this.messageForError(error));
+          this.errorKey.set(this.messageKeyForError(error));
         },
       });
   }
 
   protected localDecisionContext(game: GameResponse): string | null {
-    if (this.pending() || game.phase === 'complete' || game.required_actor !== 'HUMAN') return null;
+    if (
+      this.pending() ||
+      this.restartConfirmation() ||
+      game.phase === 'complete' ||
+      game.required_actor !== 'HUMAN'
+    )
+      return null;
     return [
       game.game_id,
       game.bout_phase ?? 'ready',
@@ -363,7 +373,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
     if (this.pending()) return;
     this.recoveryState.set('loading');
     this.pending.set(true);
-    this.errorMessage.set(null);
+    this.errorKey.set(null);
     this.api
       .getGame(gameId)
       .pipe(finalize(() => this.pending.set(false)))
@@ -492,17 +502,17 @@ export class GamePageComponent implements OnInit, OnDestroy {
     }
   }
 
-  private messageForError(error: unknown): string {
+  private messageKeyForError(error: unknown): TranslationKey {
     if (error instanceof HttpErrorResponse) {
       const body = error.error as { detail?: { code?: string } } | null;
       const code = body?.detail?.code;
       if (code !== undefined && ERROR_KEYS[code] !== undefined) {
-        return this.i18n.t(ERROR_KEYS[code]);
+        return ERROR_KEYS[code];
       }
       if (error.status === 0) {
-        return this.i18n.t('game.serverUnavailable');
+        return 'game.serverUnavailable';
       }
     }
-    return this.i18n.t('game.moveRejected');
+    return 'game.moveRejected';
   }
 }

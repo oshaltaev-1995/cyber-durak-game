@@ -5,10 +5,28 @@ import { RulesPageComponent } from './rules-page';
 
 describe('RulesPageComponent', () => {
   beforeEach(async () => {
+    sessionStorage.clear();
     await TestBed.configureTestingModule({
       imports: [RulesPageComponent],
       providers: [provideRouter([])],
     }).compileComponents();
+  });
+
+  it('shows Back to game only for a recoverable bot match and preserves its reference', () => {
+    let fixture = TestBed.createComponent(RulesPageComponent);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.back-to-game')).toBeNull();
+
+    fixture.destroy();
+    sessionStorage.setItem('kiba.activeBotGameId', 'active-game');
+    fixture = TestBed.createComponent(RulesPageComponent);
+    fixture.detectChanges();
+    const link = (fixture.nativeElement as HTMLElement).querySelector(
+      '.back-to-game',
+    ) as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/play');
+    expect(link.textContent).toContain('Вернуться в игру');
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('active-game');
   });
 
   it('renders the complete user-facing rules structure', () => {

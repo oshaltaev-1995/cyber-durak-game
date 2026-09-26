@@ -19,6 +19,7 @@
   <div
     class="hidden-hand"
     [class.hand-normal]="sizeClass() === 'hand-normal'"
+    [class.hand-crowded]="sizeClass() === 'hand-crowded'"
     [class.hand-large]="sizeClass() === 'hand-large'"
     [class.hand-huge]="sizeClass() === 'hand-huge'"
     [style.--hidden-count]="seat().cardCount"

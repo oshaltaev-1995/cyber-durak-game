@@ -248,10 +248,33 @@ describe('PvPRoomPageComponent', () => {
   });
 
   it('shows disconnect state without declaring a forfeit', () => {
+    socket.state.set(makeState({ available_actions: ['TAKE'] }));
     socket.opponentStatus.set('disconnected');
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Соперник отключился');
-    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('победили');
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Соперник отключился');
+    expect(element.textContent).not.toContain('победили');
+    expect(element.querySelector('app-turn-reminder')).toBeNull();
+    expect(element.querySelector<HTMLButtonElement>('app-hand .playing-card')?.disabled).toBe(true);
+    expect(element.querySelector<HTMLButtonElement>('app-action-bar button')?.disabled).toBe(true);
+
+    element.querySelector<HTMLButtonElement>('app-action-bar button')?.click();
+    expect(socket.sendAction).not.toHaveBeenCalled();
+  });
+
+  it('starts a fresh reminder cycle when the opponent returns to the same decision', () => {
+    socket.opponentStatus.set('disconnected');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-turn-reminder')).toBeNull();
+
+    socket.opponentStatus.set('connected');
+    socket.state.set(makeState({ version: 1 }));
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('app-turn-reminder'),
+    ).not.toBeNull();
+    expect(socket.sendAction).not.toHaveBeenCalled();
   });
 
   it('keeps invite copy fallback usable when clipboard access is unavailable', async () => {

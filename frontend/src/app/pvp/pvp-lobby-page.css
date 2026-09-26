@@ -113,10 +113,15 @@ form {
   color: #ffd5d5;
   background: rgb(93 21 27 / 48%);
 }
-.field-error {
-  color: #ffd5d5;
+.field-help {
+  min-height: 1.05rem;
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 650;
+}
+
+.field-help.field-error {
+  color: #ffd5d5;
 }
 
 input[aria-invalid='true'] {

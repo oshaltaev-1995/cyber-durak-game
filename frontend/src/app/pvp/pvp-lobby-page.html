@@ -1,4 +1,4 @@
-<main class="pvp-lobby">
+<main id="main-content" class="pvp-lobby" tabindex="-1">
   <section class="lobby-card" aria-labelledby="pvp-title">
     <span class="eyebrow">{{ i18n.t('pvp.privateGame') }}</span>
     <h1 id="pvp-title">{{ i18n.t('pvp.title') }}</h1>
@@ -40,13 +40,15 @@
           name="inviteCode"
           placeholder="K7F9Q2"
           [attr.aria-invalid]="roomCodeInvalid()"
-          [attr.aria-describedby]="roomCodeInvalid() ? 'room-code-error' : null"
+          aria-describedby="room-code-help"
         />
-        @if (roomCodeInvalid()) {
-          <small id="room-code-error" class="field-error" role="alert">{{
-            i18n.t('pvp.enterRoomCode')
-          }}</small>
-        }
+        <small
+          id="room-code-help"
+          class="field-help"
+          [class.field-error]="roomCodeInvalid()"
+          [attr.role]="roomCodeInvalid() ? 'alert' : null"
+          >{{ i18n.t('pvp.enterRoomCode') }}</small
+        >
       </label>
       <button type="submit" [disabled]="pending() || inviteCode().trim() === ''">
         {{ i18n.t('pvp.joinByCode') }}

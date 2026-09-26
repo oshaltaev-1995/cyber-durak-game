@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { GameCard } from '../core/api/game-api.models';
 import { TranslationService } from '../core/i18n/translation.service';
+import { BotGameSessionStore } from '../core/game/bot-game-session.store';
 import { PlayingCardComponent } from '../game/components/playing-card/playing-card';
 
 const card = (
@@ -29,6 +30,8 @@ const card = (
 })
 export class RulesPageComponent {
   protected readonly i18n = inject(TranslationService);
+  private readonly botGameSession = inject(BotGameSessionStore);
+  protected readonly hasActiveGame = this.botGameSession.get() !== null;
   protected readonly trumpExamples = [
     card('7S', '7', 'spades', 7, 14, true),
     card('8H', '8', 'hearts', 8, 16, true),

@@ -3,6 +3,25 @@
   min-height: 100dvh;
 }
 
+.skip-link {
+  position: fixed;
+  z-index: 1000;
+  top: 0.5rem;
+  left: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.65rem;
+  color: #06241d;
+  background: #fff;
+  font-weight: 800;
+  text-decoration: none;
+  transform: translateY(calc(-100% - 1rem));
+  transition: transform 120ms ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 .app-header {
   position: relative;
   z-index: 20;
@@ -49,7 +68,9 @@ nav {
 }
 
 .locale-switch button {
-  padding: 0.25rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0.45rem;
   border: 0;
   background: transparent;
   color: var(--text-strong);
@@ -85,12 +106,19 @@ nav {
 }
 
 .legal-footer a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  padding-inline: 0.35rem;
+  align-items: center;
   color: inherit;
   text-underline-offset: 0.2rem;
 }
 
 nav a {
+  display: inline-flex;
+  min-height: 2.5rem;
   padding: 0.5rem 0.55rem;
+  align-items: center;
   border-radius: 0.55rem;
   color: var(--text-muted);
   font-size: 0.72rem;
@@ -135,8 +163,14 @@ a:focus-visible {
   }
 
   nav a {
-    padding-inline: 0.35rem;
+    min-height: 2.75rem;
+    padding-inline: 0.45rem;
     font-size: 0.62rem;
+  }
+
+  .locale-switch button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
   }
 
   nav .account-link {

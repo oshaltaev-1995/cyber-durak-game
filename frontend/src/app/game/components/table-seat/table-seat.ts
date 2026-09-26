@@ -18,8 +18,9 @@ export class TableSeatComponent {
 
   protected readonly sizeClass = computed(() => {
     const count = this.seat().cardCount;
-    if (count > 14) return 'hand-huge';
+    if (count > 12) return 'hand-huge';
     if (count > 9) return 'hand-large';
+    if (count > 7) return 'hand-crowded';
     return 'hand-normal';
   });
 }

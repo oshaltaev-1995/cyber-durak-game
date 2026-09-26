@@ -78,6 +78,14 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     () => `${window.location.origin}/join/${this.inviteCode}`,
   );
   protected readonly statusText = computed(() => this.getStatusText());
+  protected readonly gameplayPaused = computed(() => {
+    const state = this.state();
+    return (
+      this.socket.status() !== 'connected' ||
+      this.socket.opponentStatus() === 'disconnected' ||
+      state?.opponent?.connected === false
+    );
+  });
   protected readonly opponentSeats = computed<readonly HiddenTableSeat[]>(() => {
     const state = this.state();
     if (state?.opponent === null || state?.opponent === undefined) return [];
@@ -149,7 +157,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   }
 
   protected toggleCard(code: string): void {
-    if (this.socket.actionPending()) return;
+    if (this.socket.actionPending() || this.gameplayPaused()) return;
     this.selectedCodes.update((current) => {
       const next = new Set(current);
       if (next.has(code)) next.delete(code);
@@ -161,7 +169,8 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
 
   protected submitAction(action: HumanActionType): void {
     const state = this.state();
-    if (state === null || !state.available_actions.includes(action)) return;
+    if (state === null || this.gameplayPaused() || !state.available_actions.includes(action))
+      return;
     const cards =
       action === 'INITIAL_ATTACK' ||
       action === 'DEFEND' ||
@@ -204,7 +213,8 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
       state.game_phase === 'complete' ||
       state.required_participant_id !== state.you.participant_id ||
       this.socket.actionPending() ||
-      this.socket.status() !== 'connected'
+      this.gameplayPaused() ||
+      this.leaveConfirmation()
     ) {
       return null;
     }
@@ -306,6 +316,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     if (this.socket.status() === 'disconnected' || this.socket.status() === 'error') {
       return this.i18n.t('pvp.connectionLost');
     }
+    if (this.gameplayPaused()) return this.i18n.t('pvp.opponentDisconnected');
     if (state === null) return this.i18n.t('pvp.loadingRoom');
     if (state.room_phase === 'WAITING_FOR_OPPONENT') return this.i18n.t('pvp.waiting');
     if (state.game_phase === 'complete') return this.i18n.t('pvp.complete');

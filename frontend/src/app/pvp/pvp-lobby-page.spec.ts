@@ -47,6 +47,8 @@ describe('PvPLobbyPageComponent', () => {
     ) as HTMLButtonElement;
 
     expect(button.disabled).toBe(true);
+    expect(element.querySelector('#room-code-help')?.textContent).toContain('Введите код комнаты');
+    expect(input.getAttribute('aria-invalid')).toBe('false');
     input.value = '   ';
     input.dispatchEvent(new Event('input'));
     input.dispatchEvent(new Event('blur'));
@@ -54,8 +56,8 @@ describe('PvPLobbyPageComponent', () => {
 
     expect(button.disabled).toBe(true);
     expect(input.getAttribute('aria-invalid')).toBe('true');
-    expect(input.getAttribute('aria-describedby')).toBe('room-code-error');
-    expect(element.querySelector('#room-code-error')?.textContent).toContain('Введите код комнаты');
+    expect(input.getAttribute('aria-describedby')).toBe('room-code-help');
+    expect(element.querySelector('#room-code-help')?.textContent).toContain('Введите код комнаты');
   });
 
   it('trims a valid room code and permits Enter submission', () => {
@@ -82,7 +84,7 @@ describe('PvPLobbyPageComponent', () => {
     input.dispatchEvent(new Event('blur'));
     fixture.detectChanges();
 
-    expect(element.querySelector('#room-code-error')?.textContent).toContain('Enter a room code');
+    expect(element.querySelector('#room-code-help')?.textContent).toContain('Enter a room code');
     translations.setLocale('ru');
   });
 

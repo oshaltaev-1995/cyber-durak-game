@@ -6,6 +6,7 @@ import { App } from './app';
 import { routes } from './app.routes';
 import { GameApiService } from './core/api/game-api.service';
 import { AuthService } from './core/auth/auth.service';
+import { TranslationService } from './core/i18n/translation.service';
 import { DEFAULT_COSMETIC_LOADOUT } from './core/profile/profile.models';
 import { ProfileService } from './core/profile/profile.service';
 import { KIBA_FIRST_RUN_SEEN_KEY } from './core/onboarding/first-run.store';
@@ -73,6 +74,25 @@ describe('App', () => {
     expect(compiled.querySelector('a[href^="mailto:"]')?.getAttribute('href')).toBe(
       'mailto:support@cyberdurak.com',
     );
+  });
+
+  it('puts a localized skip link first and moves keyboard focus to route main content', async () => {
+    const fixture = TestBed.createComponent(App);
+    await TestBed.inject(Router).navigateByUrl('/');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const skip = element.querySelector('.skip-link') as HTMLAnchorElement;
+    const main = element.querySelector('#main-content') as HTMLElement;
+
+    expect(element.querySelector('a')).toBe(skip);
+    expect(skip.textContent).toContain('Перейти к основному содержанию');
+    skip.click();
+    expect(document.activeElement).toBe(main);
+
+    TestBed.inject(TranslationService).setLocale('en');
+    fixture.detectChanges();
+    expect(skip.textContent).toContain('Skip to main content');
   });
 
   it('shows the account display name in navigation after authentication', () => {

@@ -1,6 +1,11 @@
 <div class="game-shell" [class.complete]="state()?.game_phase === 'complete'">
   @if (socket.status() === 'expired') {
-    <main class="room-unavailable" aria-labelledby="room-unavailable-title">
+    <main
+      id="main-content"
+      class="room-unavailable"
+      tabindex="-1"
+      aria-labelledby="room-unavailable-title"
+    >
       <span aria-hidden="true">⌛</span>
       <h1 id="room-unavailable-title">{{ i18n.t('pvp.unavailableTitle') }}</h1>
       <p>{{ i18n.t('pvp.expiredRestart') }}</p>
@@ -8,7 +13,7 @@
       <a routerLink="/play">{{ i18n.t('landing.playBot') }}</a>
     </main>
   } @else if (state(); as game) {
-    <main class="game-board">
+    <main id="main-content" class="game-board" tabindex="-1">
       <app-card-motion-overlay [motions]="cardMotion.motions()" />
       <div class="game-utilities">
         <span>{{ i18n.t('pvp.privateRoom', { code: game.invite_code }) }}</span>
@@ -230,11 +235,7 @@
           class="player-hand-region"
           [cards]="game.hand"
           [selectedCodes]="selectedCodes()"
-          [disabled]="
-            socket.actionPending() ||
-            socket.status() !== 'connected' ||
-            game.game_phase === 'complete'
-          "
+          [disabled]="socket.actionPending() || gameplayPaused() || game.game_phase === 'complete'"
           (cardSelected)="toggleCard($event)"
         />
 
@@ -246,7 +247,7 @@
               [activeAttackValue]="game.active_attack_value"
               [attackCardLimit]="game.attack_card_limit"
               [totalAttackCardCount]="game.total_attack_card_count"
-              [pending]="socket.actionPending() || socket.status() !== 'connected'"
+              [pending]="socket.actionPending() || gameplayPaused()"
               (actionSelected)="submitAction($event)"
             />
           </div>
@@ -254,7 +255,7 @@
       }
     </main>
   } @else {
-    <main class="welcome">
+    <main id="main-content" class="welcome" tabindex="-1">
       <div class="welcome-copy">
         <span class="loading-mark" aria-hidden="true">K</span>
         <h1>{{ statusText() }}</h1>

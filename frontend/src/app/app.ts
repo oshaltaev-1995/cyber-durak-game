@@ -89,4 +89,10 @@ export class App implements OnInit {
       });
     }
   }
+
+  protected skipToMain(event: Event): void {
+    event.preventDefault();
+    const main = document.querySelector<HTMLElement>('#main-content');
+    main?.focus();
+  }
 }

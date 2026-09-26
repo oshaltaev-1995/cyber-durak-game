@@ -8,6 +8,7 @@ describe('TutorialPageComponent', () => {
   let fixture: ComponentFixture<TutorialPageComponent>;
 
   beforeEach(async () => {
+    sessionStorage.clear();
     await TestBed.configureTestingModule({
       imports: [TutorialPageComponent],
       providers: [provideRouter([])],
@@ -59,6 +60,21 @@ describe('TutorialPageComponent', () => {
     expect(element.querySelector('[role="progressbar"]')?.textContent).toContain('1 / 9');
     expect(button('Назад').disabled).toBe(true);
     expect(element.querySelector('a[href="/play"]')?.textContent).toContain('Пропустить');
+  });
+
+  it('offers an explicit return only when a recoverable bot game exists', () => {
+    expect((fixture.nativeElement as HTMLElement).querySelector('.back-to-game')).toBeNull();
+    fixture.destroy();
+    sessionStorage.setItem('kiba.activeBotGameId', 'game-in-progress');
+    fixture = TestBed.createComponent(TutorialPageComponent);
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector(
+      '.back-to-game',
+    ) as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/play');
+    expect(link.textContent).toContain('Вернуться в игру');
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-in-progress');
   });
 
   it('moves forward and back without an API-backed game', () => {

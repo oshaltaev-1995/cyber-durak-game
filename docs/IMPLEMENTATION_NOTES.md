@@ -426,6 +426,12 @@ feature has no server clock, timeout, forced move, penalty, or automatic action.
 preferences replace the draining animation with a static waiting treatment while retaining the
 same delayed reminder.
 
+Presentation intentionally suspends that reminder while a blocking New Game dialog is open or a
+private-PvP opponent is disconnected. PvP card selection and action controls are also disabled
+during the remote absence even though the authoritative decision snapshot is preserved. Closing
+the dialog or receiving the opponent's reconnect state remounts a fresh 30-second presentation
+cycle; neither transition sends or synthesizes a gameplay action.
+
 The live game board owns the viewport-height layout: opponent, bounded active-table region, status,
 hand, and actions occupy explicit grid rows. Large physical tables scroll inside the table region
 rather than pushing the hand below the viewport, and the action row is never overlaid on selectable
@@ -439,6 +445,9 @@ Opponent presentation uses a reusable table-seat model with explicit `top`, `bot
 top opponent; tests exercise three- and four-seat visual maps without enabling additional players,
 changing room limits, or defining multiplayer rules. Hidden hands render exactly one generic,
 accessible card back per authoritative public count and never receive card identities.
+Ordinary desktop top hands use the same card dimensions and open row spacing as the local hand;
+overlap is reserved for mobile width, large TAKE-created hands, and constrained side seats. Seat
+identity and count remain a separate header above the card backs.
 
 A small card-motion coordinator compares consecutive public snapshots only after an accepted REST
 or WebSocket transition. It combines the already-submitted local cards, safe bot presentation
@@ -460,6 +469,10 @@ The Angular shell routes `/`, `/play`, `/tutorial`, and `/rules` behind one comp
 root-scoped frontend holder retains only the latest public `GameResponse`, so visiting Tutorial or
 Rules and returning to Play does not discard an active process-local session. This is convenience
 state, not saved-game persistence; a browser or backend restart may still lose the Alpha session.
+Every major route exposes a localized skip-to-main link and a focusable semantic main region.
+Rules and Tutorial show an explicit Back to game link only when the current tab holds a recoverable
+`kiba.activeBotGameId`; following it leaves that identifier untouched so `/play` performs the
+existing authoritative R1 recovery rather than dealing a new game.
 
 The root landing route shows a compact first-run orientation until the browser records
 `kiba.firstRunSeen=true` in `localStorage`. Start Tutorial and Play Now both set the flag; direct
@@ -597,9 +610,11 @@ and a bounded JSON message size keep the Alpha protocol explicit without changin
 
 Live sockets are tracked outside immutable room snapshots by an API connection hub. A reconnect with
 the same credential restores the latest version and replaces an older socket for that participant.
-Disconnect is neither a forfeit nor a bot takeover, and a connected actor may continue while the
-opponent is temporarily offline. Browser origins use the same trusted local/same-origin policy as
-authentication, and the Angular development proxy forwards WebSocket upgrades under `/api`.
+Disconnect is neither a forfeit nor a bot takeover. The server preserves the authoritative decision
+snapshot while the opponent is temporarily offline; the Angular client pauses local gameplay
+controls and reminder presentation until the opponent returns. Browser origins use the same trusted
+local/same-origin policy as authentication, and the Angular development proxy forwards WebSocket
+upgrades under `/api`.
 
 Rooms remain backend-process memory only. Lazy cleanup expires inactive waiting rooms after 30
 minutes, completed rooms after 15 minutes, and fully disconnected active rooms after two hours;

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslationService } from '../core/i18n/translation.service';
+import { BotGameSessionStore } from '../core/game/bot-game-session.store';
 import { formatCardShort } from '../game/card-presentation';
 import { PlayingCardComponent } from '../game/components/playing-card/playing-card';
 import { TUTORIAL_LESSONS_EN, TUTORIAL_LESSONS_RU } from './tutorial-data';
@@ -14,6 +15,8 @@ import { TUTORIAL_LESSONS_EN, TUTORIAL_LESSONS_RU } from './tutorial-data';
 })
 export class TutorialPageComponent {
   protected readonly i18n = inject(TranslationService);
+  private readonly botGameSession = inject(BotGameSessionStore);
+  protected readonly hasActiveGame = this.botGameSession.get() !== null;
   protected readonly lessons = computed(() =>
     this.i18n.locale() === 'ru' ? TUTORIAL_LESSONS_RU : TUTORIAL_LESSONS_EN,
   );

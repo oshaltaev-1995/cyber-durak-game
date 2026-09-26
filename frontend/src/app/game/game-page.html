@@ -8,7 +8,7 @@
   [class.table-mathematician]="game()?.cosmetics?.table_theme_code === 'MATHEMATICIAN_TABLE'"
 >
   @if (game() === null) {
-    <main class="welcome">
+    <main id="main-content" class="welcome" tabindex="-1">
       <div class="welcome-copy" aria-live="polite">
         <span class="loading-mark" aria-hidden="true">K</span>
         <h1>{{ welcomeTitle() }}</h1>
@@ -24,7 +24,7 @@
       </div>
     </main>
   } @else if (game(); as currentGame) {
-    <main class="game-board">
+    <main id="main-content" class="game-board" tabindex="-1">
       <app-card-motion-overlay [motions]="cardMotion.motions()" />
       <div class="game-utilities">
         <span>{{

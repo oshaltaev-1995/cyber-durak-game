@@ -6,6 +6,7 @@ import { Observable, of, Subject, throwError } from 'rxjs';
 import { GameCard, GameResponse } from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
 import { AuthService } from '../core/auth/auth.service';
+import { TranslationService } from '../core/i18n/translation.service';
 import { GamePageComponent } from './game-page';
 import { GameSessionState } from './game-session-state';
 
@@ -678,6 +679,53 @@ describe('GamePageComponent', () => {
 
     clickButton('Отмена');
     expect((fixture.nativeElement as HTMLElement).querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('suppresses the turn reminder behind the New Game modal and restarts it after cancel', () => {
+    create();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('app-turn-reminder'),
+    ).not.toBeNull();
+
+    clickButton('Новая игра');
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-turn-reminder')).toBeNull();
+
+    clickButton('Отмена');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('app-turn-reminder'),
+    ).not.toBeNull();
+  });
+
+  it('relocalizes an already-visible semantic action error when locale changes', () => {
+    create(makeGame({ available_actions: ['DEFEND'] }));
+    const translations = TestBed.inject(TranslationService);
+    translations.setLocale('en');
+    api.submitAction.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 409,
+            error: { detail: { code: 'illegal_defense' } },
+          }),
+      ),
+    );
+    fixture.detectChanges();
+    (
+      (fixture.nativeElement as HTMLElement).querySelector(
+        'app-hand .playing-card',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    clickButton('Defend');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'The selected total is not enough to defend the active attack',
+    );
+
+    translations.setLocale('ru');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Недостаточно очков для покрытия текущей атаки',
+    );
   });
 
   it('keeps keyboard focus inside the New Game dialog and restores it on Escape', async () => {

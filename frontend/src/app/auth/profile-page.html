@@ -1,4 +1,9 @@
-<main class="auth-card profile-card" aria-labelledby="profile-title">
+<main
+  id="main-content"
+  class="auth-card profile-card"
+  tabindex="-1"
+  aria-labelledby="profile-title"
+>
   @if (auth.currentUser(); as user) {
     <span class="kicker">{{ i18n.t('profile.title') }}</span>
     <h1

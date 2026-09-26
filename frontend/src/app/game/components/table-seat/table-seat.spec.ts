@@ -55,6 +55,16 @@ describe('TableSeatComponent', () => {
     expect(markup).not.toContain('card.code');
   });
 
+  it('uses the roomy ordinary-hand class and keeps identity separate above the cards', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const identity = element.querySelector('.seat-identity') as HTMLElement;
+    const hand = element.querySelector('.hidden-hand') as HTMLElement;
+
+    expect(hand.classList).toContain('hand-normal');
+    expect(identity.compareDocumentPosition(hand) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(identity.contains(hand)).toBe(false);
+  });
+
   it('updates count and uses stronger compression for large TAKE hands', () => {
     fixture.componentRef.setInput('seat', { ...topSeat, cardCount: 16 });
     fixture.detectChanges();
@@ -62,6 +72,20 @@ describe('TableSeatComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelectorAll('.hidden-card')).toHaveLength(16);
     expect(element.querySelector('.hidden-hand')?.classList).toContain('hand-huge');
+  });
+
+  it('progressively compresses crowded and 11-card TAKE hands', () => {
+    fixture.componentRef.setInput('seat', { ...topSeat, cardCount: 8 });
+    fixture.detectChanges();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.hidden-hand')?.classList,
+    ).toContain('hand-crowded');
+
+    fixture.componentRef.setInput('seat', { ...topSeat, cardCount: 11 });
+    fixture.detectChanges();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.hidden-hand')?.classList,
+    ).toContain('hand-large');
   });
 });
 

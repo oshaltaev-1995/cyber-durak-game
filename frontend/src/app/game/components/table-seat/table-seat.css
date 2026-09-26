@@ -50,9 +50,10 @@
 .hidden-hand {
   --hidden-card-width: 4.8rem;
   --hidden-card-height: 6.8rem;
-  --hidden-overlap: -1.42rem;
+  --hidden-overlap: 0.45rem;
   display: flex;
-  width: min(100%, calc(var(--hidden-card-width) * var(--hidden-count)));
+  width: max-content;
+  max-width: 100%;
   min-height: var(--hidden-card-height);
   justify-content: center;
   padding-inline: 0.2rem;
@@ -81,12 +82,16 @@
   margin-left: var(--hidden-overlap);
 }
 
+.hand-crowded {
+  --hidden-overlap: -0.3rem;
+}
+
 .hand-large {
-  --hidden-overlap: -2.8rem;
+  --hidden-overlap: -1.1rem;
 }
 
 .hand-huge {
-  --hidden-overlap: -3.65rem;
+  --hidden-overlap: -2rem;
 }
 
 .position-left,
@@ -135,15 +140,19 @@
   .hidden-hand {
     --hidden-card-width: 5.5rem;
     --hidden-card-height: 7.7rem;
-    --hidden-overlap: -1.7rem;
+    --hidden-overlap: 0.45rem;
+  }
+
+  .hand-crowded {
+    --hidden-overlap: -0.45rem;
   }
 
   .hand-large {
-    --hidden-overlap: -3.35rem;
+    --hidden-overlap: -1.65rem;
   }
 
   .hand-huge {
-    --hidden-overlap: -4.4rem;
+    --hidden-overlap: -3.1rem;
   }
 }
 
@@ -152,6 +161,10 @@
     --hidden-card-width: 4.35rem;
     --hidden-card-height: 6.05rem;
     --hidden-overlap: -1.55rem;
+  }
+
+  .hand-crowded {
+    --hidden-overlap: -2.1rem;
   }
 
   .hand-large {
@@ -167,35 +180,27 @@
   }
 }
 
-@media (max-height: 48rem) {
+@media (min-width: 35.01rem) and (max-height: 48rem) {
   .hidden-hand {
-    --hidden-card-width: 4.15rem;
-    --hidden-card-height: 5.55rem;
-    --hidden-overlap: -1.45rem;
+    --hidden-card-width: 4.8rem;
+    --hidden-card-height: 6.7rem;
+    --hidden-overlap: 0.45rem;
+  }
+
+  .hand-crowded {
+    --hidden-overlap: -0.35rem;
   }
 
   .hand-large {
-    --hidden-overlap: -2.75rem;
+    --hidden-overlap: -1.3rem;
   }
 
   .hand-huge {
-    --hidden-overlap: -3.35rem;
+    --hidden-overlap: -2.8rem;
   }
 
   .table-seat {
-    position: relative;
-    gap: 0;
-  }
-
-  .seat-identity {
-    position: absolute;
-    z-index: 2;
-    top: 0.3rem;
-    left: 50%;
-    padding: 0.18rem 0.38rem;
-    border-radius: 999px;
-    background: rgb(4 24 21 / 78%);
-    transform: translateX(-50%);
+    gap: 0.15rem;
   }
 }
 

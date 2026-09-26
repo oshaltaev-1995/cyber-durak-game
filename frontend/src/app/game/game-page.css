@@ -45,7 +45,7 @@ button:disabled {
 }
 
 .new-game {
-  min-height: 2.25rem;
+  min-height: 2.75rem;
   padding: 0.4rem 0.75rem;
   color: var(--text-strong);
   border: 1px solid var(--border);
