@@ -17,6 +17,7 @@
       <a routerLink="/rules" fragment="goal">Цель</a>
       <a routerLink="/rules" fragment="trump">Козыри</a>
       <a routerLink="/rules" fragment="attack">Первый ход</a>
+      <a routerLink="/rules" fragment="attack-limit">Лимит атаки</a>
       <a routerLink="/rules" fragment="defense">Покрытие</a>
       <a routerLink="/rules" fragment="throw-in">Подкидывание</a>
       <a routerLink="/rules" fragment="transfer">Перевод</a>
@@ -37,8 +38,9 @@
         <span class="section-number">02</span>
         <h2>Колода и раздача</h2>
         <p>
-          В Alpha используется 36 карт: от шестёрки до Туза, четыре масти. Каждый получает по 7
-          карт. Остаток лежит открытым: верхняя карта видна и остаётся следующей картой для добора.
+          В публичной бете используется 36 карт: от шестёрки до Туза, четыре масти. Каждый получает
+          по 7 карт. Остаток лежит открытым: верхняя карта видна и остаётся следующей картой для
+          добора.
         </p>
         <div class="rule-note">
           Карты раздаются по одной: первый игрок, второй игрок — до семи каждому.
@@ -106,8 +108,24 @@
         <p>Сумма и среднее всего выбранного набора не создают новые связи для первого хода.</p>
       </section>
 
-      <section id="defense">
+      <section id="attack-limit">
         <span class="section-number">07</span>
+        <h2>Лимит атакующих карт</h2>
+        <p>
+          Общее число карт атаки, перевода и подкидывания не может превышать число карт в руке
+          защитника в момент, когда он стал защитником. Индикатор «Атака X / лимит Y» показывает
+          использованные карты и текущий максимум.
+        </p>
+        <div class="equation-block">У защитника 4 карты → в атаке может быть не более 4 карт</div>
+        <p>
+          После перевода защищается другой игрок, поэтому лимит пересчитывается по его оставшейся
+          руке. Если в незакрытой атаке уже больше карт, чем новый защитник может принять, такой
+          перевод нельзя сделать.
+        </p>
+      </section>
+
+      <section id="defense">
+        <span class="section-number">08</span>
         <h2>Как покрывать</h2>
         <p>
           Выберите любые карты, чья суммарная эффективная стоимость <strong>строго больше</strong>
@@ -115,12 +133,13 @@
         </p>
         <div class="equation-block">Атака 36 · Защита Q + Q + 10 = 40 · 40 &gt; 36 ✓</div>
         <div class="rule-note">
-          Покрывается только текущий пакет. Значения уже покрытых атак к нему не прибавляются.
+          Покрывается только текущая незакрытая атака. Значения уже покрытых атак к ней не
+          прибавляются.
         </div>
       </section>
 
       <section id="throw-in">
-        <span class="section-number">08</span>
+        <span class="section-number">09</span>
         <h2>Как подкидывать</h2>
         <p>
           После покрытия прямую подсказку дают карты, которыми только что отбились: их ранги и
@@ -152,13 +171,13 @@
         <div class="equation-block">На столе 10, J, K, A · подкинуть Q → ряд 10–A ✓</div>
         <p>
           Все выбранные ранги должны входить в один ряд. Поэтому <code>Q + 6</code> в этом примере
-          не подходит по правилу ряда. Старые покрытые карты участвуют, а прямые опоры для ряда не
-          важны.
+          не подходит по правилу ряда. Старые покрытые карты участвуют; для ряда неважно, какими
+          картами отбились в последний раз.
         </p>
       </section>
 
       <section id="table-total">
-        <span class="section-number">09</span>
+        <span class="section-number">10</span>
         <h2>Сумма стола</h2>
         <p>
           Все физические карты текущего кона — и атаки, и защиты — складываются. Точная сумма стола
@@ -168,7 +187,7 @@
       </section>
 
       <section id="mean">
-        <span class="section-number">10</span>
+        <span class="section-number">11</span>
         <h2>Среднее арифметическое</h2>
         <p>Среднее считается по всем физическим картам на столе и не округляется.</p>
         <div class="card-example">
@@ -184,29 +203,32 @@
       </section>
 
       <section id="transfer">
-        <span class="section-number">11</span>
+        <span class="section-number">12</span>
         <h2>Перевод</h2>
         <p>
           До первой успешной защиты игрок может перевести атаку точной суммой. Больше или меньше —
-          нельзя. Перевод увеличивает тот же пакет как снежный ком.
+          нельзя. Перевод увеличивает ту же незакрытую атаку как снежный ком.
         </p>
         <div class="equation-block">K = 18 · перевод 9 + 9 = 18 · следующая цель 36 · затем 72</div>
         <div class="snowball" aria-label="Рост перевода">
           18 <span>→</span> 36 <span>→</span> 72
         </div>
         <p>
-          Особый случай: если весь активный пакет одного ранга, можно перевести тем же рангом с
-          дополнительными картами, когда часть выбора точно закрывает текущую цель.
+          Особый случай: если вся незакрытая атака одного ранга, можно перевести тем же рангом с
+          дополнительными картами, когда часть выбора точно совпадает с текущей целью.
         </p>
         <div class="equation-block">Атака 7 · перевод 7 + 7 · новая цель 7 + 14 = 21 ✓</div>
         <p>
-          <code>K(18) → 9 + 9 + 9</code> не подходит: ранги пакета и добавочных карт различаются.
+          <code>K(18) → 9 + 9 + 9</code> не подходит: ранги атаки и добавочных карт различаются.
         </p>
         <p>После первой успешной защиты перевод закрыт до конца кона.</p>
+        <div class="rule-note">
+          После перевода лимит атакующих карт пересчитывается по оставшейся руке нового защитника.
+        </div>
       </section>
 
       <section id="take-bito">
-        <span class="section-number">12</span>
+        <span class="section-number">13</span>
         <h2>Взять и Бито</h2>
         <p>
           <strong>Взять:</strong> защитник забирает весь стол, прежний атакующий сохраняет
@@ -222,7 +244,7 @@
       </section>
 
       <section id="refill">
-        <span class="section-number">13</span>
+        <span class="section-number">14</span>
         <h2>Добор</h2>
         <p>
           После кона руки добираются до семи. Первым получает карты тот, кто начал кон, даже если в
@@ -239,7 +261,7 @@
       </section>
 
       <section id="ending">
-        <span class="section-number">14</span>
+        <span class="section-number">15</span>
         <h2>Победа и ничья</h2>
         <p>
           Итог проверяется после завершения кона, движения стола и добора — и только при пустой
@@ -254,7 +276,7 @@
       </section>
 
       <section id="examples" class="final-example">
-        <span class="section-number">15</span>
+        <span class="section-number">16</span>
         <h2>Главное в трёх формулах</h2>
         <div class="formula-grid">
           <strong>Атака<small>9 + 9 = 18 = K</small></strong>
@@ -282,6 +304,7 @@
       <a routerLink="/rules" fragment="goal">Goal</a>
       <a routerLink="/rules" fragment="trump">Trumps</a>
       <a routerLink="/rules" fragment="attack">Initial attack</a>
+      <a routerLink="/rules" fragment="attack-limit">Attack limit</a>
       <a routerLink="/rules" fragment="defense">Defense</a>
       <a routerLink="/rules" fragment="throw-in">Throw-ins</a>
       <a routerLink="/rules" fragment="transfer">Transfer</a>
@@ -302,8 +325,9 @@
         <span class="section-number">02</span>
         <h2>Deck and deal</h2>
         <p>
-          Alpha uses 36 cards: Six through Ace in four suits. Each player receives 7 cards. The
-          remainder stays exposed: its top card is visible and remains the next card drawn.
+          The Public Beta uses 36 cards: Six through Ace in four suits. Each player receives 7
+          cards. The remainder stays exposed: its top card is visible and remains the next card
+          drawn.
         </p>
         <div class="rule-note">
           Cards are dealt one at a time: first player, second player, until each has seven.
@@ -368,8 +392,24 @@
         <p>The total and mean of the selected set do not create new initial-attack connections.</p>
       </section>
 
-      <section id="defense">
+      <section id="attack-limit">
         <span class="section-number">07</span>
+        <h2>Attack card limit</h2>
+        <p>
+          The total number of attack, transfer and throw-in cards cannot exceed the current
+          defender’s hand size when they became defender. “Attack X / limit Y” shows how many cards
+          have been used and the current maximum.
+        </p>
+        <div class="equation-block">Defender has 4 cards → at most 4 attack cards</div>
+        <p>
+          A transfer makes the other player the defender, so the limit is recalculated from that
+          player’s remaining hand. A transfer is not allowed if the unresolved attack already has
+          more cards than the new defender can receive.
+        </p>
+      </section>
+
+      <section id="defense">
+        <span class="section-number">08</span>
         <h2>Defense</h2>
         <p>
           Select any cards whose total effective value is <strong>strictly greater</strong> than the
@@ -377,12 +417,12 @@
         </p>
         <div class="equation-block">Attack 36 · Defense Q + Q + 10 = 40 · 40 &gt; 36 ✓</div>
         <div class="rule-note">
-          Only the current packet is defended. Previous covered attacks are not added.
+          Only the current unresolved attack is defended. Previous covered attacks are not added.
         </div>
       </section>
 
       <section id="throw-in">
-        <span class="section-number">08</span>
+        <span class="section-number">09</span>
         <h2>Throw-ins</h2>
         <p>
           After defense, the cards just used to defend expose direct ranks and effective values.
@@ -410,12 +450,13 @@
         <div class="equation-block">Table 10, J, K, A · throw in Q → run 10–A ✓</div>
         <p>
           Every selected rank must belong to one run. Thus <code>Q + 6</code> does not qualify in
-          this example. Older covered cards participate; direct anchors are irrelevant to the run.
+          this example. Older covered cards participate; the cards used in the latest defense do not
+          receive special treatment for this rule.
         </p>
       </section>
 
       <section id="table-total">
-        <span class="section-number">09</span>
+        <span class="section-number">10</span>
         <h2>Table total</h2>
         <p>
           Every physical card in the current bout—attacks and defenses—is added. The exact table
@@ -427,7 +468,7 @@
       </section>
 
       <section id="mean">
-        <span class="section-number">10</span>
+        <span class="section-number">11</span>
         <h2>Arithmetic mean</h2>
         <p>The mean uses every physical table card and is never rounded.</p>
         <div class="card-example">
@@ -442,27 +483,31 @@
       </section>
 
       <section id="transfer">
-        <span class="section-number">11</span>
+        <span class="section-number">12</span>
         <h2>Transfer</h2>
         <p>
           Before the first successful defense, the defender may transfer by an exact total. Higher
-          or lower is not allowed. The same packet grows like a snowball.
+          or lower is not allowed. The same unresolved attack grows like a snowball.
         </p>
         <div class="equation-block">K = 18 · transfer 9 + 9 = 18 · next target 36 · then 72</div>
         <div class="snowball" aria-label="Transfer growth">
           18 <span>→</span> 36 <span>→</span> 72
         </div>
         <p>
-          Special case: if the whole active packet has one rank, an exact core may be extended with
-          more cards of that rank.
+          Special case: if the whole unresolved attack has one rank, the exact-value part may be
+          extended with more cards of that rank.
         </p>
         <div class="equation-block">Attack 7 · transfer 7 + 7 · new target 7 + 14 = 21 ✓</div>
-        <p><code>K(18) → 9 + 9 + 9</code> fails: packet and additional-card ranks differ.</p>
+        <p><code>K(18) → 9 + 9 + 9</code> fails: attack and additional-card ranks differ.</p>
         <p>Transfers close for the rest of the bout after the first successful defense.</p>
+        <div class="rule-note">
+          After a transfer, the attack-card limit is recalculated from the new defender’s remaining
+          hand.
+        </div>
       </section>
 
       <section id="take-bito">
-        <span class="section-number">12</span>
+        <span class="section-number">13</span>
         <h2>Take and discard</h2>
         <p>
           <strong>Take:</strong> the defender takes the whole table; the previous attacker keeps
@@ -479,7 +524,7 @@
       </section>
 
       <section id="refill">
-        <span class="section-number">13</span>
+        <span class="section-number">14</span>
         <h2>Refill</h2>
         <p>
           After a bout, hands refill toward seven. The player who started the bout draws first even
@@ -495,7 +540,7 @@
       </section>
 
       <section id="ending">
-        <span class="section-number">14</span>
+        <span class="section-number">15</span>
         <h2>Win and draw</h2>
         <p>
           The result is checked after bout resolution, table movement and refill, and only with an
@@ -510,7 +555,7 @@
       </section>
 
       <section id="examples" class="final-example">
-        <span class="section-number">15</span>
+        <span class="section-number">16</span>
         <h2>Three essential formulas</h2>
         <div class="formula-grid">
           <strong>Attack<small>9 + 9 = 18 = K</small></strong>

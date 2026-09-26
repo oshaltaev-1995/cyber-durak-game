@@ -96,7 +96,9 @@ Angular development server proxies `/api` to the local backend, so both services
 The UI works from public server state only: bot cards and future draw-pile order remain hidden, and
 the backend decides whether every submitted move is legal.
 
-Guest language choice is stored in browser `localStorage`. An authenticated account stores its
+Guest language choice and the minimal first-run Welcome flag are stored in browser `localStorage`.
+The Welcome is optional, links to the nine-step tutorial or directly to guest play, and stores no
+profile or game state. An authenticated account stores its
 preferred language, restores it after login on another device, and uses it for verification and
 password-reset email. API presentation catalogues use `Accept-Language`; game and protocol codes
 remain language-neutral.

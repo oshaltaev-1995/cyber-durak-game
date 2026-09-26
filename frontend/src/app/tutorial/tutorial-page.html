@@ -6,7 +6,7 @@
       <h1 id="tutorial-complete-title">{{ i18n.t('tutorial.completeTitle') }}</h1>
       <p>{{ i18n.t('tutorial.completeText') }}</p>
       <div class="completion-actions">
-        <a class="primary" routerLink="/play">{{ i18n.t('nav.play') }}</a>
+        <a class="primary" routerLink="/play">{{ i18n.t('tutorial.playBot') }}</a>
         <a routerLink="/rules">{{ i18n.t('nav.rules') }}</a>
         <button type="button" (click)="restart()">{{ i18n.t('tutorial.restart') }}</button>
       </div>
@@ -83,6 +83,40 @@
           @if (selectedChoice() !== null) {
             <p class="feedback" [class.success]="choiceIsCorrect()" role="status">
               {{ choiceIsCorrect() ? exercise.success : exercise.retry }}
+            </p>
+          }
+        </section>
+      }
+
+      @if (current.practical; as practical) {
+        <section class="exercise practical" aria-labelledby="practical-title">
+          <h2 id="practical-title">{{ practical.prompt }}</h2>
+          <div class="practical-cards">
+            @for (card of practical.cards; track card.code) {
+              <app-playing-card
+                [card]="card"
+                [compact]="true"
+                [selectable]="true"
+                [selected]="selectedPracticalCodes().has(card.code)"
+                (cardSelected)="togglePracticalCard($event)"
+              />
+            }
+          </div>
+          <p id="practical-selection" class="practical-selection" aria-live="polite">
+            {{ practicalSelectionText() }}
+          </p>
+          <button
+            type="button"
+            class="practical-action"
+            [disabled]="selectedPracticalCodes().size === 0"
+            aria-describedby="practical-selection"
+            (click)="submitPractical()"
+          >
+            {{ i18n.t('tutorial.practiceAction') }}
+          </button>
+          @if (practicalAttempted()) {
+            <p class="feedback" [class.success]="practicalIsCorrect()" role="status">
+              {{ practicalIsCorrect() ? practical.success : practical.retry }}
             </p>
           }
         </section>

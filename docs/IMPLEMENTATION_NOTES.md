@@ -445,11 +445,20 @@ root-scoped frontend holder retains only the latest public `GameResponse`, so vi
 Rules and returning to Play does not discard an active process-local session. This is convenience
 state, not saved-game persistence; a browser or backend restart may still lose the Alpha session.
 
-The tutorial is deterministic, scripted educational content. Each exercise compares the user's
-choice only with an explicitly authored answer for that fixed example. It does not calculate trump,
-attack, defense, throw-in, mean, transfer, or winner legality and is not a second rules engine. The
-Russian Rules page is a player-facing transformation of `GAME_RULES.md`, while real match actions
-continue to use backend-provided actions and authoritative REST transitions.
+The root landing route shows a compact first-run orientation until the browser records
+`kiba.firstRunSeen=true` in `localStorage`. Start Tutorial and Play Now both set the flag; direct
+routes, bot-game recovery and PvP invite/reconnect routes never mount the Welcome. The flag contains
+no account identity, cards, or game state, and clearing site data simply makes the Welcome eligible
+again.
+
+The tutorial is deterministic, scripted educational content. Quiz exercises compare the user's
+choice only with an explicitly authored answer for that fixed example. One controlled defense
+exercise reuses selectable card components to teach select cards, inspect their total, then press
+the action; it checks only the predefined `J + 7 = 19 > 18` answer, creates no API game, and is not a
+second rules engine. The nine-step flow also explains that the attack-card count is bounded by the
+current defender's hand and recalculated after transfer. The EN/RU Rules page remains the complete
+player-facing transformation of `GAME_RULES.md`, while real match actions continue to use
+backend-provided actions and authoritative REST/WebSocket transitions.
 
 ### 10.5 Optional account identity and persistence
 
@@ -715,9 +724,10 @@ and rooms remain process-local. Operational policy/data inventory is maintained 
 retention, processor, incident, rights, processing-record, and legal-review documents rather than
 duplicated in code.
 
-No analytics/advertising/marketing tracker is present. The auth cookie, locale `localStorage`, and
-PvP reconnect `sessionStorage` are necessary/functional storage, so Phase 6A.6 adds no optional
-cookie banner. Any future non-essential tracking requires a fresh consent/privacy assessment.
+No analytics/advertising/marketing tracker is present. The auth cookie, locale and first-run flag
+in `localStorage`, and bot/PvP recovery data in `sessionStorage` are necessary/functional storage,
+so no optional cookie banner is used. Any future non-essential tracking requires a fresh
+consent/privacy assessment.
 
 ### 10.13 Human-vs-Bot refresh recovery
 

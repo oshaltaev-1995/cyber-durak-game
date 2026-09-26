@@ -22,6 +22,7 @@ describe('RulesPageComponent', () => {
     expect(headings).toContain('Колода и раздача');
     expect(headings).toContain('Двойной козырь');
     expect(headings).toContain('Как покрывать');
+    expect(headings).toContain('Лимит атакующих карт');
     expect(headings).toContain('Как подкидывать');
     expect(headings).toContain('Среднее арифметическое');
     expect(headings).toContain('Победа и ничья');
@@ -59,7 +60,7 @@ describe('RulesPageComponent', () => {
     expect(text).toContain('J(12) + 8(8) = 20');
     expect(text).toContain('A = 20');
     expect(text).toContain('Старые покрытые атаки такой прямой подсказки больше не дают');
-    expect(text).toContain('Покрывается только текущий пакет');
+    expect(text).toContain('Покрывается только текущая незакрытая атака');
     expect(text).toContain('После первой успешной защиты перевод закрыт');
     expect(text).toContain('последними картами');
     expect(text).toContain('максимально близкими');
@@ -67,6 +68,8 @@ describe('RulesPageComponent', () => {
     expect(text).toContain('10–A');
     expect(text).toContain('новая цель 7 + 14 = 21');
     expect(text).toContain('9 + 9 + 9');
+    expect(text).toContain('У защитника 4 карты');
+    expect(text).toContain('лимит пересчитывается');
   });
 
   it('renders the complete canonical English rules at runtime', () => {
@@ -79,8 +82,13 @@ describe('RulesPageComponent', () => {
     expect(text).toContain('Arithmetic mean');
     expect(text).toContain('latest defense is also a target');
     expect(text).toContain('Advanced rule: Rank run');
-    expect(text).toContain('exact core may be extended');
+    expect(text).toContain('exact-value part may be extended');
     expect(text).toContain('hand sizes as close as possible');
     expect(text).toContain('both hands empty — Draw');
+    expect(text).toContain('Defender has 4 cards');
+    expect(text).toContain('limit is recalculated');
+    expect(text).toContain('final cards');
+    expect(text).toContain('Public Beta');
+    expect(text).not.toContain('Alpha uses');
   });
 });

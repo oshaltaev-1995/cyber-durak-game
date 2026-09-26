@@ -8,6 +8,7 @@ import { GameApiService } from './core/api/game-api.service';
 import { AuthService } from './core/auth/auth.service';
 import { DEFAULT_COSMETIC_LOADOUT } from './core/profile/profile.models';
 import { ProfileService } from './core/profile/profile.service';
+import { KIBA_FIRST_RUN_SEEN_KEY } from './core/onboarding/first-run.store';
 
 describe('App', () => {
   const currentUser = signal<{
@@ -18,6 +19,9 @@ describe('App', () => {
   } | null>(null);
 
   beforeEach(async () => {
+    localStorage.clear();
+    localStorage.setItem('kiba.preferred-locale', 'ru');
+    localStorage.setItem(KIBA_FIRST_RUN_SEEN_KEY, 'true');
     currentUser.set(null);
     await TestBed.configureTestingModule({
       imports: [App],
@@ -100,5 +104,24 @@ describe('App', () => {
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Правила игры');
     expect(createGame).not.toHaveBeenCalled();
+  });
+
+  it('does not mount first-run onboarding on deep links or gameplay recovery routes', async () => {
+    localStorage.removeItem(KIBA_FIRST_RUN_SEEN_KEY);
+    sessionStorage.setItem('kiba.activeBotGameId', 'recoverable-game');
+    const fixture = TestBed.createComponent(App);
+    const router = TestBed.inject(Router);
+
+    await router.navigateByUrl('/tutorial');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.first-run')).toBeNull();
+
+    expect(routes.find((route) => route.path === 'join/:inviteCode')?.component).not.toBe(
+      routes.find((route) => route.path === '')?.component,
+    );
+    expect(routes.find((route) => route.path === 'play')?.component).not.toBe(
+      routes.find((route) => route.path === '')?.component,
+    );
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('recoverable-game');
   });
 });

@@ -13,6 +13,14 @@ export interface TutorialExercise {
   readonly retry: string;
 }
 
+export interface TutorialPractical {
+  readonly prompt: string;
+  readonly cards: readonly GameCard[];
+  readonly answerCodes: readonly string[];
+  readonly success: string;
+  readonly retry: string;
+}
+
 export interface TutorialLesson {
   readonly id: string;
   readonly title: string;
@@ -23,6 +31,7 @@ export interface TutorialLesson {
   readonly equations: readonly string[];
   readonly note: string | null;
   readonly exercise: TutorialExercise | null;
+  readonly practical?: TutorialPractical;
 }
 
 const card = (
@@ -111,7 +120,7 @@ export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
     ],
     cardCaption: null,
     equations: ['9 + 9 = 18 = K', 'J + 6 = 12 + 6 = 18 = K', '9 + 7 ✕'],
-    note: 'Не нужно изучать алгоритм: во время настоящей игры сервер проверит выбранные карты.',
+    note: 'Не нужно запоминать все связи сразу: во время партии игра проверит выбранные карты.',
     exercise: {
       prompt: 'Какой набор связан с K = 18?',
       choices: [
@@ -153,13 +162,38 @@ export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
     },
   },
   {
+    id: 'practice-defense',
+    title: 'Попробуйте покрыть',
+    lead: 'Соперник атакует Королём стоимостью 18. Соберите защиту строго дороже.',
+    points: [
+      'Нажмите на карты J и 7: вместе они дают 19.',
+      'Проверьте сумму выбора и нажмите «Покрыть».',
+    ],
+    cards: [card('KH', 'K', 'hearts', 18)],
+    cardCaption: 'Атака соперника: K = 18.',
+    equations: ['J(12) + 7 = 19', '19 > 18 ✓'],
+    note: 'Это учебный пример: он не создаёт настоящую партию и не влияет на прогресс.',
+    exercise: null,
+    practical: {
+      prompt: 'Выберите защиту и выполните действие.',
+      cards: [
+        card('JC', 'J', 'clubs', 12),
+        card('7D', '7', 'diamonds', 7),
+        card('6S', '6', 'spades', 6),
+      ],
+      answerCodes: ['JC', '7D'],
+      success: 'Верно: вы выбрали J + 7 = 19 и покрыли атаку 18.',
+      retry: 'Нужны именно J и 7: их сумма 19 строго больше атаки 18.',
+    },
+  },
+  {
     id: 'throw-in',
     title: 'Как подкидывать',
-    lead: 'После покрытия прямыми опорами становятся карты, которыми только что отбились.',
+    lead: 'После покрытия прямые подсказки дают карты последней защиты.',
     points: [
       'J(12), покрытый K(18), больше не даёт прямую цель 12; K даёт ранг K и значение 18.',
       'Старые карты всё равно остаются в сумме и среднем стола.',
-      'Если отбились 7 + J, одним действием можно подкинуть 7 + J: оба ранга есть в опоре.',
+      'Если отбились 7 + J, одним действием можно подкинуть 7 + J: оба ранга есть в последней защите.',
       'Сумма карт последней защиты тоже доступна: после J(12) + 8(8) = 20 можно подкинуть A = 20.',
       'Продвинутый приём: карты стола и выбора могут собрать непрерывный ряд минимум из пяти рангов.',
     ],
@@ -169,23 +203,23 @@ export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
       card('7S', '7', 'spades', 7),
       card('JH', 'J', 'hearts', 12),
     ],
-    cardCaption: 'Атака J покрыта K. В следующем примере опоры защиты — 7 и J.',
+    cardCaption: 'Атака J покрыта K. В следующем примере последняя защита — 7 и J.',
     equations: [
       '10 + 8 = 18 = K',
       'защита J + 8 = 20 → A = 20',
-      'опоры 7 + J → можно подкинуть 7 + J',
+      'защита 7 + J → можно подкинуть 7 + J',
       '10, J, K, A + Q → ряд 10–A',
     ],
     note: null,
     exercise: {
-      prompt: 'Опоры — 7 и J. Что подходит по рангам?',
+      prompt: 'Последняя защита — 7 и J. Что подходит по рангам?',
       choices: [
         { id: 'anchored', label: '7 + J' },
         { id: 'foreign', label: '7 + 9' },
         { id: 'old', label: '6' },
       ],
       answer: 'anchored',
-      success: 'Верно: каждый выбранный ранг уже есть среди текущих опор.',
+      success: 'Верно: каждый выбранный ранг есть среди карт последней защиты.',
       retry: 'Все выбранные ранги должны присутствовать среди карт последней защиты.',
     },
   },
@@ -196,7 +230,7 @@ export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
     points: [
       'Сумма стола может стать целью для подкидывания.',
       'Среднее считается точно и никогда не округляется.',
-      'Активная атака — отдельная величина: покрывать нужно только текущий пакет.',
+      'Активная атака — отдельная величина: покрывать нужно только текущую незакрытую атаку.',
     ],
     cards: [
       card('JC', 'J', 'clubs', 12),
@@ -224,9 +258,11 @@ export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
     lead: 'Обычный перевод точно совпадает с текущей атакой.',
     points: [
       'При атаке 18 карты 9 + 9 переводят ровно 18.',
-      'Перевод расширяет тот же пакет: следующая цель становится 36, затем 72.',
+      'Перевод расширяет ту же незакрытую атаку: следующая цель становится 36, затем 72.',
       'После первой успешной защиты переводы закрыты до конца кона.',
-      'Если весь пакет одного ранга, точное ядро можно дополнить картами того же ранга.',
+      'Если вся незакрытая атака одного ранга, точную часть перевода можно дополнить картами того же ранга.',
+      'Число атакующих карт ограничено рукой текущего защитника; после перевода лимит пересчитывается по руке нового защитника.',
+      '«Атака 2 / лимит 4» означает: две атакующие карты уже сыграны, максимум — четыре.',
     ],
     cards: [
       card('9C', '9', 'clubs', 9),
@@ -253,7 +289,7 @@ export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
     title: 'Бито, взять и конец игры',
     lead: 'После каждого кона стол разрешается, затем игроки добирают карты.',
     points: [
-      'Бито: защитник начинает следующий кон. Последняя успешная защита завершает кон автоматически.',
+      'Бито: защитник начинает следующий кон. Если он успешно отбился последней картой или картами из руки, кон завершается автоматически и подкидывать больше нельзя.',
       'Взять: защитник забирает весь стол, а прежний атакующий сохраняет ход.',
       'Если карт в колоде мало, добор выравнивает руки насколько возможно.',
       'Пустая колода означает игру без козырей.',
@@ -336,7 +372,7 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
     ],
     cardCaption: null,
     equations: ['9 + 9 = 18 = K', 'J + 6 = 12 + 6 = 18 = K', '9 + 7 ✕'],
-    note: 'You do not need to learn the algorithm: the server validates selected cards during play.',
+    note: 'You do not need to memorize every connection at once: the game checks selected cards during play.',
     exercise: {
       prompt: 'Which set is connected to K = 18?',
       choices: [
@@ -378,13 +414,38 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
     },
   },
   {
+    id: 'practice-defense',
+    title: 'Try a defense',
+    lead: 'Your opponent attacks with a King worth 18. Build a defense worth strictly more.',
+    points: [
+      'Select J and 7: together they total 19.',
+      'Check the selected total, then press Defend.',
+    ],
+    cards: [card('KH', 'K', 'hearts', 18)],
+    cardCaption: 'Opponent attack: K = 18.',
+    equations: ['J(12) + 7 = 19', '19 > 18 ✓'],
+    note: 'This is a tutorial example: it creates no match and awards no progression.',
+    exercise: null,
+    practical: {
+      prompt: 'Select a defense and perform the action.',
+      cards: [
+        card('JC', 'J', 'clubs', 12),
+        card('7D', '7', 'diamonds', 7),
+        card('6S', '6', 'spades', 6),
+      ],
+      answerCodes: ['JC', '7D'],
+      success: 'Correct: J + 7 = 19 defends against the attack of 18.',
+      retry: 'Select J and 7: their total of 19 is strictly greater than the attack of 18.',
+    },
+  },
+  {
     id: 'throw-in',
     title: 'How to throw in',
-    lead: 'After defense, only the cards just used to defend become direct anchors.',
+    lead: 'After defense, the latest defense cards provide the direct ranks and values.',
     points: [
       'A J(12) covered by K(18) no longer exposes 12; K exposes rank K and value 18.',
       'Older cards still contribute to table total and arithmetic mean.',
-      'After defending with 7 + J, 7 + J may be thrown in together because both ranks are anchored.',
+      'After defending with 7 + J, 7 + J may be thrown in together because both ranks appear in the latest defense.',
       'The latest defense total is also available: after J(12) + 8(8) = 20, A = 20 may be thrown in.',
       'Advanced: table and selected cards may form a continuous run of at least five ranks.',
     ],
@@ -394,23 +455,23 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
       card('7S', '7', 'spades', 7),
       card('JH', 'J', 'hearts', 12),
     ],
-    cardCaption: 'Attack J is covered by K. In the next example, defense anchors are 7 and J.',
+    cardCaption: 'Attack J is covered by K. In the next example, the latest defense is 7 and J.',
     equations: [
       '10 + 8 = 18 = K',
       'defense J + 8 = 20 → A = 20',
-      'anchors 7 + J → throw in 7 + J',
+      'defense 7 + J → throw in 7 + J',
       '10, J, K, A + Q → run 10–A',
     ],
     note: null,
     exercise: {
-      prompt: 'The anchors are 7 and J. Which ranks fit?',
+      prompt: 'The latest defense is 7 and J. Which ranks fit?',
       choices: [
         { id: 'anchored', label: '7 + J' },
         { id: 'foreign', label: '7 + 9' },
         { id: 'old', label: '6' },
       ],
       answer: 'anchored',
-      success: 'Correct: every selected rank is present among the current anchors.',
+      success: 'Correct: every selected rank is present among the latest defense cards.',
       retry: 'Every selected rank must be present among the latest defense cards.',
     },
   },
@@ -421,7 +482,7 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
     points: [
       'The table total may become a throw-in target.',
       'The mean is exact and is never rounded.',
-      'The active attack is separate: only the current packet must be defended.',
+      'The active attack is separate: only the current unresolved attack must be defended.',
     ],
     cards: [
       card('JC', 'J', 'clubs', 12),
@@ -449,9 +510,11 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
     lead: 'A normal transfer exactly matches the current attack.',
     points: [
       'Against 18, cards 9 + 9 transfer exactly 18.',
-      'A transfer extends the same packet: the next target becomes 36, then 72.',
+      'A transfer extends the same unresolved attack: the next target becomes 36, then 72.',
       'Transfers close for the rest of the bout after the first successful defense.',
-      'If the entire packet has one rank, an exact core may be extended with cards of that rank.',
+      'If the entire unresolved attack has one rank, the exact-value part may be extended with more cards of that rank.',
+      'Attack-card count is limited by the current defender’s hand; after a transfer, the limit is recalculated from the new defender’s remaining hand.',
+      '“Attack 2 / limit 4” means two attack cards are already in play and four is the maximum.',
     ],
     cards: [
       card('9C', '9', 'clubs', 9),
@@ -478,7 +541,7 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
     title: 'End bout, take and game end',
     lead: 'After each bout, the table is resolved and hands refill.',
     points: [
-      'Discard: the defender starts the next bout. A final successful defense ends the bout automatically.',
+      'Discard: the defender starts the next bout. If they defend successfully with their final card or cards from hand, the bout ends automatically and no more cards may be thrown in.',
       'Take: the defender takes the whole table and the previous attacker keeps initiative.',
       'If the deck is short, refill balances the hands as closely as possible.',
       'An empty deck means play continues without trumps.',

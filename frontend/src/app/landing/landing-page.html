@@ -1,28 +1,48 @@
 <main class="landing-page">
-  <section class="hero" aria-labelledby="landing-title">
-    <span class="kicker">{{ i18n.t('landing.eyebrow') }}</span>
-    <h1 id="landing-title">{{ i18n.t('landing.title') }}</h1>
-    <p class="tagline">{{ i18n.t('landing.subtitle') }}</p>
-    <p class="mode">{{ i18n.t('landing.mode') }}</p>
-    <div class="landing-actions">
-      <a class="primary-action" routerLink="/play">{{ i18n.t('landing.playBot') }}</a>
-      <a class="friend-action" routerLink="/pvp">{{ i18n.t('landing.playFriend') }}</a>
-      <a routerLink="/tutorial">{{ i18n.t('landing.tutorial') }}</a>
-      <a routerLink="/rules">{{ i18n.t('landing.rules') }}</a>
-    </div>
-    @if (auth.currentUser() === null) {
-      <p class="account-invite">
-        {{ i18n.t('landing.accountInvite') }}
-        <a routerLink="/register">{{ i18n.t('landing.createAccount') }}</a
-        >.
-        {{ i18n.t('landing.guestSuffix') }}
-      </p>
-    }
-  </section>
-  <aside class="concept" [attr.aria-label]="i18n.t('landing.conceptLabel')">
-    <span>12 + 6</span>
-    <strong>= 18</strong>
-    <span>= K</span>
-    <p>{{ i18n.t('landing.concept') }}</p>
-  </aside>
+  @if (showWelcome()) {
+    <section class="first-run" aria-labelledby="first-run-title">
+      <span class="kicker">{{ i18n.t('landing.publicBeta') }}</span>
+      <h1 id="first-run-title">{{ i18n.t('onboarding.title') }}</h1>
+      <p class="first-run-lead">{{ i18n.t('onboarding.lead') }}</p>
+      <ul>
+        <li>{{ i18n.t('onboarding.trump') }}</li>
+        <li>{{ i18n.t('onboarding.multiCard') }}</li>
+        <li>{{ i18n.t('onboarding.arithmetic') }}</li>
+      </ul>
+      <div class="first-run-actions">
+        <button type="button" class="primary-action" (click)="startTutorial()">
+          {{ i18n.t('onboarding.startTutorial') }}
+        </button>
+        <button type="button" (click)="playNow()">{{ i18n.t('onboarding.playNow') }}</button>
+      </div>
+      <p class="first-run-note">{{ i18n.t('onboarding.optional') }}</p>
+    </section>
+  } @else {
+    <section class="hero" aria-labelledby="landing-title">
+      <span class="kicker">{{ i18n.t('landing.eyebrow') }}</span>
+      <h1 id="landing-title">{{ i18n.t('landing.title') }}</h1>
+      <p class="tagline">{{ i18n.t('landing.subtitle') }}</p>
+      <p class="mode">{{ i18n.t('landing.mode') }}</p>
+      <div class="landing-actions">
+        <a class="primary-action" routerLink="/play">{{ i18n.t('landing.playBot') }}</a>
+        <a class="friend-action" routerLink="/pvp">{{ i18n.t('landing.playFriend') }}</a>
+        <a routerLink="/tutorial">{{ i18n.t('landing.tutorial') }}</a>
+        <a routerLink="/rules">{{ i18n.t('landing.rules') }}</a>
+      </div>
+      @if (auth.currentUser() === null) {
+        <p class="account-invite">
+          {{ i18n.t('landing.accountInvite') }}
+          <a routerLink="/register">{{ i18n.t('landing.createAccount') }}</a
+          >.
+          {{ i18n.t('landing.guestSuffix') }}
+        </p>
+      }
+    </section>
+    <aside class="concept" [attr.aria-label]="i18n.t('landing.conceptLabel')">
+      <span>12 + 6</span>
+      <strong>= 18</strong>
+      <span>= K</span>
+      <p>{{ i18n.t('landing.concept') }}</p>
+    </aside>
+  }
 </main>

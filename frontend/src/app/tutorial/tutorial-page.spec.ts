@@ -25,11 +25,22 @@ describe('TutorialPageComponent', () => {
   };
 
   const advance = (fromIndex: number): void => {
-    const exercise = TUTORIAL_LESSONS_RU[fromIndex].exercise;
+    const lesson = TUTORIAL_LESSONS_RU[fromIndex];
+    const exercise = lesson.exercise;
     if (exercise !== null) {
       const answer = exercise.choices.find((choice) => choice.id === exercise.answer);
       expect(answer).toBeDefined();
       button((answer as { label: string }).label).click();
+      fixture.detectChanges();
+    }
+    if (lesson.practical !== undefined) {
+      const cards = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        '.practical-cards button',
+      );
+      cards[0].click();
+      cards[1].click();
+      fixture.detectChanges();
+      button('Покрыть').click();
       fixture.detectChanges();
     }
     button(fromIndex === TUTORIAL_LESSONS_RU.length - 1 ? 'Завершить' : 'Далее').click();
@@ -45,7 +56,7 @@ describe('TutorialPageComponent', () => {
   it('opens at lesson one with readable progress and navigation', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('h1')?.textContent).toContain('Цель и карты');
-    expect(element.querySelector('[role="progressbar"]')?.textContent).toContain('1 / 8');
+    expect(element.querySelector('[role="progressbar"]')?.textContent).toContain('1 / 9');
     expect(button('Назад').disabled).toBe(true);
     expect(element.querySelector('a[href="/play"]')?.textContent).toContain('Пропустить');
   });
@@ -74,7 +85,7 @@ describe('TutorialPageComponent', () => {
   });
 
   it('teaches the exact arithmetic mean without rounding or authoritative client logic', () => {
-    advanceTo(5);
+    advanceTo(6);
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Сумма и среднее');
     expect(text).toContain('(12 + 18) / 2 = 15');
@@ -83,7 +94,7 @@ describe('TutorialPageComponent', () => {
   });
 
   it('teaches the latest multi-card defense total as a throw-in target', () => {
-    advanceTo(4);
+    advanceTo(5);
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('J(12) + 8(8) = 20');
     expect(text).toContain('A = 20');
@@ -92,16 +103,66 @@ describe('TutorialPageComponent', () => {
   });
 
   it('shows the exact transfer snowball lesson', () => {
-    advanceTo(6);
+    advanceTo(7);
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Перевод');
     expect(text).toContain('18 → 36 → 72');
     expect(text).toContain('После первой успешной защиты');
-    expect(text).toContain('точное ядро');
+    expect(text).toContain('точную часть перевода');
     expect(text).toContain('7 → 7 + 7 → 21');
+    expect(text).toContain('лимит пересчитывается');
   });
 
-  it('finishes all eight lessons with play, rules, and replay choices', () => {
+  it('teaches the card-selection then action interaction without an API game', () => {
+    advanceTo(4);
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Попробуйте покрыть');
+    expect(element.textContent).toContain('Выберите карты для защиты');
+    expect(button('Далее').disabled).toBe(true);
+
+    const cards = element.querySelectorAll<HTMLButtonElement>('.practical-cards button');
+    cards[2].click();
+    fixture.detectChanges();
+    expect(element.textContent).toContain('6♠');
+    button('Покрыть').click();
+    fixture.detectChanges();
+    expect(element.querySelector('[role="status"]')?.textContent).toContain('Нужны именно J и 7');
+    expect(button('Далее').disabled).toBe(true);
+
+    cards[2].click();
+    cards[0].click();
+    cards[1].click();
+    fixture.detectChanges();
+    expect(element.textContent).toContain('J♣ + 7♦');
+    expect(element.textContent).toContain('сумма 19');
+    button('Покрыть').click();
+    fixture.detectChanges();
+    expect(element.querySelector('[role="status"]')?.textContent).toContain('Верно');
+    expect(button('Далее').disabled).toBe(false);
+  });
+
+  it('uses canonical final-card wording and player language in both locales', () => {
+    const russian = TUTORIAL_LESSONS_RU.map((lesson) => [
+      lesson.lead,
+      ...lesson.points,
+      lesson.note,
+    ]).join(' ');
+    const english = TUTORIAL_LESSONS_EN.map((lesson) => [
+      lesson.lead,
+      ...lesson.points,
+      lesson.note,
+    ]).join(' ');
+
+    expect(russian).toContain('последней картой или картами из руки');
+    expect(english).toContain('final card or cards from hand');
+    expect(english).not.toContain('server validates');
+    expect(english).not.toContain('direct anchors');
+    expect(english).not.toContain('exact core');
+    expect(russian).not.toContain('сервер проверит');
+    expect(russian).not.toContain('точное ядро');
+  });
+
+  it('finishes all nine lessons with play, rules, and replay choices', () => {
     for (let index = 0; index < TUTORIAL_LESSONS_RU.length; index += 1) {
       advance(index);
     }
@@ -116,8 +177,8 @@ describe('TutorialPageComponent', () => {
     expect(element.textContent).toContain('Цель и карты');
   });
 
-  it('provides all eight English lessons and preserves the current step on runtime switch', () => {
-    expect(TUTORIAL_LESSONS_EN).toHaveLength(8);
+  it('provides all nine English lessons and preserves the current step on runtime switch', () => {
+    expect(TUTORIAL_LESSONS_EN).toHaveLength(9);
     advance(0);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Двойной козырь');
 
@@ -126,7 +187,7 @@ describe('TutorialPageComponent', () => {
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Dual trump');
-    expect(text).toContain('2 / 8');
+    expect(text).toContain('2 / 9');
     button('8♥ = 16').click();
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
