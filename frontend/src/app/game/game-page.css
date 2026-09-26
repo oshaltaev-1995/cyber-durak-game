@@ -152,8 +152,9 @@ button:disabled {
 }
 
 .game-board {
+  position: relative;
   display: grid;
-  grid-template-rows: auto auto minmax(10rem, 1fr) auto auto auto;
+  grid-template-rows: auto minmax(5.6rem, auto) minmax(8.5rem, 1fr) auto auto auto;
   grid-template-columns: minmax(0, 1fr);
   width: min(100%, 80rem);
   height: 100%;
@@ -169,71 +170,11 @@ button:disabled {
 }
 
 .opponent-zone {
-  position: relative;
-  display: flex;
-  width: fit-content;
-  min-width: 10.5rem;
-  min-height: 3.4rem;
-  margin-inline: auto;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  padding: 0.35rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: rgb(7 25 25 / 62%);
-}
-
-.bot-avatar {
-  position: relative;
-  display: grid;
-  width: 2.55rem;
-  height: 2.55rem;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 50%;
-  color: #09231e;
-  background: #79b9a8;
-  font-size: 0.7rem;
-  font-weight: 850;
-}
-
-.opponent-copy {
-  position: relative;
-  z-index: 1;
-}
-
-.opponent-copy span,
-.opponent-copy strong {
   display: block;
-}
-
-.opponent-copy span {
-  color: var(--text-muted);
-  font-size: 0.72rem;
-}
-
-.opponent-copy strong {
-  margin-top: 0.15rem;
-  font-size: 0.92rem;
-}
-
-.opponent-card-backs {
-  position: absolute;
-  top: -0.2rem;
-  left: 0.3rem;
-  display: flex;
-  opacity: 0.48;
-  transform: rotate(-7deg);
-}
-
-.opponent-card-backs i {
-  width: 1.4rem;
-  height: 2rem;
-  margin-right: -0.85rem;
-  border: 1px solid rgb(255 255 255 / 28%);
-  border-radius: 0.2rem;
-  background: var(--card-back-background);
+  width: min(100%, 46rem);
+  min-width: 0;
+  margin-inline: auto;
+  overflow: hidden;
 }
 
 .table-stage {

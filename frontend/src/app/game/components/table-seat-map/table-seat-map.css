@@ -1,0 +1,42 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.seat-map {
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  grid-template-areas: 'top';
+}
+
+.seat-top {
+  grid-area: top;
+  width: min(100%, 46rem);
+  overflow: hidden;
+}
+
+.has-side-seats {
+  grid-template:
+    'top top top' auto
+    'left center right' minmax(9rem, 1fr)
+    / minmax(4.5rem, 6rem) minmax(8rem, 1fr) minmax(4.5rem, 6rem);
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.seat-left {
+  grid-area: left;
+}
+.seat-right {
+  grid-area: right;
+}
+.table-center-space {
+  grid-area: center;
+}
+
+@media (max-width: 35rem) {
+  .has-side-seats {
+    grid-template-columns: minmax(3.8rem, 4.5rem) minmax(6rem, 1fr) minmax(3.8rem, 4.5rem);
+  }
+}

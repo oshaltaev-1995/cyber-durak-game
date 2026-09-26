@@ -15,6 +15,7 @@ import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import {
   BotPresentationEvent,
+  CARD_ACTIONS,
   GameCard,
   GameResponse,
   HumanActionType,
@@ -25,11 +26,15 @@ import { BotGameSessionStore } from '../core/game/bot-game-session.store';
 import { TranslationService } from '../core/i18n/translation.service';
 import { TranslationKey } from '../core/i18n/translations/ru';
 import { ActionBarComponent } from './components/action-bar/action-bar';
+import { CardMotionOverlayComponent } from './components/card-motion-overlay/card-motion-overlay';
 import { GameTableComponent } from './components/game-table/game-table';
 import { HandComponent } from './components/hand/hand';
+import { TableSeatMapComponent } from './components/table-seat-map/table-seat-map';
 import { TrumpIndicatorComponent } from './components/trump-indicator/trump-indicator';
 import { TurnReminderComponent } from './components/turn-reminder/turn-reminder';
 import { GameSessionState } from './game-session-state';
+import { CardMotionController, MotionSnapshot, planCardMotions } from './presentation/card-motion';
+import { HiddenTableSeat } from './presentation/table-seat.models';
 
 const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   illegal_initial_attack: 'error.illegal_initial_attack',
@@ -46,15 +51,18 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   selector: 'app-game-page',
   imports: [
     ActionBarComponent,
+    CardMotionOverlayComponent,
     GameTableComponent,
     HandComponent,
     RouterLink,
+    TableSeatMapComponent,
     TrumpIndicatorComponent,
     TurnReminderComponent,
   ],
   templateUrl: './game-page.html',
   styleUrl: './game-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [CardMotionController],
 })
 export class GamePageComponent implements OnInit, OnDestroy {
   @ViewChild('newGameTrigger') private newGameTrigger?: ElementRef<HTMLButtonElement>;
@@ -63,6 +71,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private readonly changeDetector = inject(ChangeDetectorRef);
   private readonly session = inject(GameSessionState);
   private readonly storedSession = inject(BotGameSessionStore);
+  protected readonly cardMotion = inject(CardMotionController);
   protected readonly auth = inject(AuthService);
   protected readonly i18n = inject(TranslationService);
 
@@ -78,8 +87,22 @@ export class GamePageComponent implements OnInit, OnDestroy {
     return this.game()?.human_hand.filter((card) => selected.has(card.code)) ?? [];
   });
   protected readonly statusText = computed(() => this.getStatusText());
+  protected readonly opponentSeats = computed<readonly HiddenTableSeat[]>(() => {
+    const game = this.game();
+    if (game === null) return [];
+    return [
+      {
+        id: 'bot',
+        position: 'top',
+        displayName: this.i18n.t('game.bot'),
+        cardCount: game.bot_hand_count,
+        badge: 'BOT',
+      },
+    ];
+  });
   private presentationTimer: ReturnType<typeof setTimeout> | null = null;
-  private pendingAuthoritativeGame: GameResponse | null = null;
+  private submittedAction: HumanActionType | null = null;
+  private submittedCards: readonly GameCard[] = [];
 
   ngOnInit(): void {
     const currentGame = this.game();
@@ -96,11 +119,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.pendingAuthoritativeGame !== null) {
-      this.game.set(this.pendingAuthoritativeGame);
-      this.selectedCodes.set(new Set());
-      this.pendingAuthoritativeGame = null;
-    }
+    this.cardMotion.clear();
     this.cancelPresentation();
   }
 
@@ -144,6 +163,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
       return;
     }
     this.cancelPresentation();
+    this.cardMotion.clear();
     this.restartConfirmation.set(false);
     this.recoveryState.set('idle');
     this.pending.set(true);
@@ -156,6 +176,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
           this.storedSession.save(game.game_id);
           this.game.set(game);
           this.selectedCodes.set(new Set());
+          this.presentInitialBotAction(game);
           this.showBriefBotStatus(game.recent_events.at(-1) ?? null);
         },
         error: (error: unknown) => this.errorMessage.set(this.messageForError(error)),
@@ -227,6 +248,8 @@ export class GamePageComponent implements OnInit, OnDestroy {
     if (game === null || this.pending() || !game.available_actions.includes(action)) {
       return;
     }
+    this.submittedAction = action;
+    this.submittedCards = CARD_ACTIONS.has(action) ? [...this.selectedCards()] : [];
     this.pending.set(true);
     this.errorMessage.set(null);
     this.api
@@ -238,6 +261,8 @@ export class GamePageComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (updatedGame) => this.presentUpdatedGame(updatedGame),
         error: (error: unknown) => {
+          this.submittedAction = null;
+          this.submittedCards = [];
           this.pending.set(false);
           this.errorMessage.set(this.messageForError(error));
         },
@@ -309,22 +334,27 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   private presentUpdatedGame(updatedGame: GameResponse): void {
+    const previous = this.game();
     const event = updatedGame.recent_events.at(-1) ?? null;
-    if (event?.type === 'BOT_TAKE' && this.game() !== null) {
-      this.pendingAuthoritativeGame = updatedGame;
-      this.botPresentation.set(event);
-      this.presentationTimer = setTimeout(() => {
-        this.presentationTimer = null;
-        this.pendingAuthoritativeGame = null;
-        this.game.set(updatedGame);
-        this.selectedCodes.set(new Set());
-        this.botPresentation.set(null);
-        this.pending.set(false);
-      }, 650);
-      return;
+    if (previous !== null) {
+      this.cardMotion.play(
+        planCardMotions(this.motionSnapshot(previous), this.motionSnapshot(updatedGame), {
+          localAction: this.submittedAction ?? undefined,
+          localCards: this.submittedCards,
+          remoteCardCount: this.remotePlayedCount(updatedGame.recent_events),
+          remotePlayedCards: this.newPublicRemoteCards(previous, updatedGame),
+          resolvedTo: this.resolutionDestination(previous, updatedGame),
+          refillOrder:
+            previous.bout_starting_attacker === previous.human_seat
+              ? 'local-first'
+              : 'opponent-first',
+        }),
+      );
     }
     this.game.set(updatedGame);
     this.selectedCodes.set(new Set());
+    this.submittedAction = null;
+    this.submittedCards = [];
     this.pending.set(false);
     this.showBriefBotStatus(event);
   }
@@ -339,6 +369,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
       .pipe(finalize(() => this.pending.set(false)))
       .subscribe({
         next: (game) => {
+          this.cardMotion.clear();
           this.storedSession.save(game.game_id);
           this.game.set(game);
           this.selectedCodes.set(new Set());
@@ -377,6 +408,66 @@ export class GamePageComponent implements OnInit, OnDestroy {
       this.presentationTimer = null;
     }
     this.botPresentation.set(null);
+  }
+
+  private motionSnapshot(game: GameResponse): MotionSnapshot {
+    return {
+      localHand: game.human_hand,
+      opponentHandCount: game.bot_hand_count,
+      drawPileCount: game.draw_pile_count,
+      discardCount: game.discard_count,
+      tableCards: game.table_cards,
+    };
+  }
+
+  private presentInitialBotAction(game: GameResponse): void {
+    const remoteCardCount = this.remotePlayedCount(game.recent_events);
+    if (remoteCardCount === 0) return;
+    const current = this.motionSnapshot(game);
+    this.cardMotion.play(
+      planCardMotions(
+        {
+          ...current,
+          opponentHandCount: current.opponentHandCount + remoteCardCount,
+          tableCards: [],
+        },
+        current,
+        {
+          remoteCardCount,
+          remotePlayedCards: game.table_cards.slice(0, remoteCardCount),
+        },
+      ),
+    );
+  }
+
+  private remotePlayedCount(events: readonly BotPresentationEvent[]): number {
+    return events
+      .filter((event) =>
+        ['BOT_INITIAL_ATTACK', 'BOT_DEFEND', 'BOT_TRANSFER', 'BOT_THROW_IN'].includes(event.type),
+      )
+      .reduce((total, event) => total + event.card_count, 0);
+  }
+
+  private newPublicRemoteCards(previous: GameResponse, next: GameResponse): readonly GameCard[] {
+    const existing = new Set(previous.table_cards.map((card) => card.code));
+    const submitted = new Set(this.submittedCards.map((card) => card.code));
+    return next.table_cards.filter((card) => !existing.has(card.code) && !submitted.has(card.code));
+  }
+
+  private resolutionDestination(
+    previous: GameResponse,
+    game: GameResponse,
+  ): 'local' | 'opponent' | 'discard' | undefined {
+    const summary = game.last_bout_summary;
+    if (summary === null) return undefined;
+    const nextTableCodes = new Set(game.table_cards.map((card) => card.code));
+    if (
+      previous.table_cards.length === 0 ||
+      previous.table_cards.every((card) => nextTableCodes.has(card.code))
+    )
+      return undefined;
+    if (summary.outcome === 'BITO') return 'discard';
+    return summary.actor_seat === game.human_seat ? 'local' : 'opponent';
   }
 
   private botEventText(event: BotPresentationEvent): string {

@@ -9,16 +9,25 @@ import {
   signal,
 } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { GameCard, HumanActionType } from '../core/api/game-api.models';
+import { CARD_ACTIONS, GameCard, HumanActionType } from '../core/api/game-api.models';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
 import { PvPWebSocketService } from '../core/pvp/pvp-websocket.service';
 import { ActionBarComponent } from '../game/components/action-bar/action-bar';
+import { CardMotionOverlayComponent } from '../game/components/card-motion-overlay/card-motion-overlay';
 import { GameTableComponent } from '../game/components/game-table/game-table';
 import { HandComponent } from '../game/components/hand/hand';
+import { TableSeatMapComponent } from '../game/components/table-seat-map/table-seat-map';
 import { TrumpIndicatorComponent } from '../game/components/trump-indicator/trump-indicator';
 import { TurnReminderComponent } from '../game/components/turn-reminder/turn-reminder';
 import { TranslationService } from '../core/i18n/translation.service';
 import { TranslationKey } from '../core/i18n/translations/ru';
+import {
+  CardMotionController,
+  MotionSnapshot,
+  planCardMotions,
+} from '../game/presentation/card-motion';
+import { HiddenTableSeat } from '../game/presentation/table-seat.models';
+import { PvPState } from '../core/pvp/pvp.models';
 
 const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   WRONG_TURN: 'error.wrong_turn',
@@ -37,15 +46,18 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   selector: 'app-pvp-room-page',
   imports: [
     ActionBarComponent,
+    CardMotionOverlayComponent,
     GameTableComponent,
     HandComponent,
     RouterLink,
+    TableSeatMapComponent,
     TrumpIndicatorComponent,
     TurnReminderComponent,
   ],
   templateUrl: './pvp-room-page.html',
   styleUrls: ['../game/game-page.css', './pvp-room-page.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [CardMotionController],
 })
 export class PvPRoomPageComponent implements OnInit, OnDestroy {
   private readonly credentials = inject(PvPCredentialStore);
@@ -53,6 +65,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   protected readonly socket = inject(PvPWebSocketService);
   protected readonly i18n = inject(TranslationService);
+  protected readonly cardMotion = inject(CardMotionController);
   protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
   protected readonly copyStatus = signal<'idle' | 'copied' | 'failed'>('idle');
   protected readonly leaveConfirmation = signal(false);
@@ -65,14 +78,31 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     () => `${window.location.origin}/join/${this.inviteCode}`,
   );
   protected readonly statusText = computed(() => this.getStatusText());
+  protected readonly opponentSeats = computed<readonly HiddenTableSeat[]>(() => {
+    const state = this.state();
+    if (state?.opponent === null || state?.opponent === undefined) return [];
+    return [
+      {
+        id: state.opponent.participant_id,
+        position: 'top',
+        displayName: state.opponent.display_name,
+        cardCount: state.opponent_hand_count ?? 0,
+        badge: 'P2',
+      },
+    ];
+  });
   protected inviteCode = '';
   private lastVersion = -1;
+  private previousState: PvPState | null = null;
+  private submittedAction: HumanActionType | null = null;
+  private submittedCards: readonly GameCard[] = [];
 
   constructor() {
     effect(() => {
       const current = this.state();
       if (current !== null) {
         if (current.version > this.lastVersion && this.lastVersion >= 0) {
+          if (this.previousState !== null) this.presentTransition(this.previousState, current);
           this.selectedCodes.set(new Set());
         } else {
           const ownedCodes = new Set(current.hand.map((card) => card.code));
@@ -81,10 +111,15 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
           );
         }
         this.lastVersion = Math.max(this.lastVersion, current.version);
+        this.previousState = current;
       }
     });
     effect(() => {
       const errorCode = this.socket.actionError()?.code;
+      if (errorCode !== undefined) {
+        this.submittedAction = null;
+        this.submittedCards = [];
+      }
       if (this.inviteCode !== '' && errorCode === 'INVALID_CREDENTIAL') {
         this.credentials.clear(this.inviteCode);
         this.socket.disconnect();
@@ -109,6 +144,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.cardMotion.clear();
     this.socket.disconnect();
   }
 
@@ -133,6 +169,8 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
       action === 'THROW_IN'
         ? this.selectedCards().map((card) => card.code)
         : [];
+    this.submittedAction = action;
+    this.submittedCards = CARD_ACTIONS.has(action) ? this.selectedCards() : [];
     this.socket.sendAction(action, cards);
   }
 
@@ -281,5 +319,52 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
       return this.i18n.t('game.defendAgainst', { value: state.active_attack_value ?? 0 });
     if (state.available_actions.includes('THROW_IN')) return this.i18n.t('game.mayThrow');
     return this.i18n.t('game.yourTurn');
+  }
+
+  private presentTransition(previous: PvPState, next: PvPState): void {
+    const previousCodes = new Set(previous.table_cards.map((card) => card.code));
+    const submitted = new Set(this.submittedCards.map((card) => card.code));
+    const remoteCards = next.table_cards.filter(
+      (card) => !previousCodes.has(card.code) && !submitted.has(card.code),
+    );
+    this.cardMotion.play(
+      planCardMotions(this.motionSnapshot(previous), this.motionSnapshot(next), {
+        localAction: this.submittedAction ?? undefined,
+        localCards: this.submittedCards,
+        remoteCardCount: remoteCards.length,
+        remotePlayedCards: remoteCards,
+        resolvedTo: this.resolutionDestination(previous, next),
+        refillOrder:
+          previous.bout_starting_attacker === previous.you.seat ? 'local-first' : 'opponent-first',
+      }),
+    );
+    this.submittedAction = null;
+    this.submittedCards = [];
+  }
+
+  private motionSnapshot(state: PvPState): MotionSnapshot {
+    return {
+      localHand: state.hand,
+      opponentHandCount: state.opponent_hand_count ?? 0,
+      drawPileCount: state.draw_pile_count,
+      discardCount: state.discard_count,
+      tableCards: state.table_cards,
+    };
+  }
+
+  private resolutionDestination(
+    previous: PvPState,
+    state: PvPState,
+  ): 'local' | 'opponent' | 'discard' | undefined {
+    const summary = state.last_bout_summary;
+    if (summary === null) return undefined;
+    const nextTableCodes = new Set(state.table_cards.map((card) => card.code));
+    if (
+      previous.table_cards.length === 0 ||
+      previous.table_cards.every((card) => nextTableCodes.has(card.code))
+    )
+      return undefined;
+    if (summary.outcome === 'BITO') return 'discard';
+    return summary.actor_seat === state.you.seat ? 'local' : 'opponent';
   }
 }

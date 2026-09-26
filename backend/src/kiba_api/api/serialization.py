@@ -126,6 +126,9 @@ def serialize_game_session(session: GameSession, locale: Locale = Locale.RU) -> 
             physical_card_count=summary.physical_card_count,
             arithmetic_mean=_format_fraction(summary.arithmetic_mean),
         ),
+        bout_starting_attacker=(
+            state.bout_starting_attacker.value if state.bout_starting_attacker is not None else None
+        ),
         attacker=(bout.attacker.value if bout is not None else None),
         defender=(bout.defender.value if bout is not None else None),
         bout_phase=bout_phase,

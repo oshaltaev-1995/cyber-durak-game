@@ -133,6 +133,8 @@ export const ru = {
   'game.opponent': 'Соперник',
   'game.botCards': 'Бот · {count} {cards}',
   'game.botCardsLabel': 'Карты бота',
+  'game.hiddenHandLabel': '{name}: {count} скрытых карт',
+  'game.hiddenCardPosition': 'Скрытая карта {current} из {total}',
   'game.boardLabel': 'Игровое поле',
   'game.deckTrumpLabel': 'Колода и козырь',
   'game.discardLabel': 'Бито, сброшенные карты',

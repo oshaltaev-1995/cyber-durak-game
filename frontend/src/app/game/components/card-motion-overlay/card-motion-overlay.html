@@ -1,0 +1,39 @@
+<div class="motion-layer" aria-hidden="true">
+  @for (motion of motions(); track motion.id) {
+    <div
+      class="motion-card"
+      [class.from-top]="motion.from === 'top'"
+      [class.from-bottom]="motion.from === 'bottom'"
+      [class.from-left]="motion.from === 'left'"
+      [class.from-right]="motion.from === 'right'"
+      [class.from-table]="motion.from === 'table'"
+      [class.from-deck]="motion.from === 'deck'"
+      [class.from-discard]="motion.from === 'discard'"
+      [class.to-top]="motion.to === 'top'"
+      [class.to-bottom]="motion.to === 'bottom'"
+      [class.to-left]="motion.to === 'left'"
+      [class.to-right]="motion.to === 'right'"
+      [class.to-table]="motion.to === 'table'"
+      [class.to-deck]="motion.to === 'deck'"
+      [class.to-discard]="motion.to === 'discard'"
+      [class.starts-hidden]="motion.startsHidden"
+      [class.ends-hidden]="motion.endsHidden"
+      [class.reveals]="motion.startsHidden && !motion.endsHidden && motion.card !== null"
+      [class.hides]="!motion.startsHidden && motion.endsHidden && motion.card !== null"
+      [style.animation-delay.ms]="motion.delayMs"
+    >
+      <div class="motion-card-inner">
+        <div class="motion-back"><span>K</span></div>
+        <div
+          class="motion-face"
+          [class.red]="motion.card?.suit === 'hearts' || motion.card?.suit === 'diamonds'"
+        >
+          @if (motion.card; as card) {
+            <strong>{{ card.rank }}</strong
+            ><span>{{ suitSymbols[card.suit] }}</span>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

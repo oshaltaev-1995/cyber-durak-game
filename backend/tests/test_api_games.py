@@ -82,6 +82,7 @@ def test_create_game_returns_public_human_vs_bot_state() -> None:
     assert body["discard_count"] == 0
     assert body["result"] is None
     assert body["bout_phase"] is not None
+    assert body["bout_starting_attacker"] in {Seat.ONE.value, Seat.TWO.value}
     assert body["required_actor"] == "HUMAN"
     assert body["available_actions"]
 

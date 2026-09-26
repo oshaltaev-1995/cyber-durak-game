@@ -1,0 +1,13 @@
+<section class="seat-map" [class.has-side-seats]="seats().length > 1">
+  @for (seat of seats(); track seat.id) {
+    <app-table-seat
+      [seat]="seat"
+      [class.seat-top]="seat.position === 'top'"
+      [class.seat-left]="seat.position === 'left'"
+      [class.seat-right]="seat.position === 'right'"
+    />
+  }
+  @if (seats().length > 1) {
+    <div class="table-center-space" aria-hidden="true"></div>
+  }
+</section>

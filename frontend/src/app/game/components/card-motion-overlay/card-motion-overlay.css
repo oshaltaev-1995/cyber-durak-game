@@ -1,0 +1,184 @@
+:host,
+.motion-layer {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.motion-card {
+  --from-x: 50%;
+  --from-y: 50%;
+  --to-x: 50%;
+  --to-y: 50%;
+  position: absolute;
+  width: 3.65rem;
+  height: 5.15rem;
+  left: var(--from-x);
+  top: var(--from-y);
+  opacity: 0;
+  perspective: 30rem;
+  transform: translate(-50%, -50%);
+  animation: card-flight 560ms cubic-bezier(0.22, 0.72, 0.23, 1) both;
+}
+
+.motion-card-inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.reveals .motion-card-inner {
+  animation: card-reveal 560ms ease-in-out both;
+}
+
+.hides .motion-card-inner {
+  animation: card-hide 560ms ease-in-out both;
+}
+
+.motion-back,
+.motion-face {
+  position: absolute;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid rgb(255 255 255 / 70%);
+  border-radius: 0.58rem;
+  backface-visibility: hidden;
+  box-shadow: 0 0.7rem 1.4rem rgb(0 0 0 / 35%);
+}
+
+.motion-back {
+  color: rgb(216 255 244 / 42%);
+  background: var(--card-back-background);
+  font-weight: 850;
+}
+
+.motion-face {
+  display: flex;
+  flex-direction: column;
+  color: #172023;
+  background: linear-gradient(145deg, #fff, #f0f2ed);
+  transform: rotateY(180deg);
+}
+
+.motion-face strong {
+  font-size: 1rem;
+}
+
+.motion-face span {
+  font-size: 1.5rem;
+}
+
+.motion-face.red {
+  color: #c92c3a;
+}
+
+.motion-card:not(.starts-hidden) .motion-card-inner {
+  transform: rotateY(180deg);
+}
+
+.from-top {
+  --from-x: 50%;
+  --from-y: 15%;
+}
+.from-bottom {
+  --from-x: 50%;
+  --from-y: 80%;
+}
+.from-left {
+  --from-x: 8%;
+  --from-y: 48%;
+}
+.from-right {
+  --from-x: 92%;
+  --from-y: 48%;
+}
+.from-table {
+  --from-x: 50%;
+  --from-y: 44%;
+}
+.from-deck {
+  --from-x: 9%;
+  --from-y: 34%;
+}
+.from-discard {
+  --from-x: 91%;
+  --from-y: 34%;
+}
+.to-top {
+  --to-x: 50%;
+  --to-y: 15%;
+}
+.to-bottom {
+  --to-x: 50%;
+  --to-y: 80%;
+}
+.to-left {
+  --to-x: 8%;
+  --to-y: 48%;
+}
+.to-right {
+  --to-x: 92%;
+  --to-y: 48%;
+}
+.to-table {
+  --to-x: 50%;
+  --to-y: 44%;
+}
+.to-deck {
+  --to-x: 9%;
+  --to-y: 34%;
+}
+.to-discard {
+  --to-x: 91%;
+  --to-y: 34%;
+}
+
+@keyframes card-flight {
+  0% {
+    left: var(--from-x);
+    top: var(--from-y);
+    opacity: 0.94;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    left: var(--to-x);
+    top: var(--to-y);
+    opacity: 0;
+  }
+}
+
+@keyframes card-reveal {
+  0%,
+  46% {
+    transform: rotateY(0);
+  }
+  64%,
+  100% {
+    transform: rotateY(180deg);
+  }
+}
+
+@keyframes card-hide {
+  0%,
+  46% {
+    transform: rotateY(180deg);
+  }
+  64%,
+  100% {
+    transform: rotateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-card,
+  .motion-card-inner {
+    display: none;
+    animation: none;
+  }
+}

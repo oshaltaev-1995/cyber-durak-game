@@ -260,6 +260,8 @@ def test_participant_specific_state_never_leaks_opponent_or_future_draw_cards(
             assert {card["code"] for card in state_two["hand"]} == seat_two_codes
             assert state_one["opponent_hand_count"] == 7
             assert state_two["opponent_hand_count"] == 7
+            assert state_one["bout_starting_attacker"] == room.state.bout_starting_attacker.value
+            assert state_two["bout_starting_attacker"] == room.state.bout_starting_attacker.value
             serialized = json.dumps((state_one, state_two))
             assert creator["credential"]["reconnect_token"] not in serialized
             assert joiner["credential"]["reconnect_token"] not in serialized

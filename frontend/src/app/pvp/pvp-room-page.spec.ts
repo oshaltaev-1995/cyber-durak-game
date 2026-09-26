@@ -53,6 +53,7 @@ const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
   discard_count: 0,
   table_cards: [],
   table_arithmetic: { total_effective_value: 0, physical_card_count: 0, arithmetic_mean: null },
+  bout_starting_attacker: 'one',
   attacker: 'one',
   defender: 'two',
   bout_phase: 'waiting_for_initial_attack',
@@ -117,7 +118,9 @@ describe('PvPRoomPageComponent', () => {
   it('renders only the local hand and the opponent count/name', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelectorAll('app-hand .playing-card')).toHaveLength(1);
-    expect(element.textContent).toContain('Bob · 7 карт');
+    expect(element.querySelector('.opponent-zone .seat-name')?.textContent).toBe('Bob');
+    expect(element.querySelector('.opponent-zone .seat-count')?.textContent).toContain('7 карт');
+    expect(element.querySelectorAll('.opponent-zone .hidden-card')).toHaveLength(7);
     expect(element.textContent).not.toContain('opponent_hand');
     expect(element.textContent).not.toContain('draw_pile');
   });
@@ -172,6 +175,23 @@ describe('PvPRoomPageComponent', () => {
     expect(socket.sendAction).toHaveBeenCalledWith('INITIAL_ATTACK', ['6C']);
     expect(socket.state()?.packets).toHaveLength(0);
     expect(cardButton.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('animates an observed remote public card and closes the facedown hand gap', () => {
+    socket.state.set(
+      makeState({
+        version: 2,
+        opponent_hand_count: 6,
+        table_cards: [card],
+        required_participant_id: 'p1',
+      }),
+    );
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelectorAll('.opponent-zone .hidden-card')).toHaveLength(6);
+    expect(element.querySelectorAll('.motion-card.from-top.to-table')).toHaveLength(1);
+    expect(element.querySelector('.motion-layer')?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('sends TAKE without stale selected card codes', () => {

@@ -25,6 +25,7 @@
     </main>
   } @else if (game(); as currentGame) {
     <main class="game-board">
+      <app-card-motion-overlay [motions]="cardMotion.motions()" />
       <div class="game-utilities">
         <span>{{
           i18n.t(currentGame.phase === 'complete' ? 'game.matchComplete' : 'game.vsBot')
@@ -40,21 +41,7 @@
         </button>
       </div>
 
-      <section class="opponent-zone" [attr.aria-label]="i18n.t('game.botCardsLabel')">
-        @if (currentGame.bot_hand_count > 0) {
-          <div class="opponent-card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
-        }
-        <div class="bot-avatar" aria-hidden="true">BOT</div>
-        <div class="opponent-copy">
-          <span>{{ i18n.t('game.opponent') }}</span>
-          <strong>{{
-            i18n.t('game.botCards', {
-              count: currentGame.bot_hand_count,
-              cards: i18n.cardCount(currentGame.bot_hand_count),
-            })
-          }}</strong>
-        </div>
-      </section>
+      <app-table-seat-map class="opponent-zone" [seats]="opponentSeats()" />
 
       <section class="table-stage" [attr.aria-label]="i18n.t('game.boardLabel')">
         <aside class="draw-zone" [attr.aria-label]="i18n.t('game.deckTrumpLabel')">

@@ -61,6 +61,7 @@ const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
     physical_card_count: 0,
     arithmetic_mean: null,
   },
+  bout_starting_attacker: 'one',
   attacker: 'one',
   defender: 'two',
   bout_phase: 'waiting_for_initial_attack',
@@ -156,6 +157,7 @@ describe('GamePageComponent', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelectorAll('app-hand .playing-card'),
     ).toHaveLength(2);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.motion-card')).toBeNull();
   });
 
   it('shows a recovery loading state without flashing a replacement game', () => {
@@ -256,7 +258,12 @@ describe('GamePageComponent', () => {
     fixture.detectChanges();
 
     expect(api.createGame).toHaveBeenCalledOnce();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Бот · 6 карт');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.seat-name')?.textContent).toBe(
+      'БОТ',
+    );
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.seat-count')?.textContent,
+    ).toContain('6 карт');
   });
 
   it('creates and renders a public human-vs-bot state without hidden cards', () => {
@@ -266,7 +273,12 @@ describe('GamePageComponent', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelectorAll('app-hand .playing-card'),
     ).toHaveLength(3);
-    expect(text).toContain('Бот · 6 карт');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.seat-name')?.textContent).toBe(
+      'БОТ',
+    );
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.seat-count')?.textContent,
+    ).toContain('6 карт');
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('.draw-zone .deck-count')?.textContent,
     ).toContain('21');
@@ -281,14 +293,39 @@ describe('GamePageComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     const stage = element.querySelector('.table-stage') as HTMLElement;
 
-    expect(element.querySelector('.opponent-zone')?.textContent).toContain('Бот · 6 карт');
-    expect(element.querySelectorAll('.opponent-zone .opponent-card-backs i')).toHaveLength(3);
+    expect(element.querySelector('.opponent-zone .seat-name')?.textContent).toBe('БОТ');
+    expect(element.querySelector('.opponent-zone .seat-count')?.textContent).toContain('6 карт');
+    expect(element.querySelectorAll('.opponent-zone .hidden-card')).toHaveLength(6);
     expect(stage.querySelector('.draw-zone .deck-count')?.textContent).toContain('21');
     expect(stage.querySelectorAll('.draw-zone app-playing-card')).toHaveLength(1);
     expect(stage.querySelector(':scope > app-game-table.center-table')).not.toBeNull();
     expect(stage.querySelector('.discard-zone')?.textContent).toContain('Бито');
     expect(stage.querySelector('.discard-zone')?.textContent).toContain('16');
     expect(stage.textContent).not.toContain('Порядок колоды');
+  });
+
+  it('animates a server-confirmed opening bot card from the hidden hand without exposing hand data', () => {
+    create(
+      makeGame({
+        bot_hand_count: 6,
+        table_cards: [sixClubs],
+        recent_events: [
+          {
+            type: 'BOT_INITIAL_ATTACK',
+            actor: 'BOT',
+            card_count: 1,
+            value: 6,
+            target: null,
+          },
+        ],
+      }),
+    );
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelectorAll('.opponent-zone .hidden-card')).toHaveLength(6);
+    expect(element.querySelectorAll('.motion-card.from-top.to-table')).toHaveLength(1);
+    expect(element.querySelector('.motion-layer')?.getAttribute('aria-hidden')).toBe('true');
+    expect(element.querySelector('.opponent-zone')?.innerHTML).not.toContain('6C');
   });
 
   it('keeps the turn status next to the player interaction region', () => {
@@ -314,6 +351,9 @@ describe('GamePageComponent', () => {
 
     clickButton('Ходить');
     expect(api.submitAction).toHaveBeenCalledWith('game-1', 'INITIAL_ATTACK', ['6C']);
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.motion-card.from-bottom.to-table'),
+    ).toHaveLength(1);
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('.selection-summary')?.textContent,
     ).toContain('Выбрано: 0');
@@ -341,6 +381,7 @@ describe('GamePageComponent', () => {
     firstCard.click();
     fixture.detectChanges();
     clickButton('Покрыть');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.motion-card')).toBeNull();
 
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('Недостаточно очков');
@@ -836,9 +877,7 @@ describe('GamePageComponent', () => {
     const shell = (fixture.nativeElement as HTMLElement).querySelector('.game-shell');
     expect(shell?.classList.contains('back-snowball')).toBe(true);
     expect(shell?.classList.contains('table-mathematician')).toBe(true);
-    expect(
-      (fixture.nativeElement as HTMLElement).querySelector('.opponent-card-backs'),
-    ).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.hidden-hand')).not.toBeNull();
   });
 
   it('shows server-confirmed newly unlocked cosmetics on the result', () => {
@@ -895,7 +934,7 @@ describe('GamePageComponent', () => {
     expect(actions?.children).toHaveLength(2);
   });
 
-  it('keeps the old table visible while presenting a confirmed bot TAKE', () => {
+  it('keeps physical table-card ghosts visible while presenting a confirmed bot TAKE', () => {
     vi.useFakeTimers();
     try {
       create(
@@ -918,6 +957,7 @@ describe('GamePageComponent', () => {
           makeGame({
             table_cards: [],
             packets: [],
+            last_bout_summary: { outcome: 'TAKE', actor_seat: 'two', table_card_count: 1 },
             recent_events: [
               {
                 type: 'BOT_TAKE',
@@ -940,13 +980,15 @@ describe('GamePageComponent', () => {
 
       let element = fixture.nativeElement as HTMLElement;
       expect(element.textContent).toContain('Бот берёт 4 карты…');
-      expect(element.querySelector('app-game-table')?.textContent).toContain('Атака · 6');
+      expect(element.querySelector('app-game-table')?.textContent).toContain('Стол пуст');
+      expect(element.querySelectorAll('.motion-card.from-table.to-top')).toHaveLength(1);
 
-      vi.advanceTimersByTime(650);
+      vi.advanceTimersByTime(1_000);
       fixture.detectChanges();
       element = fixture.nativeElement as HTMLElement;
       expect(element.querySelector('app-game-table')?.textContent).toContain('Стол пуст');
       expect(element.textContent).not.toContain('Бот берёт 4 карты…');
+      expect(element.querySelector('.motion-card')).toBeNull();
     } finally {
       vi.useRealTimers();
     }

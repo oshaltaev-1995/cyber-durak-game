@@ -63,6 +63,7 @@ class PvPStateResponse(BaseModel):
     discard_count: int
     table_cards: list[CardResponse]
     table_arithmetic: TableArithmeticResponse
+    bout_starting_attacker: str | None
     attacker: str | None
     defender: str | None
     bout_phase: str | None

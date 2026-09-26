@@ -53,6 +53,7 @@ export interface PvPState {
   readonly discard_count: number;
   readonly table_cards: readonly GameCard[];
   readonly table_arithmetic: TableArithmetic;
+  readonly bout_starting_attacker: Seat | null;
   readonly attacker: Seat | null;
   readonly defender: Seat | null;
   readonly bout_phase: BoutPhase | null;

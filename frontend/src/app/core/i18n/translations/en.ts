@@ -135,6 +135,8 @@ export const en: Record<TranslationKey, string> = {
   'game.opponent': 'Opponent',
   'game.botCards': 'Bot · {count} {cards}',
   'game.botCardsLabel': 'Bot cards',
+  'game.hiddenHandLabel': '{name}: {count} hidden cards',
+  'game.hiddenCardPosition': 'Hidden card {current} of {total}',
   'game.boardLabel': 'Game table',
   'game.deckTrumpLabel': 'Deck and trump',
   'game.discardLabel': 'Discarded cards',

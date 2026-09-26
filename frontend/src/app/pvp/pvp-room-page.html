@@ -9,6 +9,7 @@
     </main>
   } @else if (state(); as game) {
     <main class="game-board">
+      <app-card-motion-overlay [motions]="cardMotion.motions()" />
       <div class="game-utilities">
         <span>{{ i18n.t('pvp.privateRoom', { code: game.invite_code }) }}</span>
         <button class="new-game" type="button" (click)="leaveConfirmation.set(true)">
@@ -81,26 +82,7 @@
           <small>{{ i18n.t('pvp.localOnly') }}</small>
         </section>
       } @else {
-        <section
-          class="opponent-zone"
-          [attr.aria-label]="i18n.t('pvp.opponent')"
-          [title]="game.opponent?.display_name ?? i18n.t('pvp.opponent')"
-        >
-          @if ((game.opponent_hand_count ?? 0) > 0) {
-            <div class="opponent-card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
-          }
-          <div class="bot-avatar" aria-hidden="true">P2</div>
-          <div class="opponent-copy">
-            <span>{{ i18n.t('pvp.opponent') }}</span
-            ><strong>{{
-              i18n.t('pvp.opponentCards', {
-                name: game.opponent?.display_name ?? i18n.t('pvp.connectingOpponent'),
-                count: game.opponent_hand_count ?? 0,
-                cards: i18n.cardCount(game.opponent_hand_count ?? 0),
-              })
-            }}</strong>
-          </div>
-        </section>
+        <app-table-seat-map class="opponent-zone" [seats]="opponentSeats()" />
 
         <section class="table-stage" [attr.aria-label]="i18n.t('game.boardLabel')">
           <aside class="draw-zone" [attr.aria-label]="i18n.t('game.deckTrumpLabel')">

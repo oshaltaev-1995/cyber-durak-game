@@ -414,8 +414,9 @@ Angular renders that metadata but never derives run legality.
 Human-vs-bot action responses may additionally carry a response-scoped `recent_events` trace for
 confirmed bot actions. The trace contains only safe public action type/count/value metadata, is not
 stored in PostgreSQL or retained by subsequent GET responses, and never drives game correctness.
-Angular may briefly preserve the previous visible table for a confirmed bot TAKE before rendering
-the already-resolved authoritative response.
+Angular renders the authoritative response immediately and may retain pointer-inert visual card
+ghosts long enough to explain a confirmed bot TAKE or other transition. The presentation never
+delays, rejects, or creates a game action.
 
 The shared Angular table uses a local 30-second activity perimeter only while the local participant
 owns the current decision in bot and private-PvP modes. Its context key changes with authoritative
@@ -432,6 +433,21 @@ cards. A compact `last_bout_summary` is serialized from the already-retained res
 so TAKE/BITO context remains visible after the next bout begins and through ordinary R1 refresh.
 This metadata is process-local, public/presentation-only, contains no hidden cards, and does not
 change rules or database state.
+
+Opponent presentation uses a reusable table-seat model with explicit `top`, `bottom`, `left`, and
+`right` positions. Current two-player Bot and PvP games populate only the local bottom hand and one
+top opponent; tests exercise three- and four-seat visual maps without enabling additional players,
+changing room limits, or defining multiplayer rules. Hidden hands render exactly one generic,
+accessible card back per authoritative public count and never receive card identities.
+
+A small card-motion coordinator compares consecutive public snapshots only after an accepted REST
+or WebSocket transition. It combines the already-submitted local cards, safe bot presentation
+events, public table-card differences, `last_bout_summary`, and draw-pile deltas into short,
+pointer-inert card ghosts for play, TAKE, BITO, and refill. Refill staggering follows the previous
+authoritative `bout_starting_attacker` value exposed in public state; allocation and legality remain
+backend-owned. Initial GET/reconnect snapshots establish a baseline and do not replay history.
+Rapid batches replace stale ghosts, and reduced-motion preferences skip flight/flip effects
+entirely.
 
 Player-facing card shorthand is formatted centrally with Unicode suit symbols. High-confidence
 pre-action hints cover only server-exposed numeric defense/transfer targets and attack-card limits;

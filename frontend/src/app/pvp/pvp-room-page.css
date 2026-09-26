@@ -140,15 +140,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.opponent-copy {
-  max-width: min(13rem, 52vw);
-  overflow: hidden;
-}
-.opponent-copy strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .result-panel p {
   color: var(--text-muted);
 }

@@ -81,6 +81,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
                 physical_card_count=0,
                 arithmetic_mean=None,
             ),
+            bout_starting_attacker=None,
             attacker=None,
             defender=None,
             bout_phase=None,
@@ -154,6 +155,9 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             total_effective_value=summary.total_effective_value,
             physical_card_count=summary.physical_card_count,
             arithmetic_mean=_format_fraction(summary.arithmetic_mean),
+        ),
+        bout_starting_attacker=(
+            state.bout_starting_attacker.value if state.bout_starting_attacker is not None else None
         ),
         attacker=bout.attacker.value if bout is not None else None,
         defender=bout.defender.value if bout is not None else None,
