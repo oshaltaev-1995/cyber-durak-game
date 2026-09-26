@@ -1,8 +1,11 @@
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
+  ElementRef,
   OnDestroy,
   OnInit,
+  ViewChild,
   computed,
   effect,
   inject,
@@ -60,6 +63,9 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   providers: [CardMotionController],
 })
 export class PvPRoomPageComponent implements OnInit, OnDestroy {
+  @ViewChild('leaveTrigger') private leaveTrigger?: ElementRef<HTMLButtonElement>;
+  @ViewChild('leaveCancel') private leaveCancel?: ElementRef<HTMLButtonElement>;
+  private readonly changeDetector = inject(ChangeDetectorRef);
   private readonly credentials = inject(PvPCredentialStore);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -81,6 +87,8 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   protected readonly gameplayPaused = computed(() => {
     const state = this.state();
     return (
+      state?.room_phase === 'CLOSED' ||
+      this.socket.roomClosure() !== null ||
       this.socket.status() !== 'connected' ||
       this.socket.opponentStatus() === 'disconnected' ||
       state?.opponent?.connected === false
@@ -138,6 +146,12 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
       if (this.inviteCode !== '' && this.socket.status() === 'expired') {
         this.credentials.clear(this.inviteCode);
       }
+    });
+    effect(() => {
+      const closure = this.socket.roomClosure();
+      if (closure === null || this.inviteCode === '') return;
+      this.credentials.clear(this.inviteCode);
+      if (closure === 'you_left') void this.router.navigate(['/pvp']);
     });
   }
 
@@ -204,6 +218,40 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
 
   protected canShare(): boolean {
     return navigator.share !== undefined;
+  }
+
+  protected requestLeave(): void {
+    if (this.socket.leavePending()) return;
+    this.leaveConfirmation.set(true);
+    this.changeDetector.detectChanges();
+    this.leaveCancel?.nativeElement.focus();
+  }
+
+  protected cancelLeave(): void {
+    this.leaveConfirmation.set(false);
+    this.changeDetector.detectChanges();
+    this.leaveTrigger?.nativeElement.focus();
+  }
+
+  protected handleLeaveKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancelLeave();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const dialog = event.currentTarget as HTMLElement;
+    const focusable = [...dialog.querySelectorAll<HTMLElement>('button:not([disabled])')];
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable.at(-1) as HTMLElement;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   protected localDecisionContext(): string | null {
@@ -303,9 +351,13 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
 
   protected leave(): void {
     this.leaveConfirmation.set(false);
-    this.credentials.clear(this.inviteCode);
-    this.socket.disconnect();
-    void this.router.navigate(['/pvp']);
+    if (this.state()?.game_phase === 'complete') {
+      this.credentials.clear(this.inviteCode);
+      this.socket.disconnect();
+      void this.router.navigate(['/pvp']);
+      return;
+    }
+    this.socket.leaveRoom();
   }
 
   private getStatusText(): string {

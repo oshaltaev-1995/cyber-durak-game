@@ -9,6 +9,30 @@
   background: rgb(7 31 27 / 88%);
   text-align: center;
 }
+.room-closed {
+  display: grid;
+  width: min(100%, 34rem);
+  align-self: center;
+  justify-self: center;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  border: 1px solid rgb(255 224 138 / 28%);
+  border-radius: 1.2rem;
+  background: rgb(7 31 27 / 88%);
+  text-align: center;
+}
+.room-closed > span {
+  color: #ffe08a;
+  font-size: 2rem;
+}
+.room-closed h1,
+.room-closed p {
+  margin: 0;
+}
+.room-closed p {
+  color: var(--text-muted);
+}
 .waiting-room h1,
 .waiting-room p {
   margin: 0;

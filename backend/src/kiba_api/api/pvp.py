@@ -19,6 +19,7 @@ from kiba_api.api.pvp_schemas import (
     RoomStatusResponse,
     WebSocketActionMessage,
     WebSocketAuthMessage,
+    WebSocketLeaveMessage,
     WebSocketPingMessage,
 )
 from kiba_api.api.pvp_serialization import (
@@ -35,6 +36,7 @@ from kiba_api.pvp import (
     PvPErrorCode,
     PvPParticipant,
     PvPRoom,
+    PvPRoomPhase,
     PvPRoomService,
     normalize_guest_nickname,
 )
@@ -176,7 +178,12 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
             await websocket.send_json(_error_message("ERROR", error.code))
             close_code = (
                 4404
-                if error.code in {PvPErrorCode.ROOM_NOT_FOUND, PvPErrorCode.INVITE_EXPIRED}
+                if error.code
+                in {
+                    PvPErrorCode.ROOM_NOT_FOUND,
+                    PvPErrorCode.INVITE_EXPIRED,
+                    PvPErrorCode.ROOM_CLOSED,
+                }
                 else 4401
             )
             await websocket.close(code=close_code)
@@ -220,6 +227,20 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                 except (ValidationError, PvPError):
                     await websocket.send_json(_error_message("ERROR", PvPErrorCode.ROOM_NOT_FOUND))
                 continue
+            if message_type == "LEAVE":
+                try:
+                    WebSocketLeaveMessage.model_validate(payload)
+                    room = service.leave_room(invite_code, reconnect_token, connection_id)
+                except ValidationError:
+                    await websocket.send_json(
+                        _error_message("ERROR", PvPErrorCode.ILLEGAL_ACTION, "invalid_request")
+                    )
+                    continue
+                except PvPError as error:
+                    await websocket.send_json(_error_message("ERROR", error.code))
+                    continue
+                await _broadcast_room_closed(room, hub, participant_id)
+                return
             if message_type != "ACTION":
                 await websocket.send_json(
                     _error_message("ERROR", PvPErrorCode.ILLEGAL_ACTION, "invalid_message")
@@ -284,7 +305,7 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                 room = service.disconnect(invite_code, participant_id, connection_id)
             except PvPError:
                 room = None
-            if room is not None:
+            if room is not None and room.phase is not PvPRoomPhase.CLOSED:
                 participant = room.participant_by_id(participant_id)
                 if not participant.connected:
                     await _broadcast_event(
@@ -368,6 +389,28 @@ async def _broadcast_complete(room: PvPRoom, hub: PvPConnectionHub) -> None:
             await websocket.send_json(
                 {"type": "GAME_COMPLETE", "state": state.model_dump(mode="json")}
             )
+        except (PvPError, RuntimeError, WebSocketDisconnect):
+            continue
+
+
+async def _broadcast_room_closed(
+    room: PvPRoom,
+    hub: PvPConnectionHub,
+    leaving_participant_id: str,
+) -> None:
+    """Send one terminal neutral lifecycle event, then close every room socket."""
+    for participant_id, websocket in hub.connections(room.invite_code):
+        try:
+            participant = room.participant_by_id(participant_id)
+            state = serialize_pvp_state(room, participant)
+            await websocket.send_json(
+                {
+                    "type": "ROOM_CLOSED",
+                    "state": state.model_dump(mode="json"),
+                    "left_participant_id": leaving_participant_id,
+                }
+            )
+            await websocket.close(code=4000, reason="room intentionally closed")
         except (PvPError, RuntimeError, WebSocketDisconnect):
             continue
 

@@ -9,6 +9,7 @@ import {
   PvPConnectionStatus,
   PvPErrorBody,
   PvPOpponentStatus,
+  PvPRoomClosure,
   PvPState,
 } from '../core/pvp/pvp.models';
 import { PvPRoomPageComponent } from './pvp-room-page';
@@ -80,10 +81,13 @@ describe('PvPRoomPageComponent', () => {
     actionPending: signal(false),
     opponentStatus: signal<PvPOpponentStatus>('connected'),
     connectionNotice: signal<PvPConnectionNotice>(null),
+    roomClosure: signal<PvPRoomClosure>(null),
+    leavePending: signal(false),
     connect: vi.fn(),
     disconnect: vi.fn(),
     sendAction: vi.fn(),
     retry: vi.fn(),
+    leaveRoom: vi.fn(),
   };
 
   beforeEach(async () => {
@@ -93,10 +97,13 @@ describe('PvPRoomPageComponent', () => {
     socket.actionPending.set(false);
     socket.opponentStatus.set('connected');
     socket.connectionNotice.set(null);
+    socket.roomClosure.set(null);
+    socket.leavePending.set(false);
     socket.connect.mockReset();
     socket.sendAction.mockReset();
     socket.disconnect.mockReset();
     socket.retry.mockReset();
+    socket.leaveRoom.mockReset();
     credentials.get.mockReset().mockReturnValue({ reconnect_token: 'secret' });
     credentials.clear.mockReset();
     await TestBed.configureTestingModule({
@@ -354,7 +361,7 @@ describe('PvPRoomPageComponent', () => {
     expect(credentials.clear).toHaveBeenCalledWith('ABC123');
   });
 
-  it('explicit leave clears resume credential, closes intentionally, and returns to PvP', () => {
+  it('explicit leave waits for server confirmation before clearing resume state', () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const leave = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Выйти',
@@ -365,9 +372,61 @@ describe('PvPRoomPageComponent', () => {
       ...(fixture.nativeElement as HTMLElement).querySelectorAll('.restart-confirmation button'),
     ].find((button) => button.textContent?.trim() === 'Выйти') as HTMLButtonElement;
     confirm.click();
+    expect(socket.leaveRoom).toHaveBeenCalledOnce();
+    expect(credentials.clear).not.toHaveBeenCalledWith('ABC123');
+    expect(navigate).not.toHaveBeenCalledWith(['/pvp']);
+
+    socket.state.set(makeState({ room_phase: 'CLOSED', version: 2, available_actions: [] }));
+    socket.roomClosure.set('you_left');
+    fixture.detectChanges();
     expect(credentials.clear).toHaveBeenCalledWith('ABC123');
-    expect(socket.disconnect).toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith(['/pvp']);
+  });
+
+  it('keeps the exit dialog keyboard-modal and cancel preserves the room', async () => {
+    const trigger = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Выйти',
+    ) as HTMLButtonElement;
+    trigger.focus();
+    trigger.click();
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector(
+      '[role="alertdialog"]',
+    ) as HTMLElement;
+    const buttons = dialog.querySelectorAll('button');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(document.activeElement).toBe(buttons[0]);
+    buttons[0].dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }),
+    );
+    expect(document.activeElement).toBe(buttons[1]);
+    buttons[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    expect(document.activeElement).toBe(buttons[0]);
+    dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(socket.leaveRoom).not.toHaveBeenCalled();
+    expect(credentials.clear).not.toHaveBeenCalledWith('ABC123');
+  });
+
+  it('shows a terminal opponent-left state without actions, timer, or reconnect promise', () => {
+    socket.state.set(makeState({ room_phase: 'CLOSED', version: 2, available_actions: [] }));
+    socket.roomClosure.set('opponent_left');
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Соперник вышел из игры');
+    expect(element.textContent).toContain('Результат партии не засчитан');
+    expect(element.textContent).toContain('Вернуться в PvP');
+    expect(element.textContent).not.toContain('ждать вашего переподключения');
+    expect(element.querySelector('app-action-bar')).toBeNull();
+    expect(element.querySelector('app-turn-reminder')).toBeNull();
+    expect(credentials.clear).toHaveBeenCalledWith('ABC123');
   });
 
   it.each([

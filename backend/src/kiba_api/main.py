@@ -255,6 +255,7 @@ def create_app(
         status_codes = {
             PvPErrorCode.ROOM_NOT_FOUND: 404,
             PvPErrorCode.INVITE_EXPIRED: 410,
+            PvPErrorCode.ROOM_CLOSED: 410,
             PvPErrorCode.INVALID_NICKNAME: 422,
             PvPErrorCode.INVALID_CREDENTIAL: 401,
             PvPErrorCode.ROOM_FULL: 409,

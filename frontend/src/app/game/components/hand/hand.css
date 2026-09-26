@@ -29,16 +29,66 @@ h2 {
 }
 
 .card-strip {
+  --hand-overlap: 0rem;
+
   display: flex;
   gap: 0.45rem;
+  box-sizing: border-box;
+  width: 100%;
   min-width: 0;
-  padding: 0.58rem 0.2rem 0.2rem;
+  padding: 0.58rem 0.75rem 0.3rem;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
+  scroll-padding-inline: 0.75rem;
   scrollbar-color: rgb(255 255 255 / 25%) transparent;
   scroll-snap-type: x proximity;
 }
 
 .card-strip app-playing-card {
+  position: relative;
+  flex: 0 0 auto;
   scroll-snap-align: start;
+}
+
+.card-strip app-playing-card + app-playing-card {
+  margin-left: var(--hand-overlap);
+}
+
+.card-strip.crowded {
+  --hand-overlap: -0.2rem;
+}
+
+.card-strip.large {
+  --hand-overlap: -0.55rem;
+}
+
+.card-strip.dense {
+  --hand-overlap: -1rem;
+}
+
+.card-strip.very-dense {
+  --hand-overlap: -1.85rem;
+}
+
+.card-strip app-playing-card:focus-within,
+.card-strip app-playing-card:has(.selected) {
+  z-index: 2;
+}
+
+@media (max-width: 47.99rem) {
+  .card-strip.crowded {
+    --hand-overlap: -2.55rem;
+  }
+
+  .card-strip.large {
+    --hand-overlap: -3.25rem;
+  }
+
+  .card-strip.dense {
+    --hand-overlap: -4.3rem;
+  }
+
+  .card-strip.very-dense {
+    --hand-overlap: -4.55rem;
+  }
 }

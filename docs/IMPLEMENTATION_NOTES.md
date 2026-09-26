@@ -651,10 +651,21 @@ surfaces opponent disconnect/return separately, and retains selected cards until
 newer version proves an action was accepted. Older state versions are ignored; stale actions are
 rejected and followed by the server's latest state. Explicit leave disables reconnect and clears
 only that room's `sessionStorage` credential, while ordinary internal navigation preserves it.
+Unlike a recoverable socket loss, a confirmed explicit leave sends one authenticated `LEAVE`
+message. The room moves to neutral `CLOSED`, publishes one participant-specific terminal snapshot
+to both seats, revokes both reconnect claims, and exposes no further actions or turn reminder. It
+does not create a winner, completed-match row, XP, achievement, or cosmetic award. The remaining
+participant sees that the opponent intentionally left and can return to the PvP lobby instead of
+waiting for a reconnect that cannot happen.
 Authoritative room-expired/not-found closes stop retry, clear the stale credential, and show a
 terminal room-unavailable screen; invalid credentials return through public room status/join flow.
 These transport changes do not alter `GameState`, gameplay versions, hidden-information boundaries,
 or the process-local room TTL policy.
+
+The local hand keeps ordinary spacing for seven cards and applies count-based overlap only as TAKE
+creates larger hands. Its scroll container owns symmetric inline gutters, so the first and last card
+remain inside the usable hand bounds at the resting edges; exceptionally large hands remain
+internally scrollable without widening the page or overlapping the action row.
 
 ### 10.9 Persistent private-PvP results
 

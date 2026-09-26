@@ -17,26 +17,35 @@
       <app-card-motion-overlay [motions]="cardMotion.motions()" />
       <div class="game-utilities">
         <span>{{ i18n.t('pvp.privateRoom', { code: game.invite_code }) }}</span>
-        <button class="new-game" type="button" (click)="leaveConfirmation.set(true)">
-          {{ i18n.t('pvp.exit') }}
-        </button>
+        @if (game.room_phase !== 'CLOSED') {
+          <button #leaveTrigger class="new-game" type="button" (click)="requestLeave()">
+            {{ i18n.t('pvp.exit') }}
+          </button>
+        }
       </div>
 
       @if (leaveConfirmation()) {
-        <section
-          class="restart-confirmation"
-          role="alertdialog"
-          [attr.aria-label]="i18n.t('pvp.exitConfirmLabel')"
-        >
-          <div>
-            <strong>{{ i18n.t('pvp.exitTitle') }}</strong
-            ><span>{{ i18n.t('pvp.exitHint') }}</span>
-          </div>
-          <button class="cancel" type="button" (click)="leaveConfirmation.set(false)">
-            {{ i18n.t('pvp.stay') }}
-          </button>
-          <button type="button" (click)="leave()">{{ i18n.t('pvp.exit') }}</button>
-        </section>
+        <div class="restart-backdrop">
+          <section
+            class="restart-confirmation"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="leave-title"
+            aria-describedby="leave-description"
+            (keydown)="handleLeaveKeydown($event)"
+          >
+            <div>
+              <strong id="leave-title">{{ i18n.t('pvp.exitTitle') }}</strong
+              ><span id="leave-description">{{ i18n.t('pvp.exitHint') }}</span>
+            </div>
+            <button #leaveCancel class="cancel" type="button" (click)="cancelLeave()">
+              {{ i18n.t('pvp.stay') }}
+            </button>
+            <button type="button" [disabled]="socket.leavePending()" (click)="leave()">
+              {{ i18n.t('pvp.exit') }}
+            </button>
+          </section>
+        </div>
       }
 
       @if (connectionMessage(); as message) {
@@ -59,7 +68,14 @@
         <div class="connection-notice" role="status">{{ notice }}</div>
       }
 
-      @if (game.room_phase === 'WAITING_FOR_OPPONENT') {
+      @if (game.room_phase === 'CLOSED') {
+        <section class="room-closed" aria-live="assertive">
+          <span aria-hidden="true">↩</span>
+          <h1>{{ i18n.t('pvp.opponentLeftTitle') }}</h1>
+          <p>{{ i18n.t('pvp.opponentLeftHint') }}</p>
+          <a class="room-again" routerLink="/pvp">{{ i18n.t('pvp.backToPvp') }}</a>
+        </section>
+      } @else if (game.room_phase === 'WAITING_FOR_OPPONENT') {
         <section class="waiting-room" aria-live="polite">
           <span class="waiting-icon" aria-hidden="true">↗</span>
           <h1>{{ i18n.t('pvp.roomCreated') }}</h1>

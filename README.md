@@ -148,8 +148,10 @@ The Angular room client stores its reconnect credential in `sessionStorage`, nev
 URL, and reconnects to the participant-specific state after ordinary refresh/navigation. Invite
 links are built from the browser's current origin, so a LAN visitor receives a LAN-usable link.
 Unexpected socket loss uses bounded exponential retry; returning from a backgrounded page or an
-offline period verifies/reconnects and replaces the UI with the latest authoritative state. An
-explicit **Выйти** clears that room's local resume credential and does not start another reconnect.
+offline period verifies/reconnects and replaces the UI with the latest authoritative state. A
+confirmed explicit **Exit / Выйти** closes the active room neutrally for both participants, clears
+that room's local resume credential, and neither reconnects nor records a competitive result.
+Ordinary refresh and temporary network loss still preserve the participant's seat and room.
 Private rooms, active games, connection state, and reconnect credentials are process-local and are
 lost when the backend restarts. Completed authenticated PvP participant summaries, XP, achievements,
 and cosmetics are persistent and appear in private history; guests remain registration-free and

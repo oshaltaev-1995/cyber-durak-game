@@ -103,11 +103,18 @@ export type PvPOpponentStatus = 'unknown' | 'connected' | 'disconnected' | 'retu
 export type PvPConnectionNotice =
   'connection_restored' | 'state_updated' | 'action_recovered' | null;
 
+export type PvPRoomClosure = 'you_left' | 'opponent_left' | null;
+
 export type PvPServerMessage =
   | { readonly type: 'STATE'; readonly state: PvPState }
   | { readonly type: 'GAME_COMPLETE'; readonly state: PvPState }
   | { readonly type: 'ACTION_REJECTED'; readonly error: PvPErrorBody }
   | { readonly type: 'ERROR'; readonly error: PvPErrorBody }
+  | {
+      readonly type: 'ROOM_CLOSED';
+      readonly state: PvPState;
+      readonly left_participant_id: string;
+    }
   | {
       readonly type: 'OPPONENT_CONNECTED' | 'OPPONENT_DISCONNECTED' | 'PONG';
       readonly version: number;

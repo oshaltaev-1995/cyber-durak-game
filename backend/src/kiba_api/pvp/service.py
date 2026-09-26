@@ -56,6 +56,7 @@ class PvPErrorCode(StrEnum):
     ROOM_NOT_FOUND = "ROOM_NOT_FOUND"
     ROOM_FULL = "ROOM_FULL"
     INVITE_EXPIRED = "INVITE_EXPIRED"
+    ROOM_CLOSED = "ROOM_CLOSED"
     INVALID_NICKNAME = "INVALID_NICKNAME"
     INVALID_CREDENTIAL = "INVALID_CREDENTIAL"
     GAME_NOT_READY = "GAME_NOT_READY"
@@ -514,6 +515,33 @@ class PvPRoomService:
             )
             return record.room
 
+    def leave_room(
+        self,
+        invite_code: str,
+        reconnect_token: str,
+        connection_id: str,
+    ) -> PvPRoom:
+        """Intentionally close a room without creating a competitive result."""
+        now = self._now()
+        with self._store.locked_record(invite_code) as record:
+            self._raise_if_expired(record, now)
+            room = record.room
+            participant = room.participant_by_token(reconnect_token)
+            if participant.connection_id != connection_id:
+                raise PvPError(PvPErrorCode.INVALID_CREDENTIAL)
+            if room.phase is PvPRoomPhase.COMPLETE:
+                raise PvPError(PvPErrorCode.GAME_COMPLETE)
+            disconnected = tuple(replace(value, connection_id=None) for value in room.participants)
+            record.room = replace(
+                room,
+                phase=PvPRoomPhase.CLOSED,
+                participants=disconnected,
+                completion_results=(),
+                version=room.version + 1,
+                updated_at=now,
+            )
+            return record.room
+
     def play_action(
         self,
         invite_code: str,
@@ -530,6 +558,8 @@ class PvPRoomService:
         with self._store.locked_record(invite_code) as record:
             room = record.room
             participant = room.participant_by_token(reconnect_token)
+            if room.phase is PvPRoomPhase.CLOSED:
+                raise PvPActionError(PvPErrorCode.ROOM_CLOSED)
             if room.state is None or room.phase is PvPRoomPhase.WAITING_FOR_OPPONENT:
                 raise PvPActionError(PvPErrorCode.GAME_NOT_READY)
             if room.phase is PvPRoomPhase.COMPLETE or room.state.phase is GamePhase.COMPLETE:
@@ -615,6 +645,8 @@ class PvPRoomService:
 
     def _raise_if_expired(self, record: _RoomRecord, now: datetime) -> None:
         room = record.room
+        if room.phase is PvPRoomPhase.CLOSED:
+            raise PvPError(PvPErrorCode.ROOM_CLOSED)
         if any(participant.connected for participant in room.participants):
             return
         age = now - room.updated_at

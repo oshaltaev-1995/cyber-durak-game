@@ -28,6 +28,8 @@ export class PvPWebSocketService {
   readonly actionPending = signal(false);
   readonly opponentStatus = signal<PvPOpponentStatus>('unknown');
   readonly connectionNotice = signal<PvPConnectionNotice>(null);
+  readonly roomClosure = signal<'you_left' | 'opponent_left' | null>(null);
+  readonly leavePending = signal(false);
 
   private socket: WebSocket | null = null;
   private inviteCode: string | null = null;
@@ -59,6 +61,8 @@ export class PvPWebSocketService {
     this.actionPending.set(false);
     this.actionError.set(null);
     this.connectionNotice.set(null);
+    this.roomClosure.set(null);
+    this.leavePending.set(false);
     if (!sameRoom) {
       this.state.set(null);
       this.opponentStatus.set('unknown');
@@ -82,6 +86,20 @@ export class PvPWebSocketService {
     this.actionError.set(null);
     this.connectionNotice.set(null);
     this.socket.send(JSON.stringify({ type: 'ACTION', version: state.version, action, cards }));
+  }
+
+  leaveRoom(): void {
+    if (
+      this.status() !== 'connected' ||
+      this.socket?.readyState !== WebSocket.OPEN ||
+      this.state() === null ||
+      this.leavePending()
+    ) {
+      return;
+    }
+    this.leavePending.set(true);
+    this.actionError.set(null);
+    this.socket.send(JSON.stringify({ type: 'LEAVE' }));
   }
 
   retry(): void {
@@ -109,6 +127,7 @@ export class PvPWebSocketService {
     this.unbindLifecycleEvents();
     this.status.set('idle');
     this.actionPending.set(false);
+    this.leavePending.set(false);
     this.uncertainAction = false;
   }
 
@@ -139,6 +158,7 @@ export class PvPWebSocketService {
       this.clearHealthTimer();
       if (this.actionPending()) this.uncertainAction = true;
       this.actionPending.set(false);
+      this.leavePending.set(false);
       if (!this.reconnectEnabled) return;
       if (event.code === 4001) {
         this.reconnectEnabled = false;
@@ -176,6 +196,7 @@ export class PvPWebSocketService {
         this.reconnectAttempts = 0;
         this.status.set('connected');
         this.actionPending.set(false);
+        this.leavePending.set(false);
         if (this.uncertainAction) {
           this.connectionNotice.set('action_recovered');
           this.uncertainAction = false;
@@ -193,6 +214,7 @@ export class PvPWebSocketService {
         return;
       case 'ERROR':
         this.actionPending.set(false);
+        this.leavePending.set(false);
         if (TERMINAL_ROOM_ERRORS.has(message.error.code)) {
           this.stopForTerminalError(message.error);
         } else if (message.error.code === 'INVALID_CREDENTIAL') {
@@ -204,6 +226,24 @@ export class PvPWebSocketService {
           this.actionError.set(message.error);
         }
         return;
+      case 'ROOM_CLOSED': {
+        const localParticipantId = message.state.you.participant_id;
+        this.state.set(message.state);
+        this.roomClosure.set(
+          message.left_participant_id === localParticipantId ? 'you_left' : 'opponent_left',
+        );
+        this.reconnectEnabled = false;
+        this.cancelReconnectTimer();
+        this.clearHealthTimer();
+        this.clearOpponentNoticeTimer();
+        this.actionPending.set(false);
+        this.leavePending.set(false);
+        this.opponentStatus.set('unknown');
+        this.status.set('idle');
+        this.stopSocket(1000, 'room intentionally closed');
+        this.unbindLifecycleEvents();
+        return;
+      }
       case 'OPPONENT_DISCONNECTED':
         if (this.isCurrentVersion(message.version)) this.setOpponentDisconnected();
         return;

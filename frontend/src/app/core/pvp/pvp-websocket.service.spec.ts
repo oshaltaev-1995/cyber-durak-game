@@ -100,6 +100,56 @@ describe('PvPWebSocketService', () => {
     expect(service.actionPending()).toBe(true);
   });
 
+  it('sends an explicit leave and stops reconnecting after the neutral room closure', () => {
+    service.connect('ABC123', 'secret');
+    const socket = FakeWebSocket.instances[0];
+    const active = {
+      ...state(4, opponent(true)),
+      room_phase: 'GAME_ACTIVE',
+      you: { participant_id: 'p1' },
+    } as unknown as PvPState;
+    authenticate(socket, active);
+
+    service.leaveRoom();
+    expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ type: 'LEAVE' });
+    expect(service.leavePending()).toBe(true);
+
+    socket.message({
+      type: 'ROOM_CLOSED',
+      state: { ...active, room_phase: 'CLOSED', version: 5 },
+      left_participant_id: 'p1',
+    });
+    expect(service.roomClosure()).toBe('you_left');
+    expect(service.leavePending()).toBe(false);
+    expect(service.status()).toBe('idle');
+    expect(service.state()?.room_phase).toBe('CLOSED');
+    socket.drop(4000);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+
+  it('distinguishes an opponent exit from a recoverable disconnect', () => {
+    service.connect('ABC123', 'secret');
+    const socket = FakeWebSocket.instances[0];
+    const active = {
+      ...state(7, opponent(true)),
+      room_phase: 'GAME_ACTIVE',
+      you: { participant_id: 'p1' },
+    } as unknown as PvPState;
+    authenticate(socket, active);
+    socket.message({ type: 'OPPONENT_DISCONNECTED', version: 7 });
+    expect(service.opponentStatus()).toBe('disconnected');
+    expect(service.roomClosure()).toBeNull();
+
+    socket.message({
+      type: 'ROOM_CLOSED',
+      state: { ...active, room_phase: 'CLOSED', version: 8 },
+      left_participant_id: 'p2',
+    });
+    expect(service.roomClosure()).toBe('opponent_left');
+    expect(service.opponentStatus()).toBe('unknown');
+    expect(service.status()).toBe('idle');
+  });
+
   it('ignores older state, safely accepts equal state, and applies newer state', () => {
     service.connect('ABC123', 'secret', state(3));
     const socket = FakeWebSocket.instances[0];

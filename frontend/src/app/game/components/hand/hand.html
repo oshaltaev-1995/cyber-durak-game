@@ -3,7 +3,13 @@
     <h2 id="hand-title">{{ i18n.t('game.yourCards') }}</h2>
     <span>{{ cards().length }}</span>
   </div>
-  <div class="card-strip">
+  <div
+    class="card-strip"
+    [class.crowded]="cards().length >= 8 && cards().length <= 9"
+    [class.large]="cards().length >= 10 && cards().length <= 12"
+    [class.dense]="cards().length >= 13 && cards().length <= 16"
+    [class.very-dense]="cards().length >= 17"
+  >
     @for (card of cards(); track card.code) {
       <app-playing-card
         [card]="card"

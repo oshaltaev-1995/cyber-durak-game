@@ -102,6 +102,10 @@ class WebSocketPingMessage(_StrictModel):
     type: Literal["PING"]
 
 
+class WebSocketLeaveMessage(_StrictModel):
+    type: Literal["LEAVE"]
+
+
 class WebSocketActionMessage(_StrictModel):
     type: Literal["ACTION"]
     version: int = Field(ge=0)

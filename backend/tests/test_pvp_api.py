@@ -14,7 +14,7 @@ from kiba_api.config import Settings
 from kiba_api.game import BotActionType, GamePhase, Seat, choose_bot_action, create_new_game
 from kiba_api.main import create_app
 from kiba_api.persistence import Base, CompletedMatch, Database, XPLedgerEntry
-from kiba_api.pvp import PvPRoomService, RoomTTLPolicy
+from kiba_api.pvp import PvPError, PvPErrorCode, PvPRoomService, RoomTTLPolicy
 from kiba_api.sessions import acting_seat
 
 ORIGIN = "http://testserver"
@@ -124,6 +124,44 @@ def test_waiting_creator_can_recover_state_ping_and_get_game_not_ready(client: T
     assert state["room_phase"] == "WAITING_FOR_OPPONENT"
     assert pong == {"type": "PONG", "version": 0}
     assert rejected["error"]["code"] == "GAME_NOT_READY"
+
+
+def test_explicit_leave_broadcasts_neutral_terminal_state_and_revokes_room(
+    client: TestClient,
+    pvp_service: PvPRoomService,
+) -> None:
+    creator, joiner = create_and_join(client)
+
+    with client.websocket_connect(websocket_path(creator), headers={"Origin": ORIGIN}) as one:
+        authenticate(one, creator)
+        with client.websocket_connect(websocket_path(joiner), headers={"Origin": ORIGIN}) as two:
+            authenticate(two, joiner)
+            assert one.receive_json()["type"] == "OPPONENT_CONNECTED"
+            assert one.receive_json()["type"] == "STATE"
+
+            one.send_json({"type": "LEAVE"})
+            left = one.receive_json()
+            remaining = two.receive_json()
+
+    assert left["type"] == "ROOM_CLOSED"
+    assert remaining["type"] == "ROOM_CLOSED"
+    assert left["left_participant_id"] == creator["credential"]["participant_id"]
+    assert remaining["left_participant_id"] == creator["credential"]["participant_id"]
+    assert left["state"]["room_phase"] == "CLOSED"
+    assert remaining["state"]["room_phase"] == "CLOSED"
+    assert left["state"]["result"] is None
+    assert remaining["state"]["result"] is None
+    assert left["state"]["available_actions"] == []
+    assert remaining["state"]["available_actions"] == []
+    assert left["state"]["required_participant_id"] is None
+    assert remaining["state"]["required_participant_id"] is None
+    with pytest.raises(PvPError) as reconnect:
+        pvp_service.connect(
+            creator["invite_code"],
+            creator["credential"]["reconnect_token"],
+            "later",
+        )
+    assert reconnect.value.code is PvPErrorCode.ROOM_CLOSED
 
 
 def test_join_broadcasts_active_state_to_an_already_connected_creator(client: TestClient) -> None:

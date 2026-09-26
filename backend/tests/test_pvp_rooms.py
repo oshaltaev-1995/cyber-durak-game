@@ -314,6 +314,51 @@ def test_disconnect_and_reconnect_preserve_version_and_authoritative_state() -> 
     assert reconnected.room.version == 0
 
 
+def test_explicit_leave_closes_room_without_result_and_revokes_reconnect() -> None:
+    completions: list[str] = []
+
+    def record(room):
+        completions.append(room.room_id)
+        return ()
+
+    service = service_for_seed(completion_recorder=record)
+    room, creator, joiner = create_started_room(service)
+    service.connect(room.invite_code, creator.reconnect_token, "creator-socket")
+    service.connect(room.invite_code, joiner.reconnect_token, "joiner-socket")
+
+    closed = service.leave_room(
+        room.invite_code,
+        creator.reconnect_token,
+        "creator-socket",
+    )
+
+    assert closed.phase is PvPRoomPhase.CLOSED
+    assert closed.version == room.version + 1
+    assert closed.state is room.state
+    assert closed.completion_results == ()
+    assert all(not participant.connected for participant in closed.participants)
+    assert completions == []
+    with pytest.raises(PvPError) as creator_reconnect:
+        service.connect(room.invite_code, creator.reconnect_token, "new-socket")
+    with pytest.raises(PvPError) as joiner_reconnect:
+        service.connect(room.invite_code, joiner.reconnect_token, "new-socket")
+    assert creator_reconnect.value.code is PvPErrorCode.ROOM_CLOSED
+    assert joiner_reconnect.value.code is PvPErrorCode.ROOM_CLOSED
+
+
+def test_stale_replaced_socket_cannot_close_room() -> None:
+    service = service_for_seed()
+    room, creator, _joiner = create_started_room(service)
+    service.connect(room.invite_code, creator.reconnect_token, "old-socket")
+    service.connect(room.invite_code, creator.reconnect_token, "current-socket")
+
+    with pytest.raises(PvPError) as caught:
+        service.leave_room(room.invite_code, creator.reconnect_token, "old-socket")
+
+    assert caught.value.code is PvPErrorCode.INVALID_CREDENTIAL
+    assert service.get_room(room.invite_code).phase is PvPRoomPhase.GAME_ACTIVE
+
+
 def test_current_actor_can_continue_while_opponent_is_disconnected() -> None:
     service = service_for_seed()
     room, creator, joiner = create_started_room(service)

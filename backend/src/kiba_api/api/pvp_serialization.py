@@ -24,7 +24,7 @@ from kiba_api.game import (
     Seat,
     summarize_table_arithmetic,
 )
-from kiba_api.pvp import PvPParticipant, PvPRoom
+from kiba_api.pvp import PvPParticipant, PvPRoom, PvPRoomPhase
 from kiba_api.sessions import acting_seat, available_actions_for
 
 
@@ -106,7 +106,8 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
     packets = _serialize_packets(bout, table_trump) if bout is not None else []
     active_packet = bout.active_packet if bout is not None else None
     source_card = state.draw_pile[0] if state.draw_pile else None
-    actor = acting_seat(state)
+    room_closed = room.phase is PvPRoomPhase.CLOSED
+    actor = None if room_closed else acting_seat(state)
     actor_participant = room.participant(actor) if actor is not None else None
     bout_phase = None
     if bout is not None:
@@ -174,14 +175,14 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
         total_attack_card_count=bout.total_attack_card_count if bout is not None else None,
         transfer_open=(
             bout.transfer_open
-            if active_bout is not None and state.phase is not GamePhase.COMPLETE
+            if active_bout is not None and state.phase is not GamePhase.COMPLETE and not room_closed
             else False
         ),
         required_participant_id=(
             actor_participant.participant_id if actor_participant is not None else None
         ),
         required_seat=actor.value if actor is not None else None,
-        available_actions=list(available_actions_for(state, viewer.seat)),
+        available_actions=([] if room_closed else list(available_actions_for(state, viewer.seat))),
     )
 
 
