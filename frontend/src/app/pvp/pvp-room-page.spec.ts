@@ -44,6 +44,7 @@ const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
   result: null,
   result_saved: false,
   progression_award: null,
+  last_bout_summary: null,
   hand: [card],
   opponent_hand_count: 7,
   draw_pile_count: 22,
@@ -121,10 +122,9 @@ describe('PvPRoomPageComponent', () => {
     expect(element.textContent).not.toContain('draw_pile');
   });
 
-  it('moves the presentation-only activity ring with the authoritative actor', () => {
+  it('shows the presentation-only activity perimeter only for the local actor', () => {
     let element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelector('.turn-player.activity-ring')).not.toBeNull();
-    expect(element.querySelector('.bot-avatar.activity-ring')).toBeNull();
+    expect(element.querySelector('app-turn-reminder')).not.toBeNull();
 
     socket.state.set(
       makeState({
@@ -137,9 +137,20 @@ describe('PvPRoomPageComponent', () => {
     fixture.detectChanges();
 
     element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelector('.turn-player.activity-ring')).toBeNull();
-    expect(element.querySelector('.bot-avatar.activity-ring')).not.toBeNull();
+    expect(element.querySelector('app-turn-reminder')).toBeNull();
     expect(socket.sendAction).not.toHaveBeenCalled();
+  });
+
+  it('renders the latest bout summary from the local participant perspective', () => {
+    socket.state.set(
+      makeState({
+        last_bout_summary: { outcome: 'TAKE', actor_seat: 'two', table_card_count: 5 },
+      }),
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Последний кон');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Bob взял(а) 5 карт');
   });
 
   it('resumes the same room from the stored reconnect credential', () => {

@@ -5,8 +5,10 @@
 
 .table {
   min-width: 0;
-  min-height: 15rem;
-  padding: 1rem;
+  min-height: 0;
+  padding: clamp(0.6rem, 1.5vh, 1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid rgb(138 207 179 / 18%);
   border-radius: 1.2rem;
   background:
@@ -67,7 +69,7 @@ h2 {
 
 .empty-table {
   display: grid;
-  min-height: 10rem;
+  min-height: 7rem;
   place-items: center;
   align-content: center;
   color: rgb(224 246 235 / 55%);
@@ -202,7 +204,6 @@ h2 {
 
 @media (min-width: 48rem) {
   .table {
-    min-height: 20rem;
     padding: 1.2rem;
   }
 

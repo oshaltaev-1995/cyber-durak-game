@@ -1,0 +1,5 @@
+<span class="turn-perimeter" aria-hidden="true"></span>
+<span class="sr-only">{{ i18n.t('game.turnReminderDescription') }}</span>
+@if (reminderVisible()) {
+  <span class="turn-reminder" role="status">{{ i18n.t('game.yourTurn') }}</span>
+}

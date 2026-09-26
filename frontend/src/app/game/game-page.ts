@@ -1,9 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
+  ElementRef,
   OnDestroy,
   OnInit,
+  ViewChild,
   computed,
   inject,
   signal,
@@ -25,6 +28,7 @@ import { ActionBarComponent } from './components/action-bar/action-bar';
 import { GameTableComponent } from './components/game-table/game-table';
 import { HandComponent } from './components/hand/hand';
 import { TrumpIndicatorComponent } from './components/trump-indicator/trump-indicator';
+import { TurnReminderComponent } from './components/turn-reminder/turn-reminder';
 import { GameSessionState } from './game-session-state';
 
 const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
@@ -46,13 +50,17 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
     HandComponent,
     RouterLink,
     TrumpIndicatorComponent,
+    TurnReminderComponent,
   ],
   templateUrl: './game-page.html',
   styleUrl: './game-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GamePageComponent implements OnInit, OnDestroy {
+  @ViewChild('newGameTrigger') private newGameTrigger?: ElementRef<HTMLButtonElement>;
+  @ViewChild('restartCancel') private restartCancel?: ElementRef<HTMLButtonElement>;
   private readonly api = inject(GameApiService);
+  private readonly changeDetector = inject(ChangeDetectorRef);
   private readonly session = inject(GameSessionState);
   private readonly storedSession = inject(BotGameSessionStore);
   protected readonly auth = inject(AuthService);
@@ -99,11 +107,36 @@ export class GamePageComponent implements OnInit, OnDestroy {
   protected requestNewGame(): void {
     if (!this.pending()) {
       this.restartConfirmation.set(true);
+      this.changeDetector.detectChanges();
+      this.restartCancel?.nativeElement.focus();
     }
   }
 
   protected cancelNewGame(): void {
     this.restartConfirmation.set(false);
+    this.changeDetector.detectChanges();
+    this.newGameTrigger?.nativeElement.focus();
+  }
+
+  protected handleRestartKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancelNewGame();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const dialog = event.currentTarget as HTMLElement;
+    const focusable = [...dialog.querySelectorAll<HTMLElement>('button:not([disabled])')];
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable.at(-1) as HTMLElement;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   protected startNewGame(): void {
@@ -211,18 +244,30 @@ export class GamePageComponent implements OnInit, OnDestroy {
       });
   }
 
-  protected activityTurn(game: GameResponse, actor: 'HUMAN' | 'BOT'): readonly string[] {
-    if (this.pending() || game.phase === 'complete' || game.required_actor !== actor) return [];
+  protected localDecisionContext(game: GameResponse): string | null {
+    if (this.pending() || game.phase === 'complete' || game.required_actor !== 'HUMAN') return null;
     return [
-      [
-        game.game_id,
-        actor,
-        game.bout_phase ?? 'ready',
-        game.packets.length,
-        game.table_cards.length,
-        game.available_actions.join('-'),
-      ].join(':'),
-    ];
+      game.game_id,
+      game.bout_phase ?? 'ready',
+      game.packets.length,
+      game.table_cards.length,
+      game.active_packet?.attack_cards.map((card) => card.code).join(',') ?? 'none',
+      game.active_packet?.defense_cards.map((card) => card.code).join(',') ?? 'none',
+      game.available_actions.join('-'),
+    ].join(':');
+  }
+
+  protected lastBoutText(game: GameResponse): string | null {
+    const summary = game.last_bout_summary;
+    if (summary === null) return null;
+    const localActor = summary.actor_seat === game.human_seat;
+    if (summary.outcome === 'TAKE') {
+      return this.i18n.t(localActor ? 'game.youTook' : 'game.botTook', {
+        count: summary.table_card_count,
+        cards: this.i18n.cardCount(summary.table_card_count),
+      });
+    }
+    return this.i18n.t(localActor ? 'game.youDefended' : 'game.botDefended');
   }
 
   protected resultTitle(game: GameResponse): string {

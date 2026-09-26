@@ -89,18 +89,7 @@
           @if ((game.opponent_hand_count ?? 0) > 0) {
             <div class="opponent-card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
           }
-          @for (
-            turn of activityTurn(
-              game.version,
-              game.required_participant_id,
-              game.opponent?.participant_id ?? null
-            );
-            track turn
-          ) {
-            <div class="bot-avatar activity-ring" aria-hidden="true">P2</div>
-          } @empty {
-            <div class="bot-avatar" aria-hidden="true">P2</div>
-          }
+          <div class="bot-avatar" aria-hidden="true">P2</div>
           <div class="opponent-copy">
             <span>{{ i18n.t('pvp.opponent') }}</span
             ><strong>{{
@@ -141,6 +130,11 @@
           <section class="result-panel" aria-live="polite">
             <span>{{ i18n.t('game.finished') }}</span>
             <h2>{{ resultTitle() }}</h2>
+            @if (lastBoutText(); as summary) {
+              <p class="last-bout-result">
+                <strong>{{ i18n.t('game.lastBout') }}:</strong> {{ summary }}
+              </p>
+            }
             @if (game.result_saved) {
               <p class="result-history-note">{{ i18n.t('pvp.saved') }}</p>
               @if (game.progression_award; as award) {
@@ -218,13 +212,25 @@
           </section>
         } @else {
           <div class="status-banner" aria-live="polite">
-            <span class="status-dot" aria-hidden="true"></span><strong>{{ statusText() }}</strong
-            ><small>{{
-              i18n.t('game.attackLimit', {
-                count: game.total_attack_card_count ?? 0,
-                limit: game.attack_card_limit ?? '—',
-              })
-            }}</small>
+            @if (localDecisionContext(); as context) {
+              <app-turn-reminder [contextKey]="context" />
+            }
+            <span class="status-dot" aria-hidden="true"></span>
+            <span class="status-copy">
+              <strong>{{ statusText() }}</strong>
+              <small>{{
+                i18n.t('game.attackLimit', {
+                  count: game.total_attack_card_count ?? 0,
+                  limit: game.attack_card_limit ?? '—',
+                })
+              }}</small>
+            </span>
+            @if (lastBoutText(); as summary) {
+              <span class="last-bout-inline">
+                <small>{{ i18n.t('game.lastBout') }}</small>
+                <strong>{{ summary }}</strong>
+              </span>
+            }
           </div>
         }
 
@@ -233,26 +239,9 @@
         }
 
         <div class="local-player-row">
-          @for (
-            turn of activityTurn(
-              game.version,
-              game.required_participant_id,
-              game.you.participant_id
-            );
-            track turn
-          ) {
-            <div
-              class="local-player turn-player activity-ring"
-              [title]="game.you.display_name"
-              [attr.aria-label]="i18n.t('game.currentTurnLabel')"
-            >
-              {{ i18n.t('game.you') }}
-            </div>
-          } @empty {
-            <div class="local-player turn-player" [title]="game.you.display_name">
-              {{ i18n.t('game.you') }}
-            </div>
-          }
+          <div class="local-player turn-player" [title]="game.you.display_name">
+            {{ i18n.t('game.you') }}
+          </div>
           <span class="local-player-name">{{ game.you.display_name }}</span>
         </div>
         <app-hand
@@ -272,6 +261,9 @@
             <app-action-bar
               [actions]="game.available_actions"
               [selectedCards]="selectedCards()"
+              [activeAttackValue]="game.active_attack_value"
+              [attackCardLimit]="game.attack_card_limit"
+              [totalAttackCardCount]="game.total_attack_card_count"
               [pending]="socket.actionPending() || socket.status() !== 'connected'"
               (actionSelected)="submitAction($event)"
             />

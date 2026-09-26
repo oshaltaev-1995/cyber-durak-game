@@ -129,7 +129,7 @@ a:focus-visible {
   outline-offset: 3px;
 }
 
-@media (max-width: 25rem) {
+@media (max-width: 30rem) {
   .brand > span:last-child {
     display: none;
   }

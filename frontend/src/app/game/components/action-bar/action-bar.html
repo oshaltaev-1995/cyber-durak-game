@@ -27,6 +27,9 @@
       </div>
     }
     <strong class="selection-values" aria-hidden="true">{{ selectionValuesExpression() }}</strong>
+    @if (selectionHint(); as hint) {
+      <small class="selection-hint">{{ hint }}</small>
+    }
   </div>
   <div class="actions">
     @for (action of actions(); track action) {

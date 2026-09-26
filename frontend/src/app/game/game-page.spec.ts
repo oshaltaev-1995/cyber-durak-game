@@ -39,6 +39,7 @@ const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
     profile_frame_code: 'NO_FRAME',
   },
   recent_events: [],
+  last_bout_summary: null,
   phase: 'bout_active',
   result: null,
   human_seat: 'one',
@@ -380,6 +381,26 @@ describe('GamePageComponent', () => {
     expect(text).toContain('Сумма 21');
     expect(text).toContain('Среднее 21 / 2');
     expect(text).toContain('Покрыть > 18');
+    expect(text).toContain('Q♦ · 15');
+    expect(text).not.toContain('QD · 15');
+  });
+
+  it('keeps a localized summary of the immediately previous bout', () => {
+    create(
+      makeGame({
+        last_bout_summary: { outcome: 'TAKE', actor_seat: 'two', table_card_count: 11 },
+      }),
+    );
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Последний кон');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Бот взял 11 карт');
+
+    TestBed.inject(GameSessionState).game.set(
+      makeGame({
+        last_bout_summary: { outcome: 'BITO', actor_seat: 'one', table_card_count: 4 },
+      }),
+    );
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Вы отбились');
   });
 
   it('keeps a complete multi-card selection visible in the persistent action summary', () => {
@@ -474,6 +495,36 @@ describe('GamePageComponent', () => {
     expect(tableText).toContain('12 + 8 = 20');
   });
 
+  it('formats server-confirmed reason cards with player-facing suit symbols', () => {
+    create(
+      makeGame({
+        packets: [
+          {
+            attack_cards: [sixClubs],
+            attack_value: 6,
+            defense_cards: [],
+            defense_value: null,
+            closed: false,
+            throw_in_reasons: [
+              {
+                type: 'existing_value',
+                target_value: 15,
+                expression: null,
+                source_cards: [queenDiamonds],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const tableText = (fixture.nativeElement as HTMLElement).querySelector(
+      'app-game-table',
+    )?.textContent;
+    expect(tableText).toContain('Q♦ = 15');
+    expect(tableText).not.toContain('QD = 15');
+  });
+
   it('renders a server-confirmed rank run without inferring legality', () => {
     create(
       makeGame({
@@ -543,16 +594,80 @@ describe('GamePageComponent', () => {
     expect(api.submitAction).toHaveBeenCalledWith('game-1', 'TAKE', []);
   });
 
+  it('shows only high-confidence numeric selection hints', () => {
+    create(
+      makeGame({
+        available_actions: ['DEFEND', 'TRANSFER', 'TAKE'],
+        active_attack_value: 14,
+      }),
+    );
+    const cards = (fixture.nativeElement as HTMLElement).querySelectorAll('app-hand .playing-card');
+    (cards[0] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Выбрано 6 — нужно больше 14',
+    );
+
+    (cards[0] as HTMLButtonElement).click();
+    (cards[2] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'совпадает с целью перевода',
+    );
+  });
+
+  it('warns when the selected attack count exceeds the remaining server limit', () => {
+    create(makeGame({ attack_card_limit: 1, total_attack_card_count: 0 }));
+    const cards = (fixture.nativeElement as HTMLElement).querySelectorAll('app-hand .playing-card');
+    (cards[0] as HTMLButtonElement).click();
+    (cards[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Выбрано 2 — остаток лимита атаки 1',
+    );
+  });
+
   it('asks before replacing an active game', () => {
     create();
     clickButton('Новая игра');
 
-    const dialog = (fixture.nativeElement as HTMLElement).querySelector('[role="alertdialog"]');
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector('[role="dialog"]');
     expect(dialog?.textContent).toContain('Текущая партия будет потеряна');
     expect(api.createGame).toHaveBeenCalledOnce();
 
     clickButton('Отмена');
-    expect((fixture.nativeElement as HTMLElement).querySelector('[role="alertdialog"]')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('keeps keyboard focus inside the New Game dialog and restores it on Escape', async () => {
+    create();
+    const trigger = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Новая игра',
+    ) as HTMLButtonElement;
+    trigger.focus();
+    trigger.click();
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector(
+      '[role="dialog"]',
+    ) as HTMLElement;
+    const buttons = dialog.querySelectorAll('button');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(document.activeElement).toBe(buttons[0]);
+
+    buttons[0].dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }),
+    );
+    expect(document.activeElement).toBe(buttons[1]);
+    buttons[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    expect(document.activeElement).toBe(buttons[0]);
+
+    dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 
   it('keeps the previous recovery reference when replacement creation fails', () => {
@@ -901,20 +1016,21 @@ describe('GamePageComponent', () => {
     response.complete();
   });
 
-  it('renders activity rings for the authoritative actor without triggering gameplay', () => {
+  it('shows the presentation-only turn reminder only for the local actor', () => {
     vi.useFakeTimers();
     try {
       create();
       expect(
-        (fixture.nativeElement as HTMLElement).querySelector('.turn-player.activity-ring'),
+        (fixture.nativeElement as HTMLElement).querySelector('app-turn-reminder'),
       ).not.toBeNull();
-      expect(
-        (fixture.nativeElement as HTMLElement).querySelector('.bot-avatar.activity-ring'),
-      ).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Ваш ходВаш ход');
 
       vi.advanceTimersByTime(31_000);
       fixture.detectChanges();
       expect(api.submitAction).not.toHaveBeenCalled();
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.turn-reminder')?.textContent,
+      ).toContain('Ваш ход');
 
       const session = TestBed.inject(GameSessionState);
       session.game.set(
@@ -925,12 +1041,55 @@ describe('GamePageComponent', () => {
         }),
       );
       fixture.detectChanges();
-      expect(
-        (fixture.nativeElement as HTMLElement).querySelector('.bot-avatar.activity-ring'),
-      ).not.toBeNull();
-      expect(
-        (fixture.nativeElement as HTMLElement).querySelector('.turn-player.activity-ring'),
-      ).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('app-turn-reminder')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps elapsed time across rerenders and resets only for a new decision context', () => {
+    vi.useFakeTimers();
+    try {
+      create();
+      vi.advanceTimersByTime(20_000);
+      fixture.detectChanges();
+      vi.advanceTimersByTime(10_000);
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.turn-reminder')).not.toBeNull();
+
+      TestBed.inject(GameSessionState).game.set(
+        makeGame({
+          bout_phase: 'waiting_for_defender_response',
+          active_attack_value: 10,
+          available_actions: ['DEFEND', 'TRANSFER', 'TAKE'],
+          packets: [
+            {
+              attack_cards: [sixClubs],
+              attack_value: 6,
+              defense_cards: [],
+              defense_value: null,
+              closed: false,
+              throw_in_reasons: [],
+            },
+          ],
+          active_packet: {
+            attack_cards: [sixClubs],
+            attack_value: 6,
+            defense_cards: [],
+            defense_value: null,
+            closed: false,
+            throw_in_reasons: [],
+          },
+        }),
+      );
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.turn-reminder')).toBeNull();
+      vi.advanceTimersByTime(29_999);
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.turn-reminder')).toBeNull();
+      vi.advanceTimersByTime(1);
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.turn-reminder')).not.toBeNull();
     } finally {
       vi.useRealTimers();
     }

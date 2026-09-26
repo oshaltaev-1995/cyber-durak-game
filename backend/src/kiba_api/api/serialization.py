@@ -16,6 +16,7 @@ from kiba_api.api.schemas import (
     CosmeticAwardResponse,
     CosmeticLoadoutResponse,
     GameResponse,
+    LastBoutSummaryResponse,
     PacketResponse,
     ProgressionAwardResponse,
     ResultResponse,
@@ -25,6 +26,7 @@ from kiba_api.api.schemas import (
 )
 from kiba_api.game import (
     AttackPacket,
+    BoutOutcome,
     BoutPhase,
     BoutState,
     Card,
@@ -95,6 +97,7 @@ def serialize_game_session(session: GameSession, locale: Locale = Locale.RU) -> 
             )
             for event in session.recent_events
         ],
+        last_bout_summary=_serialize_last_bout_summary(session.last_bout),
         phase=state.phase.value,
         result=_serialize_result(session),
         human_seat=session.human_seat.value,
@@ -224,6 +227,7 @@ def _serialize_throw_in_reasons(
         run_end: str | None = None
         run_length: int | None = None
         run_ranks: list[str] | None = None
+        source_cards: list[CardResponse] = []
         if reason is ThrowInReason.SAME_RANK:
             target_value = None
         elif reason is ThrowInReason.EXISTING_VALUE:
@@ -236,7 +240,7 @@ def _serialize_throw_in_reasons(
                 None,
             )
             if matching_anchor is not None:
-                expression = f"{card_to_code(matching_anchor)} = {analysis.selected_value}"
+                source_cards = [_serialize_card(matching_anchor, trump_state)]
         elif reason is ThrowInReason.DEFENSE_TOTAL:
             defense_values = [
                 get_effective_value(card, trump_state) for card in direct_anchor_cards
@@ -267,9 +271,24 @@ def _serialize_throw_in_reasons(
                 run_end=run_end,
                 run_length=run_length,
                 run_ranks=run_ranks,
+                source_cards=source_cards,
             )
         )
     return responses
+
+
+def _serialize_last_bout_summary(bout: BoutState | None) -> LastBoutSummaryResponse | None:
+    """Expose one safe presentation summary for the retained completed bout."""
+    if bout is None or bout.outcome is None:
+        return None
+    actor = bout.taker if bout.outcome is BoutOutcome.TAKE else bout.next_attacker
+    if actor is None:
+        raise ValueError("a completed bout summary requires an outcome actor")
+    return LastBoutSummaryResponse(
+        outcome=bout.outcome.value.upper(),
+        actor_seat=actor.value,
+        table_card_count=len(bout.table_cards),
+    )
 
 
 def _serialize_result(session: GameSession) -> ResultResponse | None:

@@ -36,11 +36,21 @@
           autocomplete="off"
           [ngModel]="inviteCode()"
           (ngModelChange)="inviteCode.set($event)"
+          (blur)="roomCodeTouched.set(true)"
           name="inviteCode"
           placeholder="K7F9Q2"
+          [attr.aria-invalid]="roomCodeInvalid()"
+          [attr.aria-describedby]="roomCodeInvalid() ? 'room-code-error' : null"
         />
+        @if (roomCodeInvalid()) {
+          <small id="room-code-error" class="field-error" role="alert">{{
+            i18n.t('pvp.enterRoomCode')
+          }}</small>
+        }
       </label>
-      <button type="submit">{{ i18n.t('pvp.joinByCode') }}</button>
+      <button type="submit" [disabled]="pending() || inviteCode().trim() === ''">
+        {{ i18n.t('pvp.joinByCode') }}
+      </button>
     </form>
     @if (error(); as message) {
       <div class="error" role="alert">{{ message }}</div>

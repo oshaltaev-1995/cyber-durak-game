@@ -13,6 +13,7 @@ from kiba_api.api.serialization import (
     _format_fraction,
     _presentation_card_key,
     _serialize_card,
+    _serialize_last_bout_summary,
     _serialize_packets,
     serialize_progression_award,
 )
@@ -67,6 +68,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             result=None,
             result_saved=False,
             progression_award=None,
+            last_bout_summary=None,
             hand=[],
             opponent_hand_count=None,
             draw_pile_count=0,
@@ -128,6 +130,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             if completion is not None
             else None
         ),
+        last_bout_summary=_serialize_last_bout_summary(room.last_bout),
         hand=[
             _serialize_card(card, trump_state)
             for card in sorted(state.hand(viewer.seat), key=_presentation_card_key)

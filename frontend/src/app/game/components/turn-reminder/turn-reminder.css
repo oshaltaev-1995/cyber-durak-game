@@ -1,0 +1,68 @@
+:host {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.turn-perimeter {
+  position: absolute;
+  inset: -0.22rem;
+  border-radius: inherit;
+  background: conic-gradient(var(--accent) var(--turn-progress), rgb(73 229 190 / 10%) 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 0.16rem;
+  animation: turn-ring-drain 30s linear forwards;
+}
+
+.turn-reminder {
+  position: absolute;
+  right: 0.65rem;
+  bottom: -0.75rem;
+  padding: 0.28rem 0.6rem;
+  border: 1px solid rgb(255 224 138 / 42%);
+  border-radius: 999px;
+  color: #fff3c5;
+  background: #24443a;
+  box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 25%);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@property --turn-progress {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 100%;
+}
+
+@keyframes turn-ring-drain {
+  to {
+    --turn-progress: 0%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turn-perimeter {
+    background: rgb(73 229 190 / 45%);
+    animation: none;
+  }
+}

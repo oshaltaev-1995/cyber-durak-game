@@ -9,14 +9,19 @@
     linear-gradient(145deg, #09291f, #071b19 60%, #07131b);
   --table-surface: rgb(4 24 21 / 35%);
   --card-back-background: repeating-linear-gradient(45deg, #163e3a 0 3px, #24514b 3px 6px);
-  min-height: calc(100dvh - 4rem);
-  padding: 0.75rem 0.75rem 12rem;
+  height: calc(100dvh - 4rem);
+  min-height: 36rem;
+  padding: 0.5rem 0.75rem 0.65rem;
+  overflow: hidden;
   color: var(--text-strong);
   background: var(--game-background);
 }
 
 .game-shell.complete {
+  height: auto;
+  min-height: calc(100dvh - 4rem);
   padding-bottom: 1.5rem;
+  overflow: visible;
 }
 
 button {
@@ -66,6 +71,22 @@ button:disabled {
   border: 1px solid rgb(255 224 138 / 30%);
   border-radius: 0.85rem;
   background: rgb(52 44 21 / 82%);
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 45%);
+}
+
+.restart-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  padding: 1rem;
+  place-items: center;
+  background: rgb(0 10 9 / 72%);
+}
+
+.restart-backdrop .restart-confirmation {
+  width: min(100%, 38rem);
+  background: #27341f;
 }
 
 .restart-confirmation div,
@@ -132,10 +153,19 @@ button:disabled {
 
 .game-board {
   display: grid;
+  grid-template-rows: auto auto minmax(10rem, 1fr) auto auto auto;
   grid-template-columns: minmax(0, 1fr);
   width: min(100%, 80rem);
-  margin: 0.5rem auto 0;
-  gap: 0.75rem;
+  height: 100%;
+  margin: 0 auto;
+  gap: clamp(0.3rem, 0.8vh, 0.55rem);
+  overflow: hidden;
+}
+
+.complete .game-board {
+  grid-template-rows: none;
+  height: auto;
+  overflow: visible;
 }
 
 .opponent-zone {
@@ -143,12 +173,12 @@ button:disabled {
   display: flex;
   width: fit-content;
   min-width: 10.5rem;
-  min-height: 4.2rem;
+  min-height: 3.4rem;
   margin-inline: auto;
   align-items: center;
   justify-content: center;
   gap: 0.65rem;
-  padding: 0.55rem 0.8rem;
+  padding: 0.35rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: rgb(7 25 25 / 62%);
@@ -157,8 +187,8 @@ button:disabled {
 .bot-avatar {
   position: relative;
   display: grid;
-  width: 3rem;
-  height: 3rem;
+  width: 2.55rem;
+  height: 2.55rem;
   flex: 0 0 auto;
   place-items: center;
   border-radius: 50%;
@@ -210,11 +240,13 @@ button:disabled {
   display: grid;
   grid-template:
     'draw . discard' auto
-    'table table table' minmax(15rem, auto)
+    'table table table' minmax(0, 1fr)
     / 5.4rem minmax(0, 1fr) 4.6rem;
   gap: 0.65rem;
   min-width: 0;
-  padding: 0.65rem;
+  min-height: 0;
+  padding: 0.5rem;
+  overflow: hidden;
   border: 1px solid rgb(138 207 179 / 12%);
   border-radius: 1.35rem;
   background: var(--table-surface);
@@ -228,6 +260,8 @@ button:disabled {
 .center-table {
   grid-area: table;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .discard-zone {
@@ -291,28 +325,55 @@ button:disabled {
 }
 
 .status-banner {
+  position: relative;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.15rem 0.65rem;
   align-items: center;
-  padding: 0.8rem 0.9rem;
+  padding: 0.55rem 0.75rem;
   border: 1px solid rgb(73 229 190 / 25%);
   border-radius: 0.85rem;
   background: rgb(9 45 37 / 85%);
 }
 
-.status-banner small {
-  grid-column: 2;
+.status-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.status-copy small {
   color: var(--text-muted);
 }
 
 .status-dot {
   width: 0.55rem;
   height: 0.55rem;
-  grid-row: span 2;
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 0.8rem var(--accent);
+}
+
+.last-bout-inline {
+  display: grid;
+  max-width: 18rem;
+  gap: 0.08rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid rgb(255 255 255 / 12%);
+  text-align: right;
+}
+
+.last-bout-inline small {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.last-bout-inline strong {
+  overflow: hidden;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .error-message {
@@ -329,15 +390,8 @@ button:disabled {
 }
 
 .action-dock {
-  position: fixed;
-  z-index: 10;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  padding: 0.65rem max(0.75rem, env(safe-area-inset-right))
-    max(0.65rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
-  border-top: 1px solid var(--border);
-  background: rgb(5 20 19 / 94%);
+  min-width: 0;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .result-panel {
@@ -468,6 +522,7 @@ button:disabled {
 
 .player-hand-region {
   min-width: 0;
+  overflow: hidden;
 }
 
 .result-panel span {
@@ -482,14 +537,23 @@ button:disabled {
   font-size: clamp(2rem, 10vw, 4rem);
 }
 
+.last-bout-result {
+  margin: -0.65rem 0 1.1rem;
+  color: var(--text-muted);
+}
+
+.last-bout-result strong {
+  color: var(--text-strong);
+}
+
 @media (min-width: 48rem) {
   .game-shell {
-    padding: 1rem 1.5rem 10rem;
+    padding: 0.55rem 1.5rem 0.7rem;
   }
 
   .table-stage {
     grid-template:
-      'draw table discard' minmax(20rem, auto)
+      'draw table discard' minmax(0, 1fr)
       / minmax(7.5rem, 9rem) minmax(0, 1fr) minmax(6rem, 7rem);
     gap: 0.8rem;
     padding: 0.8rem;
@@ -506,6 +570,23 @@ button:disabled {
 }
 
 @media (max-width: 35rem) {
+  .table-stage {
+    grid-template:
+      'draw . discard' 4.8rem
+      'table table table' minmax(0, 1fr)
+      / 6.5rem minmax(0, 1fr) 4.2rem;
+    gap: 0.35rem;
+    padding: 0.35rem;
+  }
+
+  .discard-zone {
+    padding: 0.25rem 0.1rem;
+  }
+
+  .discard-stack {
+    display: none;
+  }
+
   .restart-confirmation {
     grid-template-columns: 1fr 1fr;
   }
@@ -517,10 +598,18 @@ button:disabled {
   .result-actions.guest-actions {
     display: grid;
   }
+
+  .last-bout-inline {
+    max-width: 7.5rem;
+  }
 }
 
-@media (min-width: 64rem) {
-  .action-dock {
-    padding-inline: max(1rem, calc((100vw - 80rem) / 2));
+@media (max-height: 52rem) {
+  .game-shell {
+    padding-block: 0.35rem 0.45rem;
+  }
+
+  .game-board {
+    gap: 0.3rem;
   }
 }

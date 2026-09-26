@@ -75,6 +75,17 @@
   font-size: 0.75rem;
   text-align: center;
 }
+.game-board {
+  position: relative;
+}
+.connection-badge,
+.connection-banner,
+.connection-notice {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  right: 7rem;
+}
 .connection-banner {
   display: flex;
   align-items: center;
@@ -116,7 +127,7 @@
   white-space: nowrap;
 }
 .local-player-row {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 0.55rem;
 }
@@ -172,8 +183,7 @@
   }
   .connection-banner,
   .connection-notice {
-    position: relative;
-    z-index: 2;
+    right: 5.8rem;
     font-size: 0.7rem;
   }
 }

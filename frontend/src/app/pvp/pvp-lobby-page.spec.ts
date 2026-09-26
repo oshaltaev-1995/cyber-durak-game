@@ -5,6 +5,7 @@ import { of } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
 import { PvPApiService } from '../core/pvp/pvp-api.service';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
+import { TranslationService } from '../core/i18n/translation.service';
 import { PvPRoomJoin } from '../core/pvp/pvp.models';
 import { PvPLobbyPageComponent } from './pvp-lobby-page';
 
@@ -36,6 +37,53 @@ describe('PvPLobbyPageComponent', () => {
     expect(text).toContain('Ваше имя');
     expect(text).toContain('Создать комнату');
     expect(text).toContain('Войти по коду');
+  });
+
+  it('rejects an empty or whitespace-only room code with accessible inline feedback', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const input = element.querySelector('input[name="inviteCode"]') as HTMLInputElement;
+    const button = [...element.querySelectorAll('button')].find((candidate) =>
+      candidate.textContent?.includes('Войти по коду'),
+    ) as HTMLButtonElement;
+
+    expect(button.disabled).toBe(true);
+    input.value = '   ';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+
+    expect(button.disabled).toBe(true);
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.getAttribute('aria-describedby')).toBe('room-code-error');
+    expect(element.querySelector('#room-code-error')?.textContent).toContain('Введите код комнаты');
+  });
+
+  it('trims a valid room code and permits Enter submission', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const form = (fixture.nativeElement as HTMLElement).querySelector('form') as HTMLFormElement;
+    const input = form.querySelector('input') as HTMLInputElement;
+    input.value = '  K7F9Q2  ';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect((form.querySelector('button') as HTMLButtonElement).disabled).toBe(false);
+    form.dispatchEvent(new Event('submit'));
+    fixture.detectChanges();
+
+    expect(navigate).toHaveBeenCalledWith(['/join', 'K7F9Q2']);
+    expect(input.getAttribute('aria-invalid')).toBe('false');
+  });
+
+  it('localizes the accessible room-code error in English', () => {
+    const translations = TestBed.inject(TranslationService);
+    translations.setLocale('en');
+    const element = fixture.nativeElement as HTMLElement;
+    const input = element.querySelector('input[name="inviteCode"]') as HTMLInputElement;
+    input.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+
+    expect(element.querySelector('#room-code-error')?.textContent).toContain('Enter a room code');
+    translations.setLocale('ru');
   });
 
   it('stores the reconnect credential and navigates without putting it in the URL', async () => {

@@ -37,6 +37,13 @@ export interface ThrowInReason {
   readonly run_end?: string | null;
   readonly run_length?: number | null;
   readonly run_ranks?: readonly string[] | null;
+  readonly source_cards?: readonly GameCard[];
+}
+
+export interface LastBoutSummary {
+  readonly outcome: 'TAKE' | 'BITO';
+  readonly actor_seat: Seat;
+  readonly table_card_count: number;
 }
 
 export interface AttackPacket {
@@ -109,6 +116,7 @@ export interface GameResponse {
   readonly progression_award: ProgressionAward | null;
   readonly cosmetics: GameCosmetics;
   readonly recent_events: readonly BotPresentationEvent[];
+  readonly last_bout_summary: LastBoutSummary | null;
   readonly phase: GamePhase;
   readonly result: GameResult | null;
   readonly human_seat: Seat;

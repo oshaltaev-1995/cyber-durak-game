@@ -7,6 +7,7 @@ import {
 } from '../../../core/api/game-api.models';
 import { PlayingCardComponent } from '../playing-card/playing-card';
 import { TranslationService } from '../../../core/i18n/translation.service';
+import { formatCardShort } from '../../card-presentation';
 
 @Component({
   selector: 'app-game-table',
@@ -29,5 +30,9 @@ export class GameTableComponent {
 
   protected reasonLabel(reason: ThrowInReasonType): string {
     return this.i18n.t(`reason.${reason}`);
+  }
+
+  protected cardLabel(card: GameCard): string {
+    return formatCardShort(card);
   }
 }

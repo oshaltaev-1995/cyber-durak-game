@@ -109,3 +109,53 @@ small {
     font-size: 0.82rem;
   }
 }
+
+@media (max-width: 35rem) {
+  .trump-panel {
+    grid-template:
+      'visual count' auto
+      'visual label' auto
+      'visual explanation' 1fr
+      / 2.4rem minmax(0, 1fr);
+    height: 4.25rem;
+    align-content: center;
+    justify-items: start;
+    padding: 0.35rem;
+    text-align: left;
+  }
+
+  .pile-visual,
+  .empty-deck {
+    grid-area: visual;
+    align-self: center;
+    width: 2.35rem;
+    height: 3.1rem;
+    overflow: hidden;
+  }
+
+  .pile-visual app-playing-card,
+  .pile-visual .deck-stack {
+    transform: scale(0.5);
+    transform-origin: top left;
+  }
+
+  .deck-count {
+    grid-area: count;
+    height: 1.45rem;
+    min-width: 1.45rem;
+    margin: 0;
+  }
+
+  .label {
+    grid-area: label;
+  }
+
+  strong {
+    grid-area: explanation;
+    font-size: 0.62rem;
+  }
+
+  small {
+    display: none;
+  }
+}

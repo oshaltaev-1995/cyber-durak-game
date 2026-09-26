@@ -16,6 +16,7 @@ import { ActionBarComponent } from '../game/components/action-bar/action-bar';
 import { GameTableComponent } from '../game/components/game-table/game-table';
 import { HandComponent } from '../game/components/hand/hand';
 import { TrumpIndicatorComponent } from '../game/components/trump-indicator/trump-indicator';
+import { TurnReminderComponent } from '../game/components/turn-reminder/turn-reminder';
 import { TranslationService } from '../core/i18n/translation.service';
 import { TranslationKey } from '../core/i18n/translations/ru';
 
@@ -40,6 +41,7 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
     HandComponent,
     RouterLink,
     TrumpIndicatorComponent,
+    TurnReminderComponent,
   ],
   templateUrl: './pvp-room-page.html',
   styleUrls: ['../game/game-page.css', './pvp-room-page.css'],
@@ -157,13 +159,43 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     return navigator.share !== undefined;
   }
 
-  protected activityTurn(
-    version: number,
-    requiredParticipantId: string | null,
-    participantId: string | null,
-  ): readonly string[] {
-    if (participantId === null || requiredParticipantId !== participantId) return [];
-    return [`${participantId}:${version}`];
+  protected localDecisionContext(): string | null {
+    const state = this.state();
+    if (
+      state === null ||
+      state.game_phase === 'complete' ||
+      state.required_participant_id !== state.you.participant_id ||
+      this.socket.actionPending() ||
+      this.socket.status() !== 'connected'
+    ) {
+      return null;
+    }
+    return `${state.you.participant_id}:${state.version}`;
+  }
+
+  protected lastBoutText(): string | null {
+    const state = this.state();
+    const summary = state?.last_bout_summary;
+    if (state === null || summary === null || summary === undefined) return null;
+    const localActor = summary.actor_seat === state.you.seat;
+    if (summary.outcome === 'TAKE') {
+      if (localActor) {
+        return this.i18n.t('game.youTook', {
+          count: summary.table_card_count,
+          cards: this.i18n.cardCount(summary.table_card_count),
+        });
+      }
+      return this.i18n.t('game.opponentTook', {
+        name: state.opponent?.display_name ?? this.i18n.t('pvp.opponent'),
+        count: summary.table_card_count,
+        cards: this.i18n.cardCount(summary.table_card_count),
+      });
+    }
+    return localActor
+      ? this.i18n.t('game.youDefended')
+      : this.i18n.t('game.opponentDefended', {
+          name: state.opponent?.display_name ?? this.i18n.t('pvp.opponent'),
+        });
   }
 
   protected connectionMessage(): string | null {

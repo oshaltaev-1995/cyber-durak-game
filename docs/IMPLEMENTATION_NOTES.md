@@ -417,10 +417,26 @@ stored in PostgreSQL or retained by subsequent GET responses, and never drives g
 Angular may briefly preserve the previous visible table for a confirmed bot TAKE before rendering
 the already-resolved authoritative response.
 
-The shared Angular table uses a local 30-second activity ring to make the current actor easier to
-see in bot and private-PvP modes. It resets from authoritative actor/state changes and has no server
-clock, timeout, forced move, penalty, or automatic action. Reduced-motion preferences disable the
-draining and transition animations while preserving the same state and labels.
+The shared Angular table uses a local 30-second activity perimeter only while the local participant
+owns the current decision in bot and private-PvP modes. Its context key changes with authoritative
+bout/packet/action state, so ordinary rerenders do not restart the cycle but a genuinely new local
+decision does. At the end of one cycle it shows one localized, non-blocking turn reminder. The
+feature has no server clock, timeout, forced move, penalty, or automatic action. Reduced-motion
+preferences replace the draining animation with a static waiting treatment while retaining the
+same delayed reminder.
+
+The live game board owns the viewport-height layout: opponent, bounded active-table region, status,
+hand, and actions occupy explicit grid rows. Large physical tables scroll inside the table region
+rather than pushing the hand below the viewport, and the action row is never overlaid on selectable
+cards. A compact `last_bout_summary` is serialized from the already-retained resolved-bout snapshot
+so TAKE/BITO context remains visible after the next bout begins and through ordinary R1 refresh.
+This metadata is process-local, public/presentation-only, contains no hidden cards, and does not
+change rules or database state.
+
+Player-facing card shorthand is formatted centrally with Unicode suit symbols. High-confidence
+pre-action hints cover only server-exposed numeric defense/transfer targets and attack-card limits;
+complex combination legality remains authoritative on submit. Confirmed throw-in explanations use
+structured source-card metadata instead of embedding machine card codes in display strings.
 
 ### 10.4 Tutorial, rules, and product shell
 

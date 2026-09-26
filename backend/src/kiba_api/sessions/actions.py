@@ -14,6 +14,7 @@ from kiba_api.game import (
     Seat,
     ThrowInReason,
     analyze_throw_in,
+    finish_bout,
     finish_game_bout,
     get_cards_value,
     play_defense,
@@ -21,6 +22,7 @@ from kiba_api.game import (
     play_game_initial_attack,
     play_game_throw_in,
     play_game_transfer,
+    take,
     take_game_bout,
 )
 
@@ -182,5 +184,7 @@ def remember_resolved_bout(
             defense_cards = discarded_table[len(previous_bout.table_cards) :]
             if defense_cards:
                 return play_defense(previous_bout, previous_bout.defender, defense_cards)
-        return previous_bout
+        if len(updated_state.discard_pile) > len(previous_state.discard_pile):
+            return finish_bout(previous_bout, previous_bout.attacker)
+        return take(previous_bout, previous_bout.defender)
     return current_last_bout

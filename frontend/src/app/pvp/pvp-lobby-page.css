@@ -113,6 +113,15 @@ form {
   color: #ffd5d5;
   background: rgb(93 21 27 / 48%);
 }
+.field-error {
+  color: #ffd5d5;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+input[aria-invalid='true'] {
+  border-color: #ff9090;
+}
 a {
   justify-self: center;
   color: var(--accent);

@@ -81,6 +81,10 @@ class ThrowInReasonResponse(BaseModel):
     run_end: str | None = Field(default=None, exclude_if=lambda value: value is None)
     run_length: int | None = Field(default=None, exclude_if=lambda value: value is None)
     run_ranks: list[str] | None = Field(default=None, exclude_if=lambda value: value is None)
+    source_cards: list[CardResponse] = Field(
+        default_factory=list,
+        exclude_if=lambda value: not value,
+    )
 
 
 class PacketResponse(BaseModel):
@@ -150,6 +154,12 @@ class BotPresentationEventResponse(BaseModel):
     target: int | None
 
 
+class LastBoutSummaryResponse(BaseModel):
+    outcome: Literal["TAKE", "BITO"]
+    actor_seat: str
+    table_card_count: int
+
+
 class GameResponse(BaseModel):
     game_id: str
     account_associated: bool
@@ -157,6 +167,7 @@ class GameResponse(BaseModel):
     progression_award: ProgressionAwardResponse | None
     cosmetics: CosmeticLoadoutResponse
     recent_events: list[BotPresentationEventResponse]
+    last_bout_summary: LastBoutSummaryResponse | None
     phase: str
     result: ResultResponse | None
     human_seat: str

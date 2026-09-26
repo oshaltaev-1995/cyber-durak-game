@@ -29,38 +29,22 @@
         <span>{{
           i18n.t(currentGame.phase === 'complete' ? 'game.matchComplete' : 'game.vsBot')
         }}</span>
-        <button class="new-game" type="button" [disabled]="pending()" (click)="requestNewGame()">
+        <button
+          #newGameTrigger
+          class="new-game"
+          type="button"
+          [disabled]="pending()"
+          (click)="requestNewGame()"
+        >
           {{ i18n.t('game.new') }}
         </button>
       </div>
-
-      @if (restartConfirmation()) {
-        <section
-          class="restart-confirmation"
-          role="alertdialog"
-          aria-labelledby="restart-title"
-          aria-describedby="restart-description"
-        >
-          <div>
-            <strong id="restart-title">{{ i18n.t('game.restartTitle') }}</strong>
-            <span id="restart-description">{{ i18n.t('game.restartDescription') }}</span>
-          </div>
-          <button type="button" class="cancel" (click)="cancelNewGame()">
-            {{ i18n.t('common.cancel') }}
-          </button>
-          <button type="button" (click)="startNewGame()">{{ i18n.t('game.start') }}</button>
-        </section>
-      }
 
       <section class="opponent-zone" [attr.aria-label]="i18n.t('game.botCardsLabel')">
         @if (currentGame.bot_hand_count > 0) {
           <div class="opponent-card-backs" aria-hidden="true"><i></i><i></i><i></i></div>
         }
-        @for (turn of activityTurn(currentGame, 'BOT'); track turn) {
-          <div class="bot-avatar activity-ring" aria-hidden="true">BOT</div>
-        } @empty {
-          <div class="bot-avatar" aria-hidden="true">BOT</div>
-        }
+        <div class="bot-avatar" aria-hidden="true">BOT</div>
         <div class="opponent-copy">
           <span>{{ i18n.t('game.opponent') }}</span>
           <strong>{{
@@ -102,6 +86,11 @@
         <section class="result-panel" aria-live="polite">
           <span>{{ i18n.t('game.finished') }}</span>
           <h2>{{ resultTitle(currentGame) }}</h2>
+          @if (lastBoutText(currentGame); as summary) {
+            <p class="last-bout-result">
+              <strong>{{ i18n.t('game.lastBout') }}:</strong> {{ summary }}
+            </p>
+          }
           @if (currentGame.result_saved) {
             <p class="result-history-note">{{ i18n.t('game.saved') }}</p>
             @if (currentGame.progression_award; as award) {
@@ -191,16 +180,27 @@
         </section>
       } @else {
         <div class="status-banner status-transition" aria-live="polite">
+          @if (localDecisionContext(currentGame); as context) {
+            <app-turn-reminder [contextKey]="context" />
+          }
           <span class="status-dot" aria-hidden="true"></span>
-          <strong>{{ statusText() }}</strong>
-          <small>
-            {{
-              i18n.t('game.attackLimit', {
-                count: currentGame.total_attack_card_count ?? 0,
-                limit: currentGame.attack_card_limit ?? '—',
-              })
-            }}
-          </small>
+          <span class="status-copy">
+            <strong>{{ statusText() }}</strong>
+            <small>
+              {{
+                i18n.t('game.attackLimit', {
+                  count: currentGame.total_attack_card_count ?? 0,
+                  limit: currentGame.attack_card_limit ?? '—',
+                })
+              }}
+            </small>
+          </span>
+          @if (lastBoutText(currentGame); as summary) {
+            <span class="last-bout-inline">
+              <small>{{ i18n.t('game.lastBout') }}</small>
+              <strong>{{ summary }}</strong>
+            </span>
+          }
         </div>
       }
 
@@ -208,16 +208,6 @@
         <div class="error-message in-game" role="alert">{{ error }}</div>
       }
 
-      @for (turn of activityTurn(currentGame, 'HUMAN'); track turn) {
-        <div
-          class="local-player turn-player activity-ring"
-          [attr.aria-label]="i18n.t('game.currentTurnLabel')"
-        >
-          {{ i18n.t('game.you') }}
-        </div>
-      } @empty {
-        <div class="local-player turn-player">{{ i18n.t('game.you') }}</div>
-      }
       <app-hand
         class="player-hand-region"
         [cards]="currentGame.human_hand"
@@ -231,11 +221,36 @@
           <app-action-bar
             [actions]="currentGame.available_actions"
             [selectedCards]="selectedCards()"
+            [activeAttackValue]="currentGame.active_attack_value"
+            [attackCardLimit]="currentGame.attack_card_limit"
+            [totalAttackCardCount]="currentGame.total_attack_card_count"
             [pending]="pending()"
             (actionSelected)="submitAction($event)"
           />
         </div>
       }
     </main>
+    @if (restartConfirmation()) {
+      <div class="restart-backdrop">
+        <section
+          #restartDialog
+          class="restart-confirmation"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="restart-title"
+          aria-describedby="restart-description"
+          (keydown)="handleRestartKeydown($event)"
+        >
+          <div>
+            <strong id="restart-title">{{ i18n.t('game.restartTitle') }}</strong>
+            <span id="restart-description">{{ i18n.t('game.restartDescription') }}</span>
+          </div>
+          <button #restartCancel type="button" class="cancel" (click)="cancelNewGame()">
+            {{ i18n.t('common.cancel') }}
+          </button>
+          <button type="button" (click)="startNewGame()">{{ i18n.t('game.start') }}</button>
+        </section>
+      </div>
+    }
   }
 </div>

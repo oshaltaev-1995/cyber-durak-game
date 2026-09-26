@@ -122,3 +122,10 @@ button.playing-card:focus-visible {
     height: 7.7rem;
   }
 }
+
+@media (min-width: 48rem) and (max-height: 52rem) {
+  .playing-card:not(.compact) {
+    width: 4.8rem;
+    height: 6.7rem;
+  }
+}

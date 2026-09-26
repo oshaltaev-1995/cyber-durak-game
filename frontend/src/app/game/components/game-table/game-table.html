@@ -66,6 +66,9 @@
               @for (reason of packet.throw_in_reasons; track reason.type) {
                 <div class="throw-reason">
                   <strong>{{ reasonLabel(reason.type) }}</strong>
+                  @for (card of reason.source_cards ?? []; track card.code) {
+                    <span>{{ cardLabel(card) }} = {{ card.effective_value }}</span>
+                  }
                   @if (reason.expression) {
                     <span>{{ reason.expression }}</span>
                   }
@@ -82,7 +85,7 @@
     <div class="anchors">
       <span>{{ i18n.t('game.currentAnchor') }}:</span>
       @for (card of directAnchors(); track card.code) {
-        <strong>{{ card.code }} · {{ card.effective_value }}</strong>
+        <strong>{{ cardLabel(card) }} · {{ card.effective_value }}</strong>
       }
     </div>
   }

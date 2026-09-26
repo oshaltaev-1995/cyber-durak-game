@@ -25,6 +25,7 @@ export class PvPLobbyPageComponent {
   protected readonly inviteCode = signal('');
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly roomCodeTouched = signal(false);
 
   protected createRoom(): void {
     if (this.pending()) return;
@@ -44,7 +45,12 @@ export class PvPLobbyPageComponent {
 
   protected openInvite(): void {
     const code = this.inviteCode().trim();
+    this.roomCodeTouched.set(true);
     if (code !== '') void this.router.navigate(['/join', code]);
+  }
+
+  protected roomCodeInvalid(): boolean {
+    return this.roomCodeTouched() && this.inviteCode().trim() === '';
   }
 
   private errorMessage(error: unknown): string {

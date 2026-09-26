@@ -157,7 +157,13 @@ def test_action_response_contains_transient_safe_bot_take_event() -> None:
             "target": 18,
         }
     ]
+    assert response.json()["last_bout_summary"] == {
+        "outcome": "TAKE",
+        "actor_seat": Seat.TWO.value,
+        "table_card_count": 1,
+    }
     assert fetched.json()["recent_events"] == []
+    assert fetched.json()["last_bout_summary"] == response.json()["last_bout_summary"]
     event_json = json.dumps(response.json()["recent_events"])
     assert "6C" not in event_json
     assert "7C" not in event_json
@@ -429,6 +435,37 @@ def test_throw_in_packet_exposes_server_confirmed_mean_explanation() -> None:
             "type": "arithmetic_mean",
             "target_value": 15,
             "expression": "30 / 2 = 15",
+        }
+    ]
+
+
+def test_existing_value_reason_exposes_structured_public_source_card() -> None:
+    six = card(Rank.SIX)
+    attacking_queen = card(Rank.QUEEN, Suit.DIAMONDS)
+    defending_queen = card(Rank.QUEEN)
+    state = start_game_bout(
+        game(
+            (six, attacking_queen, card(Rank.SEVEN)),
+            (defending_queen, card(Rank.ACE), card(Rank.EIGHT)),
+        )
+    )
+    state = play_game_initial_attack(state, Seat.ONE, (six,))
+    state = play_game_defense(state, Seat.TWO, (defending_queen,))
+    state = play_game_throw_in(state, Seat.ONE, (attacking_queen,))
+    client, game_id = client_for_state(state)
+
+    reasons = client.get(f"/api/games/{game_id}").json()["packets"][1]["throw_in_reasons"]
+    existing_value = next(reason for reason in reasons if reason["type"] == "existing_value")
+
+    assert existing_value["expression"] is None
+    assert existing_value["source_cards"] == [
+        {
+            "code": "QC",
+            "rank": "Q",
+            "suit": "clubs",
+            "base_value": 15,
+            "effective_value": 15,
+            "is_trump": False,
         }
     ]
 
