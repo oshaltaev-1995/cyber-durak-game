@@ -15,6 +15,7 @@
     type="button"
     class="playing-card"
     [class.selected]="selected()"
+    [class.suggested]="suggested()"
     [class.compact]="compact()"
     [disabled]="disabled()"
     [attr.aria-label]="accessibleLabel()"
@@ -22,6 +23,9 @@
     (click)="select()"
   >
     <ng-container [ngTemplateOutlet]="cardFace" />
+    @if (suggested()) {
+      <span class="suggested-badge">{{ i18n.t('hints.suggested') }}</span>
+    }
   </button>
 } @else {
   <div

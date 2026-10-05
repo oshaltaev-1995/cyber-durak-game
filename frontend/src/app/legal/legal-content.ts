@@ -60,14 +60,14 @@ const privacyEn: LegalDocument = {
     {
       heading: 'Guests and registered users',
       paragraphs: [
-        'Guest play does not create persistent account history, XP, achievements, or cosmetics. Active games and rooms are temporary. A browser may keep a language preference, a first-run Welcome flag, a temporary active bot-game reference, and short-lived private-room reconnect details.',
+        'Guest play does not create persistent account history, XP, achievements, or cosmetics. Active games and rooms are temporary. A browser may keep language and hint preferences, a first-run Welcome flag, a temporary active bot-game reference, and short-lived private-room reconnect details.',
         'Registered users may save their profile, completed-match history, statistics, XP, achievements, cosmetic unlocks, and loadout. Logging in during a guest match does not retroactively attach that match to the account.',
       ],
     },
     {
       heading: 'Cookies and browser storage',
       paragraphs: [
-        'KIBA uses an HTTP-only authentication cookie for signed-in sessions, localStorage for your RU/EN language choice and a boolean first-run Welcome flag, and sessionStorage for an active bot-game identifier and private-room reconnect credentials. The Welcome flag contains no profile or gameplay state. The bot-game identifier contains no cards or complete game state and works only while the corresponding temporary server game still exists. These are necessary or functional storage. KIBA currently has no analytics, advertising, behavioural-tracking, or marketing cookies, so no optional-cookie banner is shown.',
+        'KIBA uses an HTTP-only authentication cookie for signed-in sessions, localStorage for your RU/EN language choice, a boolean first-run Welcome flag, and the on/off combination-hint preference, plus sessionStorage for an active bot-game identifier and private-room reconnect credentials. The hint preference is only a boolean and contains no cards, profile, or gameplay state. The Welcome flag also contains no profile or gameplay state. The bot-game identifier contains no cards or complete game state and works only while the corresponding temporary server game still exists. These are necessary or functional storage. KIBA currently has no analytics, advertising, behavioural-tracking, or marketing cookies, so no optional-cookie banner is shown.',
       ],
     },
     {
@@ -150,14 +150,14 @@ const privacyRu: LegalDocument = {
     {
       heading: 'Гости и зарегистрированные пользователи',
       paragraphs: [
-        'Гостевая игра не создаёт постоянную историю аккаунта, XP, достижения или оформление. Активные игры и комнаты временны. Браузер может хранить выбор языка, отметку о показе первого приветствия, временную ссылку на активную игру с ботом и кратковременные данные переподключения к комнате.',
+        'Гостевая игра не создаёт постоянную историю аккаунта, XP, достижения или оформление. Активные игры и комнаты временны. Браузер может хранить выбор языка и подсказок, отметку о показе первого приветствия, временную ссылку на активную игру с ботом и кратковременные данные переподключения к комнате.',
         'Для аккаунта могут сохраняться профиль, завершённые партии, статистика, XP, достижения и оформление. Вход во время гостевой партии не привязывает её к аккаунту задним числом.',
       ],
     },
     {
       heading: 'Cookie и хранилища браузера',
       paragraphs: [
-        'KIBA использует HTTP-only cookie для входа, localStorage для выбора RU/EN и булевой отметки о показе первого приветствия, а sessionStorage — для идентификатора активной игры с ботом и данных переподключения к приватной комнате. Отметка приветствия не содержит профиль или состояние игры. Идентификатор игры с ботом не содержит карты или полное состояние партии и работает только пока соответствующая временная игра существует на сервере. Это необходимое или функциональное хранение. Сейчас нет аналитики, рекламы, поведенческого отслеживания или маркетинговых cookie, поэтому баннер необязательных cookie не показывается.',
+        'KIBA использует HTTP-only cookie для входа, localStorage для выбора RU/EN, булевой отметки о показе первого приветствия и включения или выключения подсказок по комбинациям, а sessionStorage — для идентификатора активной игры с ботом и данных переподключения к приватной комнате. Настройка подсказок — только булево значение: она не содержит карты, профиль или состояние игры. Отметка приветствия также не содержит профиль или состояние игры. Идентификатор игры с ботом не содержит карты или полное состояние партии и работает только пока соответствующая временная игра существует на сервере. Это необходимое или функциональное хранение. Сейчас нет аналитики, рекламы, поведенческого отслеживания или маркетинговых cookie, поэтому баннер необязательных cookie не показывается.',
       ],
     },
     {

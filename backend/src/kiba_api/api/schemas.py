@@ -11,6 +11,37 @@ class _StrictRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class HintRequest(_StrictRequest):
+    selected_card_ids: list[str] = Field(default_factory=list)
+
+
+class HintCombinationResponse(BaseModel):
+    action: HumanActionType
+    card_ids: list[str]
+    added_card_ids: list[str]
+    reason: Literal[
+        "single_card",
+        "same_rank",
+        "arithmetic_equality",
+        "defense_total",
+        "transfer_exact",
+        "same_rank_transfer",
+        "existing_value",
+        "table_total",
+        "arithmetic_mean",
+        "rank_run",
+    ]
+    selected_value: int
+    target_value: int | None
+
+
+class HintResponse(BaseModel):
+    selected_card_ids: list[str]
+    suggested_card_ids: list[str]
+    suggested_action_types: list[HumanActionType]
+    combinations: list[HintCombinationResponse]
+
+
 class InitialAttackRequest(_StrictRequest):
     action: Literal[HumanActionType.INITIAL_ATTACK]
     cards: list[str] = Field(min_length=1)

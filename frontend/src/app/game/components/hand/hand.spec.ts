@@ -58,4 +58,17 @@ describe('HandComponent', () => {
     expect(emitted).toHaveBeenNthCalledWith(1, '6C');
     expect(emitted).toHaveBeenNthCalledWith(2, '10D');
   });
+
+  it('highlights suggested cards but keeps selected styling authoritative', async () => {
+    const fixture = TestBed.createComponent(HandComponent);
+    fixture.componentRef.setInput('cards', cards(3));
+    fixture.componentRef.setInput('selectedCodes', new Set(['6C']));
+    fixture.componentRef.setInput('suggestedCodes', new Set(['6C', '7C']));
+    await fixture.whenStable();
+
+    const rendered = (fixture.nativeElement as HTMLElement).querySelectorAll('.playing-card');
+    expect(rendered[0].classList).toContain('selected');
+    expect(rendered[0].classList).not.toContain('suggested');
+    expect(rendered[1].classList).toContain('suggested');
+  });
 });

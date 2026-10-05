@@ -146,6 +146,34 @@ export interface GameResponse {
   readonly available_actions: readonly HumanActionType[];
 }
 
+export type HintReasonType =
+  | 'single_card'
+  | 'same_rank'
+  | 'arithmetic_equality'
+  | 'defense_total'
+  | 'transfer_exact'
+  | 'same_rank_transfer'
+  | 'existing_value'
+  | 'table_total'
+  | 'arithmetic_mean'
+  | 'rank_run';
+
+export interface HintCombination {
+  readonly action: HumanActionType;
+  readonly card_ids: readonly string[];
+  readonly added_card_ids: readonly string[];
+  readonly reason: HintReasonType;
+  readonly selected_value: number;
+  readonly target_value: number | null;
+}
+
+export interface HintResponse {
+  readonly selected_card_ids: readonly string[];
+  readonly suggested_card_ids: readonly string[];
+  readonly suggested_action_types: readonly HumanActionType[];
+  readonly combinations: readonly HintCombination[];
+}
+
 export type CardActionType = 'INITIAL_ATTACK' | 'DEFEND' | 'TRANSFER' | 'THROW_IN';
 
 export interface CardActionRequest {

@@ -15,10 +15,12 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CARD_ACTIONS, GameCard, HumanActionType } from '../core/api/game-api.models';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
 import { PvPWebSocketService } from '../core/pvp/pvp-websocket.service';
+import { HintPreferenceService } from '../core/hints/hint-preference.service';
 import { ActionBarComponent } from '../game/components/action-bar/action-bar';
 import { CardMotionOverlayComponent } from '../game/components/card-motion-overlay/card-motion-overlay';
 import { GameTableComponent } from '../game/components/game-table/game-table';
 import { HandComponent } from '../game/components/hand/hand';
+import { HintPanelComponent } from '../game/components/hint-panel/hint-panel';
 import { TableSeatMapComponent } from '../game/components/table-seat-map/table-seat-map';
 import { TrumpIndicatorComponent } from '../game/components/trump-indicator/trump-indicator';
 import { TurnReminderComponent } from '../game/components/turn-reminder/turn-reminder';
@@ -53,6 +55,7 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
     CardMotionOverlayComponent,
     GameTableComponent,
     HandComponent,
+    HintPanelComponent,
     RouterLink,
     TableSeatMapComponent,
     TrumpIndicatorComponent,
@@ -71,6 +74,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   protected readonly socket = inject(PvPWebSocketService);
+  protected readonly hintPreference = inject(HintPreferenceService);
   protected readonly i18n = inject(TranslationService);
   protected readonly cardMotion = inject(CardMotionController);
   protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
@@ -81,6 +85,9 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     const selected = this.selectedCodes();
     return this.state()?.hand.filter((card) => selected.has(card.code)) ?? [];
   });
+  protected readonly suggestedCodes = computed<ReadonlySet<string>>(
+    () => new Set(this.socket.hints()?.suggested_card_ids ?? []),
+  );
   protected readonly inviteUrl = computed(
     () => `${window.location.origin}/join/${this.inviteCode}`,
   );
@@ -180,6 +187,13 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
       return next;
     });
     this.socket.actionError.set(null);
+    this.refreshHints();
+  }
+
+  protected setHintsEnabled(enabled: boolean): void {
+    this.hintPreference.setEnabled(enabled);
+    if (enabled) this.refreshHints();
+    else this.socket.clearHints();
   }
 
   protected submitAction(action: HumanActionType): void {
@@ -196,6 +210,14 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     this.submittedAction = action;
     this.submittedCards = CARD_ACTIONS.has(action) ? this.selectedCards() : [];
     this.socket.sendAction(action, cards);
+  }
+
+  private refreshHints(): void {
+    if (!this.hintPreference.enabled() || this.gameplayPaused()) {
+      this.socket.clearHints();
+      return;
+    }
+    this.socket.requestHints(this.selectedCards().map((card) => card.code));
   }
 
   protected async copyInvite(): Promise<void> {

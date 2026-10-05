@@ -45,6 +45,7 @@ from kiba_api.pvp import (
 )
 from kiba_api.sessions import (
     GameSessionService,
+    HintError,
     InMemoryGameSessionStore,
     SessionActionError,
     SessionNotFoundError,
@@ -224,6 +225,10 @@ def create_app(
         _request: Request,
         error: SessionActionError,
     ) -> JSONResponse:
+        return _error_response(409, error.code.value)
+
+    @application.exception_handler(HintError)
+    async def invalid_hint_request(_request: Request, error: HintError) -> JSONResponse:
         return _error_response(409, error.code.value)
 
     @application.exception_handler(GameActionError)

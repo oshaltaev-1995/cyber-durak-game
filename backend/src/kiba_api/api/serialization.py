@@ -16,6 +16,8 @@ from kiba_api.api.schemas import (
     CosmeticAwardResponse,
     CosmeticLoadoutResponse,
     GameResponse,
+    HintCombinationResponse,
+    HintResponse,
     LastBoutSummaryResponse,
     PacketResponse,
     ProgressionAwardResponse,
@@ -44,7 +46,28 @@ from kiba_api.game import (
     summarize_table_arithmetic,
 )
 from kiba_api.locale import Locale
-from kiba_api.sessions import GameSession, acting_seat, available_actions_for
+from kiba_api.sessions import GameSession, MoveHints, acting_seat, available_actions_for
+
+
+def serialize_move_hints(hints: MoveHints) -> HintResponse:
+    """Serialize only participant-owned card codes and structured reasons."""
+    return HintResponse(
+        selected_card_ids=[card_to_code(card) for card in hints.selected_cards],
+        suggested_card_ids=[card_to_code(card) for card in hints.suggested_cards],
+        suggested_action_types=list(hints.suggested_actions),
+        combinations=[
+            HintCombinationResponse(
+                action=combination.action,
+                card_ids=[card_to_code(card) for card in combination.cards],
+                added_card_ids=[card_to_code(card) for card in combination.added_cards],
+                reason=combination.reason.value,
+                selected_value=combination.selected_value,
+                target_value=combination.target_value,
+            )
+            for combination in hints.combinations
+        ],
+    )
+
 
 _SUIT_ORDER = {suit: index for index, suit in enumerate(Suit)}
 _RANK_ORDER = {rank: index for index, rank in enumerate(Rank)}

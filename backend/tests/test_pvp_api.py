@@ -310,6 +310,98 @@ def test_participant_specific_state_never_leaks_opponent_or_future_draw_cards(
             assert "opponent_hand" not in state_two
 
 
+def test_websocket_hints_are_private_versioned_and_read_only(
+    client: TestClient,
+    pvp_service: PvPRoomService,
+) -> None:
+    creator, joiner = create_and_join(client)
+    room = pvp_service.get_room(creator["invite_code"])
+    assert room.state is not None
+    actor = acting_seat(room.state)
+    assert actor is not None
+    actor_card = card_to_code(room.state.hand(actor)[0])
+    other_card = card_to_code(room.state.hand(Seat.TWO if actor is Seat.ONE else Seat.ONE)[0])
+    before_state = room.state
+    before_summaries = room.action_summaries
+
+    with client.websocket_connect(websocket_path(creator), headers={"Origin": ORIGIN}) as one:
+        authenticate(one, creator)
+        with client.websocket_connect(websocket_path(joiner), headers={"Origin": ORIGIN}) as two:
+            authenticate(two, joiner)
+            one.receive_json()
+            one.receive_json()
+            sockets = {Seat.ONE: one, Seat.TWO: two}
+            actor_socket = sockets[actor]
+            other_socket = sockets[Seat.TWO if actor is Seat.ONE else Seat.ONE]
+
+            actor_socket.send_json(
+                {
+                    "type": "HINT_REQUEST",
+                    "request_id": 7,
+                    "version": 0,
+                    "selected_card_ids": [actor_card],
+                }
+            )
+            hints = actor_socket.receive_json()
+            assert hints["type"] == "HINTS"
+            assert hints["request_id"] == 7
+            assert hints["version"] == 0
+            assert other_card not in json.dumps(hints)
+
+            other_socket.send_json({"type": "PING"})
+            assert other_socket.receive_json() == {"type": "PONG", "version": 0}
+
+            actor_socket.send_json(
+                {
+                    "type": "HINT_REQUEST",
+                    "request_id": 8,
+                    "version": 0,
+                    "selected_card_ids": [other_card],
+                }
+            )
+            foreign = actor_socket.receive_json()
+            assert foreign == {
+                "type": "HINTS_REJECTED",
+                "request_id": 8,
+                "error": {"code": "ILLEGAL_ACTION", "domain_code": "card_not_owned"},
+            }
+
+            other_socket.send_json(
+                {
+                    "type": "HINT_REQUEST",
+                    "request_id": 9,
+                    "version": 0,
+                    "selected_card_ids": [other_card],
+                }
+            )
+            wrong_turn = other_socket.receive_json()
+            assert wrong_turn == {
+                "type": "HINTS_REJECTED",
+                "request_id": 9,
+                "error": {"code": "WRONG_TURN", "domain_code": "wrong_turn"},
+            }
+
+            actor_socket.send_json(
+                {
+                    "type": "HINT_REQUEST",
+                    "request_id": 10,
+                    "version": 99,
+                    "selected_card_ids": [actor_card],
+                }
+            )
+            stale = actor_socket.receive_json()
+            assert stale == {
+                "type": "HINTS_REJECTED",
+                "request_id": 10,
+                "error": {"code": "STALE_VERSION", "domain_code": None},
+            }
+
+    after = pvp_service.get_room(creator["invite_code"])
+    assert after.version == 0
+    assert after.state == before_state
+    assert after.action_summaries == before_summaries
+
+
 def test_websocket_rejects_wrong_actor_then_broadcasts_accepted_state(
     client: TestClient,
     pvp_service: PvPRoomService,

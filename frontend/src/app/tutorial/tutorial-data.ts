@@ -120,7 +120,7 @@ export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
     ],
     cardCaption: null,
     equations: ['9 + 9 = 18 = K', 'J + 6 = 12 + 6 = 18 = K', '9 + 7 ✕'],
-    note: 'Не нужно запоминать все связи сразу: во время партии игра проверит выбранные карты.',
+    note: 'Не нужно запоминать все связи сразу: необязательные подсказки включены по умолчанию и отмечают только подтверждённые сервером продолжения.',
     exercise: {
       prompt: 'Какой набор связан с K = 18?',
       choices: [
@@ -373,7 +373,7 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
     ],
     cardCaption: null,
     equations: ['9 + 9 = 18 = K', 'J + 6 = 12 + 6 = 18 = K', '9 + 7 ✕'],
-    note: 'You do not need to memorize every connection at once: the game checks selected cards during play.',
+    note: 'You do not need to memorize every connection at once: optional hints are on by default and mark only server-confirmed continuations.',
     exercise: {
       prompt: 'Which set is connected to K = 18?',
       choices: [

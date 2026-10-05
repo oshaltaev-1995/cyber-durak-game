@@ -3,7 +3,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Observable, of, Subject, throwError } from 'rxjs';
-import { GameCard, GameResponse } from '../core/api/game-api.models';
+import { GameCard, GameResponse, HintResponse } from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
 import { AuthService } from '../core/auth/auth.service';
 import { TranslationService } from '../core/i18n/translation.service';
@@ -83,6 +83,9 @@ const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
 interface ApiStub {
   createGame: ReturnType<typeof vi.fn<() => Observable<GameResponse>>>;
   getGame: ReturnType<typeof vi.fn<(id: string) => Observable<GameResponse>>>;
+  getHints: ReturnType<
+    typeof vi.fn<(id: string, cards: readonly string[]) => Observable<HintResponse>>
+  >;
   submitAction: ReturnType<
     typeof vi.fn<
       (id: string, action: string, cards?: readonly string[]) => Observable<GameResponse>
@@ -96,9 +99,18 @@ describe('GamePageComponent', () => {
 
   beforeEach(async () => {
     sessionStorage.clear();
+    localStorage.removeItem('kiba.hintsEnabled');
     api = {
       createGame: vi.fn(),
       getGame: vi.fn(),
+      getHints: vi.fn().mockReturnValue(
+        of({
+          selected_card_ids: [],
+          suggested_card_ids: [],
+          suggested_action_types: [],
+          combinations: [],
+        }),
+      ),
       submitAction: vi.fn(),
     };
     await TestBed.configureTestingModule({
@@ -137,6 +149,78 @@ describe('GamePageComponent', () => {
     expect(element.textContent).toContain('Партия против бота');
     expect(element.textContent).toContain('Ваш ход');
   }, 15_000);
+
+  it('requests hints after selection and highlights only server-suggested cards', () => {
+    api.getHints.mockReturnValue(
+      of({
+        selected_card_ids: ['6C'],
+        suggested_card_ids: ['QD'],
+        suggested_action_types: ['INITIAL_ATTACK'],
+        combinations: [
+          {
+            action: 'INITIAL_ATTACK',
+            card_ids: ['6C', 'QD'],
+            added_card_ids: ['QD'],
+            reason: 'arithmetic_equality',
+            selected_value: 21,
+            target_value: null,
+          },
+        ],
+      }),
+    );
+    create();
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('app-hand .playing-card')!
+      .click();
+    fixture.detectChanges();
+
+    expect(api.getHints).toHaveBeenCalledWith('game-1', ['6C']);
+    const cards = (fixture.nativeElement as HTMLElement).querySelectorAll('app-hand .playing-card');
+    expect(cards[0].classList).toContain('selected');
+    expect(cards[1].classList).toContain('suggested');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('6C + QD');
+  });
+
+  it('never calls the hint API while the saved preference is off', () => {
+    localStorage.setItem('kiba.hintsEnabled', 'false');
+    create();
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('app-hand .playing-card')!
+      .click();
+    fixture.detectChanges();
+
+    expect(api.getHints).not.toHaveBeenCalled();
+  });
+
+  it('cancels stale hint work and keeps failures separate from gameplay errors', () => {
+    const first = new Subject<HintResponse>();
+    api.getHints
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(throwError(() => new Error('hint service unavailable')));
+    create();
+    const cards = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+      'app-hand .playing-card',
+    );
+
+    cards[0].click();
+    cards[1].click();
+    fixture.detectChanges();
+    first.next({
+      selected_card_ids: ['6C'],
+      suggested_card_ids: ['7H'],
+      suggested_action_types: ['INITIAL_ATTACK'],
+      combinations: [],
+    });
+    fixture.detectChanges();
+
+    expect(first.observed).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.error-message')).toBeNull();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.playing-card.suggested'),
+    ).toBeNull();
+  });
 
   it('restores a stored authoritative game without creating a new deal', () => {
     sessionStorage.setItem('kiba.activeBotGameId', 'progressed-game');
@@ -342,6 +426,14 @@ describe('GamePageComponent', () => {
 
   it('selects cards, sends canonical codes, and clears selection after success', () => {
     create();
+    api.getHints.mockReturnValue(
+      of({
+        selected_card_ids: ['6C'],
+        suggested_card_ids: ['QD'],
+        suggested_action_types: ['INITIAL_ATTACK'],
+        combinations: [],
+      }),
+    );
     const updated = makeGame({ human_hand: [queenDiamonds, sevenHearts] });
     api.submitAction.mockReturnValue(of(updated));
     const firstCard = (fixture.nativeElement as HTMLElement).querySelector(
@@ -350,6 +442,9 @@ describe('GamePageComponent', () => {
     firstCard.click();
     fixture.detectChanges();
     expect(firstCard.getAttribute('aria-pressed')).toBe('true');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.playing-card.suggested'),
+    ).not.toBeNull();
 
     clickButton('Ходить');
     expect(api.submitAction).toHaveBeenCalledWith('game-1', 'INITIAL_ATTACK', ['6C']);
@@ -359,6 +454,9 @@ describe('GamePageComponent', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('.selection-summary')?.textContent,
     ).toContain('Выбрано: 0');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.playing-card.suggested'),
+    ).toBeNull();
   });
 
   it('keeps the current state and selected cards when the server rejects a move', () => {

@@ -78,7 +78,7 @@ Everything else depends on this.
   is the first-visit default
 - New Game
 - short interactive rules/tutorial
-- automatic arithmetic hints
+- optional arithmetic hints, enabled by default and switchable off during play
 - no account required; optional profile identity is available without gating play
 - authenticated completed matches have private history and lightweight statistics; guest matches
   remain unsaved

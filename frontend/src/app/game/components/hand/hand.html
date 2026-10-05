@@ -15,6 +15,7 @@
         [card]="card"
         [selectable]="true"
         [selected]="selectedCodes().has(card.code)"
+        [suggested]="suggestedCodes().has(card.code) && !selectedCodes().has(card.code)"
         [disabled]="disabled()"
         (cardSelected)="cardSelected.emit($event)"
       />

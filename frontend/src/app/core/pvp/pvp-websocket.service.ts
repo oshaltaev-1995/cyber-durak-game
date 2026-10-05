@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { HumanActionType } from '../api/game-api.models';
+import { HintResponse, HumanActionType } from '../api/game-api.models';
 import {
   PvPConnectionNotice,
   PvPConnectionStatus,
@@ -26,6 +26,8 @@ export class PvPWebSocketService {
   readonly status = signal<PvPConnectionStatus>('idle');
   readonly actionError = signal<PvPErrorBody | null>(null);
   readonly actionPending = signal(false);
+  readonly hints = signal<HintResponse | null>(null);
+  readonly hintPending = signal(false);
   readonly opponentStatus = signal<PvPOpponentStatus>('unknown');
   readonly connectionNotice = signal<PvPConnectionNotice>(null);
   readonly roomClosure = signal<'you_left' | 'opponent_left' | null>(null);
@@ -42,6 +44,7 @@ export class PvPWebSocketService {
   private reconnectEnabled = false;
   private lifecycleBound = false;
   private uncertainAction = false;
+  private hintRequestId = 0;
 
   private readonly handleOnline = (): void => this.resumeConnection();
   private readonly handleOffline = (): void => this.goOffline();
@@ -59,6 +62,7 @@ export class PvPWebSocketService {
     this.reconnectAttempts = 0;
     this.uncertainAction = false;
     this.actionPending.set(false);
+    this.clearHints();
     this.actionError.set(null);
     this.connectionNotice.set(null);
     this.roomClosure.set(null);
@@ -83,9 +87,42 @@ export class PvPWebSocketService {
       return;
     }
     this.actionPending.set(true);
+    this.clearHints();
     this.actionError.set(null);
     this.connectionNotice.set(null);
     this.socket.send(JSON.stringify({ type: 'ACTION', version: state.version, action, cards }));
+  }
+
+  requestHints(selectedCardIds: readonly string[]): void {
+    const state = this.state();
+    if (
+      selectedCardIds.length === 0 ||
+      this.status() !== 'connected' ||
+      this.socket?.readyState !== WebSocket.OPEN ||
+      state === null ||
+      state.required_participant_id !== state.you.participant_id ||
+      this.actionPending()
+    ) {
+      this.clearHints();
+      return;
+    }
+    const requestId = ++this.hintRequestId;
+    this.hints.set(null);
+    this.hintPending.set(true);
+    this.socket.send(
+      JSON.stringify({
+        type: 'HINT_REQUEST',
+        request_id: requestId,
+        version: state.version,
+        selected_card_ids: selectedCardIds,
+      }),
+    );
+  }
+
+  clearHints(): void {
+    this.hintRequestId += 1;
+    this.hints.set(null);
+    this.hintPending.set(false);
   }
 
   leaveRoom(): void {
@@ -127,6 +164,7 @@ export class PvPWebSocketService {
     this.unbindLifecycleEvents();
     this.status.set('idle');
     this.actionPending.set(false);
+    this.clearHints();
     this.leavePending.set(false);
     this.uncertainAction = false;
   }
@@ -212,6 +250,25 @@ export class PvPWebSocketService {
           this.connectionNotice.set('state_updated');
         }
         return;
+      case 'HINTS': {
+        const state = this.state();
+        if (
+          message.request_id !== this.hintRequestId ||
+          state === null ||
+          message.version !== state.version
+        ) {
+          return;
+        }
+        this.hints.set(message.hints);
+        this.hintPending.set(false);
+        return;
+      }
+      case 'HINTS_REJECTED':
+        if (message.request_id === undefined || message.request_id === this.hintRequestId) {
+          this.hints.set(null);
+          this.hintPending.set(false);
+        }
+        return;
       case 'ERROR':
         this.actionPending.set(false);
         this.leavePending.set(false);
@@ -266,6 +323,7 @@ export class PvPWebSocketService {
     ) {
       return false;
     }
+    this.clearHints();
     this.state.set(state);
     if (this.actionError()?.code !== 'STALE_VERSION') this.actionError.set(null);
     if (state.opponent === null) {

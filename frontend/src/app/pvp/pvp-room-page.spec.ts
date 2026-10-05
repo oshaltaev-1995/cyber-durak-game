@@ -80,6 +80,8 @@ describe('PvPRoomPageComponent', () => {
     status: signal<PvPConnectionStatus>('connected'),
     actionError: signal<PvPErrorBody | null>(null),
     actionPending: signal(false),
+    hints: signal(null),
+    hintPending: signal(false),
     opponentStatus: signal<PvPOpponentStatus>('connected'),
     connectionNotice: signal<PvPConnectionNotice>(null),
     roomClosure: signal<PvPRoomClosure>(null),
@@ -87,21 +89,28 @@ describe('PvPRoomPageComponent', () => {
     connect: vi.fn(),
     disconnect: vi.fn(),
     sendAction: vi.fn(),
+    requestHints: vi.fn(),
+    clearHints: vi.fn(),
     retry: vi.fn(),
     leaveRoom: vi.fn(),
   };
 
   beforeEach(async () => {
+    localStorage.removeItem('kiba.hintsEnabled');
     socket.state.set(makeState());
     socket.status.set('connected');
     socket.actionError.set(null);
     socket.actionPending.set(false);
+    socket.hints.set(null);
+    socket.hintPending.set(false);
     socket.opponentStatus.set('connected');
     socket.connectionNotice.set(null);
     socket.roomClosure.set(null);
     socket.leavePending.set(false);
     socket.connect.mockReset();
     socket.sendAction.mockReset();
+    socket.requestHints.mockReset();
+    socket.clearHints.mockReset();
     socket.disconnect.mockReset();
     socket.retry.mockReset();
     socket.leaveRoom.mockReset();
@@ -175,6 +184,7 @@ describe('PvPRoomPageComponent', () => {
     ) as HTMLButtonElement;
     cardButton.click();
     fixture.detectChanges();
+    expect(socket.requestHints).toHaveBeenCalledWith(['6C']);
     const action = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Ходить',
     ) as HTMLButtonElement;
@@ -183,6 +193,23 @@ describe('PvPRoomPageComponent', () => {
     expect(socket.sendAction).toHaveBeenCalledWith('INITIAL_ATTACK', ['6C']);
     expect(socket.state()?.packets).toHaveLength(0);
     expect(cardButton.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('does not request hints when the preference is off', () => {
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('.hint-toggle')!
+      .click();
+    fixture.detectChanges();
+    socket.requestHints.mockClear();
+    socket.clearHints.mockClear();
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('app-hand .playing-card')!
+      .click();
+    fixture.detectChanges();
+
+    expect(socket.requestHints).not.toHaveBeenCalled();
+    expect(socket.clearHints).toHaveBeenCalled();
   });
 
   it('animates an observed remote public card and closes the facedown hand gap', () => {

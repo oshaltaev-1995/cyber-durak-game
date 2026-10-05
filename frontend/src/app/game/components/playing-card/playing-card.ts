@@ -14,6 +14,7 @@ export class PlayingCardComponent {
   protected readonly i18n = inject(TranslationService);
   readonly card = input.required<GameCard>();
   readonly selected = input(false);
+  readonly suggested = input(false);
   readonly selectable = input(false);
   readonly compact = input(false);
   readonly disabled = input(false);
@@ -25,12 +26,13 @@ export class PlayingCardComponent {
   );
   protected readonly accessibleLabel = computed(() => {
     const card = this.card();
-    return this.i18n.t('game.cardAria', {
+    const label = this.i18n.t('game.cardAria', {
       rank: card.rank,
       suit: this.suitName(card.suit),
       value: card.effective_value,
       trump: card.is_trump ? this.i18n.t('game.cardTrumpSuffix') : '',
     });
+    return this.suggested() ? `${label}. ${this.i18n.t('hints.suggestedAria')}` : label;
   });
 
   protected select(): void {

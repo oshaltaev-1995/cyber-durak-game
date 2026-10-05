@@ -107,6 +107,13 @@ class WebSocketLeaveMessage(_StrictModel):
     type: Literal["LEAVE"]
 
 
+class WebSocketHintRequestMessage(_StrictModel):
+    type: Literal["HINT_REQUEST"]
+    request_id: int = Field(ge=0)
+    version: int = Field(ge=0)
+    selected_card_ids: list[str] = Field(default_factory=list)
+
+
 class WebSocketActionMessage(_StrictModel):
     type: Literal["ACTION"]
     version: int = Field(ge=0)

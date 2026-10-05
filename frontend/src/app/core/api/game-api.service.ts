@@ -5,6 +5,7 @@ import {
   CARD_ACTIONS,
   CardActionType,
   GameResponse,
+  HintResponse,
   HumanActionRequest,
   HumanActionType,
 } from './game-api.models';
@@ -20,6 +21,12 @@ export class GameApiService {
 
   getGame(gameId: string): Observable<GameResponse> {
     return this.http.get<GameResponse>(`${this.gamesUrl}/${gameId}`);
+  }
+
+  getHints(gameId: string, selectedCardIds: readonly string[]): Observable<HintResponse> {
+    return this.http.post<HintResponse>(`${this.gamesUrl}/${gameId}/hints`, {
+      selected_card_ids: selectedCardIds,
+    });
   }
 
   submitAction(

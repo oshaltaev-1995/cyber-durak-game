@@ -36,6 +36,19 @@ describe('GameApiService', () => {
     request.flush(response);
   });
 
+  it('requests private read-only hints for the current selection', () => {
+    service.getHints('game-1', ['9C', '9D']).subscribe();
+    const request = http.expectOne('/api/games/game-1/hints');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ selected_card_ids: ['9C', '9D'] });
+    request.flush({
+      selected_card_ids: ['9C', '9D'],
+      suggested_card_ids: [],
+      suggested_action_types: ['INITIAL_ATTACK'],
+      combinations: [],
+    });
+  });
+
   it('submits card actions with canonical card codes', () => {
     service
       .submitAction('game-1', 'DEFEND', ['QS', '6C'])

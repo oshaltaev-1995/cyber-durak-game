@@ -57,6 +57,7 @@ Provider DPA, subprocessor, retention and transfer details remain an owner/legal
 | `kiba_session` (configurable name) | Opaque auth token; `HttpOnly`, `SameSite=Lax`, `Secure` in production | Browser cookie backed by server session; logout/deletion clears it | Necessary authenticated session |
 | `kiba.preferred-locale` localStorage | `en` or `ru` | Until user changes it or clears site data | Functional language preference |
 | `kiba.firstRunSeen` localStorage | Boolean first-run Welcome dismissal/completion flag only | Until site data is cleared | Avoid repeating the optional onboarding prompt across visits; contains no profile or gameplay state |
+| `kiba.hintsEnabled` localStorage | Boolean optional-combination-hints preference only | Until user changes it or clears site data | Keep the user-selected hint mode across visits; contains no cards, profile, or gameplay state |
 | `kiba.activeBotGameId` sessionStorage | Opaque active bot-game identifier only; no cards or complete `GameState` | Browser-tab session, intentional replacement, definitive server expiry, or site-data clearing | Restore the same authoritative process-local bot game after page reload |
 | `kiba:pvp:<invite-code>` sessionStorage | Participant ID, seat, reconnect credential | Browser-tab session or explicit cleanup/site-data clearing | Functional private-room reconnect |
 

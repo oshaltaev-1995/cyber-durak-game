@@ -37,6 +37,7 @@ from kiba_api.sessions.actions import (
     record_accepted_action,
     remember_resolved_bout,
 )
+from kiba_api.sessions.hints import MoveHints, get_move_hints
 
 
 class SessionErrorCode(StrEnum):
@@ -341,6 +342,13 @@ class GameSessionService:
         with self._store.locked_record(game_id) as record:
             self._persist_completed_match(record)
             return record.session
+
+    def get_hints(self, game_id: str, selected_cards: Iterable[Card]) -> MoveHints:
+        """Return read-only canonical hints for the human participant."""
+        selected = tuple(selected_cards)
+        with self._store.locked_record(game_id) as record:
+            session = record.session
+            return get_move_hints(session.state, session.human_seat, selected)
 
     def detach_user(self, user_id: UUID) -> int:
         """Prevent deleted accounts from receiving later session persistence."""

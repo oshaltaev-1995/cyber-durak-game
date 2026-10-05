@@ -4,6 +4,7 @@ import {
   GameCard,
   GamePhase,
   HumanActionType,
+  HintResponse,
   LastBoutSummary,
   ProgressionAward,
   Seat,
@@ -110,6 +111,17 @@ export type PvPServerMessage =
   | { readonly type: 'STATE'; readonly state: PvPState }
   | { readonly type: 'GAME_COMPLETE'; readonly state: PvPState }
   | { readonly type: 'ACTION_REJECTED'; readonly error: PvPErrorBody }
+  | {
+      readonly type: 'HINTS';
+      readonly request_id: number;
+      readonly version: number;
+      readonly hints: HintResponse;
+    }
+  | {
+      readonly type: 'HINTS_REJECTED';
+      readonly request_id?: number;
+      readonly error: PvPErrorBody;
+    }
   | { readonly type: 'ERROR'; readonly error: PvPErrorBody }
   | {
       readonly type: 'ROOM_CLOSED';

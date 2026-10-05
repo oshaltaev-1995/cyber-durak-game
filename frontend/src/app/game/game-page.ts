@@ -12,23 +12,26 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { Subscription, finalize } from 'rxjs';
 import {
   BotPresentationEvent,
   CARD_ACTIONS,
   GameCard,
   GameResponse,
+  HintResponse,
   HumanActionType,
 } from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
 import { AuthService } from '../core/auth/auth.service';
 import { BotGameSessionStore } from '../core/game/bot-game-session.store';
+import { HintPreferenceService } from '../core/hints/hint-preference.service';
 import { TranslationService } from '../core/i18n/translation.service';
 import { TranslationKey } from '../core/i18n/translations/ru';
 import { ActionBarComponent } from './components/action-bar/action-bar';
 import { CardMotionOverlayComponent } from './components/card-motion-overlay/card-motion-overlay';
 import { GameTableComponent } from './components/game-table/game-table';
 import { HandComponent } from './components/hand/hand';
+import { HintPanelComponent } from './components/hint-panel/hint-panel';
 import { TableSeatMapComponent } from './components/table-seat-map/table-seat-map';
 import { TrumpIndicatorComponent } from './components/trump-indicator/trump-indicator';
 import { TurnReminderComponent } from './components/turn-reminder/turn-reminder';
@@ -55,6 +58,7 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
     CardMotionOverlayComponent,
     GameTableComponent,
     HandComponent,
+    HintPanelComponent,
     RouterLink,
     TableSeatMapComponent,
     TrumpIndicatorComponent,
@@ -72,6 +76,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private readonly changeDetector = inject(ChangeDetectorRef);
   private readonly session = inject(GameSessionState);
   private readonly storedSession = inject(BotGameSessionStore);
+  protected readonly hintPreference = inject(HintPreferenceService);
   protected readonly cardMotion = inject(CardMotionController);
   protected readonly auth = inject(AuthService);
   protected readonly i18n = inject(TranslationService);
@@ -86,6 +91,11 @@ export class GamePageComponent implements OnInit, OnDestroy {
   protected readonly restartConfirmation = signal(false);
   protected readonly botPresentation = signal<BotPresentationEvent | null>(null);
   protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
+  protected readonly hints = signal<HintResponse | null>(null);
+  protected readonly hintsLoading = signal(false);
+  protected readonly suggestedCodes = computed<ReadonlySet<string>>(
+    () => new Set(this.hints()?.suggested_card_ids ?? []),
+  );
   protected readonly recoveryState = signal<'idle' | 'loading' | 'unavailable' | 'failed'>('idle');
   protected readonly selectedCards = computed<readonly GameCard[]>(() => {
     const selected = this.selectedCodes();
@@ -108,6 +118,8 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private presentationTimer: ReturnType<typeof setTimeout> | null = null;
   private submittedAction: HumanActionType | null = null;
   private submittedCards: readonly GameCard[] = [];
+  private hintSubscription: Subscription | null = null;
+  private hintRequestGeneration = 0;
 
   ngOnInit(): void {
     const currentGame = this.game();
@@ -124,6 +136,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.clearHints();
     this.cardMotion.clear();
     this.cancelPresentation();
   }
@@ -168,6 +181,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
       return;
     }
     this.cancelPresentation();
+    this.clearHints();
     this.cardMotion.clear();
     this.restartConfirmation.set(false);
     this.recoveryState.set('idle');
@@ -246,6 +260,13 @@ export class GamePageComponent implements OnInit, OnDestroy {
       return updated;
     });
     this.errorKey.set(null);
+    this.refreshHints();
+  }
+
+  protected setHintsEnabled(enabled: boolean): void {
+    this.hintPreference.setEnabled(enabled);
+    if (enabled) this.refreshHints();
+    else this.clearHints();
   }
 
   protected submitAction(action: HumanActionType): void {
@@ -254,6 +275,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
       return;
     }
     this.submittedAction = action;
+    this.clearHints();
     this.submittedCards = CARD_ACTIONS.has(action) ? [...this.selectedCards()] : [];
     this.pending.set(true);
     this.errorKey.set(null);
@@ -364,6 +386,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
     }
     this.game.set(updatedGame);
     this.selectedCodes.set(new Set());
+    this.clearHints();
     this.submittedAction = null;
     this.submittedCards = [];
     this.pending.set(false);
@@ -373,6 +396,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private restoreGame(gameId: string): void {
     if (this.pending()) return;
     this.recoveryState.set('loading');
+    this.clearHints();
     this.pending.set(true);
     this.errorKey.set(null);
     this.api
@@ -401,6 +425,58 @@ export class GamePageComponent implements OnInit, OnDestroy {
     if (!(error instanceof HttpErrorResponse) || error.status !== 404) return false;
     const body = error.error as { detail?: { code?: string } } | null;
     return body?.detail?.code === 'game_not_found';
+  }
+
+  private refreshHints(): void {
+    this.clearHints();
+    const game = this.game();
+    const selected = this.selectedCards().map((card) => card.code);
+    if (
+      !this.hintPreference.enabled() ||
+      selected.length === 0 ||
+      game === null ||
+      game.phase === 'complete' ||
+      game.required_actor !== 'HUMAN' ||
+      this.pending() ||
+      this.restartConfirmation() ||
+      !game.available_actions.some((action) => CARD_ACTIONS.has(action))
+    ) {
+      return;
+    }
+    const generation = this.hintRequestGeneration;
+    const selectionKey = selected.join(',');
+    this.hintsLoading.set(true);
+    this.hintSubscription = this.api.getHints(game.game_id, selected).subscribe({
+      next: (hints) => {
+        if (!this.isCurrentHintRequest(generation, game.game_id, selectionKey)) return;
+        this.hints.set(hints);
+        this.hintsLoading.set(false);
+      },
+      error: () => {
+        if (generation !== this.hintRequestGeneration) return;
+        this.hints.set(null);
+        this.hintsLoading.set(false);
+      },
+    });
+  }
+
+  private clearHints(): void {
+    this.hintRequestGeneration += 1;
+    this.hintSubscription?.unsubscribe();
+    this.hintSubscription = null;
+    this.hints.set(null);
+    this.hintsLoading.set(false);
+  }
+
+  private isCurrentHintRequest(generation: number, gameId: string, selectionKey: string): boolean {
+    return (
+      generation === this.hintRequestGeneration &&
+      this.hintPreference.enabled() &&
+      this.game()?.game_id === gameId &&
+      this.selectedCards()
+        .map((card) => card.code)
+        .join(',') === selectionKey
+    );
   }
 
   private showBriefBotStatus(event: BotPresentationEvent | null): void {

@@ -8,8 +8,8 @@ from kiba_api.api.auth import OptionalCurrentUser
 from kiba_api.api.cards import parse_card_codes
 from kiba_api.api.cosmetics import CosmeticDependency
 from kiba_api.api.locale import RequestLocale
-from kiba_api.api.schemas import GameResponse, HumanActionRequest
-from kiba_api.api.serialization import serialize_game_session
+from kiba_api.api.schemas import GameResponse, HintRequest, HintResponse, HumanActionRequest
+from kiba_api.api.serialization import serialize_game_session, serialize_move_hints
 from kiba_api.sessions import GameAppearance, GameSessionService
 
 router = APIRouter(prefix="/api/games", tags=["games"])
@@ -54,6 +54,17 @@ def get_game(
 ) -> GameResponse:
     """Return public state without bot cards or hidden draw-pile order."""
     return serialize_game_session(service.get_game(game_id), locale)
+
+
+@router.post("/{game_id}/hints", response_model=HintResponse, summary="Get canonical move hints")
+def get_hints(
+    game_id: str,
+    request: HintRequest,
+    service: GameServiceDependency,
+) -> HintResponse:
+    """Return bounded read-only hints without bot cards or draw-pile order."""
+    cards = parse_card_codes(request.selected_card_ids)
+    return serialize_move_hints(service.get_hints(game_id, cards))
 
 
 @router.post("/{game_id}/actions", response_model=GameResponse, summary="Play a human action")

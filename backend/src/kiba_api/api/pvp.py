@@ -19,6 +19,7 @@ from kiba_api.api.pvp_schemas import (
     RoomStatusResponse,
     WebSocketActionMessage,
     WebSocketAuthMessage,
+    WebSocketHintRequestMessage,
     WebSocketLeaveMessage,
     WebSocketPingMessage,
 )
@@ -27,6 +28,7 @@ from kiba_api.api.pvp_serialization import (
     serialize_room_join,
     serialize_room_status,
 )
+from kiba_api.api.serialization import serialize_move_hints
 from kiba_api.auth import AuthError
 from kiba_api.game import GamePhase
 from kiba_api.locale import parse_locale
@@ -241,6 +243,52 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                     continue
                 await _broadcast_room_closed(room, hub, participant_id)
                 return
+            if message_type == "HINT_REQUEST":
+                message: WebSocketHintRequestMessage | None = None
+                try:
+                    message = WebSocketHintRequestMessage.model_validate(payload)
+                    cards = parse_card_codes(message.selected_card_ids)
+                    room, hints = service.get_hints(
+                        invite_code,
+                        reconnect_token,
+                        cards,
+                        expected_version=message.version,
+                    )
+                except ValidationError:
+                    await websocket.send_json(
+                        _hint_error_message(
+                            PvPErrorCode.ILLEGAL_ACTION,
+                            "invalid_request",
+                        )
+                    )
+                    continue
+                except CardCodeError as error:
+                    await websocket.send_json(
+                        _hint_error_message(
+                            PvPErrorCode.ILLEGAL_ACTION,
+                            error.code.value,
+                            request_id=message.request_id,
+                        )
+                    )
+                    continue
+                except PvPActionError as error:
+                    await websocket.send_json(
+                        _hint_error_message(
+                            error.code,
+                            error.domain_code,
+                            request_id=message.request_id,
+                        )
+                    )
+                    continue
+                await websocket.send_json(
+                    {
+                        "type": "HINTS",
+                        "request_id": message.request_id,
+                        "version": room.version,
+                        "hints": serialize_move_hints(hints).model_dump(mode="json"),
+                    }
+                )
+                continue
             if message_type != "ACTION":
                 await websocket.send_json(
                     _error_message("ERROR", PvPErrorCode.ILLEGAL_ACTION, "invalid_message")
@@ -423,3 +471,15 @@ def _error_message(message_type: str, code: PvPErrorCode, domain_code: str | Non
             "domain_code": domain_code,
         },
     }
+
+
+def _hint_error_message(
+    code: PvPErrorCode,
+    domain_code: str | None = None,
+    *,
+    request_id: int | None = None,
+) -> dict:
+    message = _error_message("HINTS_REJECTED", code, domain_code)
+    if request_id is not None:
+        message["request_id"] = request_id
+    return message

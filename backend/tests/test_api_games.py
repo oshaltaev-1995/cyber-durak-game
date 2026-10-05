@@ -261,6 +261,84 @@ def test_unknown_game_returns_machine_readable_404() -> None:
     assert response.json() == {"detail": {"code": "game_not_found"}}
 
 
+def test_hint_api_returns_canonical_read_only_suggestions_without_hidden_cards() -> None:
+    nine = card(Rank.NINE)
+    second_nine = card(Rank.NINE, Suit.DIAMONDS)
+    king = card(Rank.KING)
+    hidden = (card(Rank.ACE), card(Rank.SIX), card(Rank.EIGHT))
+    draw_pile = (card(Rank.SEVEN, Suit.HEARTS), card(Rank.TEN, Suit.SPADES))
+    state = start_game_bout(game((nine, second_nine, king), hidden, draw_pile=draw_pile))
+    client, game_id = client_for_state(state)
+    before = client.get(f"/api/games/{game_id}").json()
+
+    response = client.post(
+        f"/api/games/{game_id}/hints",
+        json={"selected_card_ids": [card_to_code(nine)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert card_to_code(second_nine) in body["suggested_card_ids"]
+    assert body["combinations"]
+    assert client.get(f"/api/games/{game_id}").json() == before
+    hint_codes = {
+        *body["selected_card_ids"],
+        *body["suggested_card_ids"],
+        *(code for combination in body["combinations"] for code in combination["card_ids"]),
+        *(code for combination in body["combinations"] for code in combination["added_card_ids"]),
+    }
+    for hidden_card in (*hidden, *draw_pile[1:]):
+        assert card_to_code(hidden_card) not in hint_codes
+
+
+def test_hint_api_handles_empty_invalid_wrong_turn_complete_and_unknown_requests() -> None:
+    human_state = start_game_bout(
+        game((card(Rank.SIX), card(Rank.SEVEN)), (card(Rank.ACE), card(Rank.KING)))
+    )
+    client, game_id = client_for_state(human_state)
+
+    empty = client.post(f"/api/games/{game_id}/hints", json={"selected_card_ids": []})
+    foreign = client.post(f"/api/games/{game_id}/hints", json={"selected_card_ids": ["AC"]})
+    duplicate = client.post(f"/api/games/{game_id}/hints", json={"selected_card_ids": ["6C", "6C"]})
+    unknown = client.post("/api/games/unknown/hints", json={"selected_card_ids": ["6C"]})
+
+    assert empty.status_code == 200
+    assert empty.json()["combinations"] == []
+    assert foreign.status_code == 409
+    assert foreign.json() == {"detail": {"code": "card_not_owned"}}
+    assert duplicate.status_code == 422
+    assert duplicate.json() == {"detail": {"code": "duplicate_card_code"}}
+    assert unknown.status_code == 404
+
+    bot_turn = start_game_bout(
+        game(
+            (card(Rank.SIX), card(Rank.SEVEN)),
+            (card(Rank.ACE), card(Rank.KING)),
+            attacker=Seat.TWO,
+        )
+    )
+    bot_client, bot_id = client_for_state(bot_turn)
+    wrong_turn = bot_client.post(f"/api/games/{bot_id}/hints", json={"selected_card_ids": ["6C"]})
+    assert wrong_turn.status_code == 409
+    assert wrong_turn.json() == {"detail": {"code": "wrong_turn"}}
+
+    complete = GameState(
+        seat_one_hand=(),
+        seat_two_hand=(card(Rank.SEVEN),),
+        draw_pile=(),
+        discard_pile=(),
+        current_attacker=None,
+        phase=GamePhase.COMPLETE,
+        result=GameResult(GameOutcome.WIN, Seat.ONE),
+    )
+    complete_client, complete_id = client_for_state(complete)
+    terminal = complete_client.post(
+        f"/api/games/{complete_id}/hints", json={"selected_card_ids": []}
+    )
+    assert terminal.status_code == 409
+    assert terminal.json() == {"detail": {"code": "game_complete"}}
+
+
 def test_legal_and_illegal_initial_attack_use_domain_authority() -> None:
     nine = card(Rank.NINE)
     seven = card(Rank.SEVEN)

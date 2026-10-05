@@ -43,4 +43,17 @@ describe('PlayingCardComponent', () => {
     (fixture.nativeElement as HTMLElement).querySelector('button')?.click();
     expect(emitted).toHaveBeenCalledWith('6C');
   });
+
+  it('marks a suggestion with visible text and an accessible explanation', async () => {
+    const fixture = TestBed.createComponent(PlayingCardComponent);
+    fixture.componentRef.setInput('card', heart);
+    fixture.componentRef.setInput('selectable', true);
+    fixture.componentRef.setInput('suggested', true);
+    await fixture.whenStable();
+
+    const button = (fixture.nativeElement as HTMLElement).querySelector('button')!;
+    expect(button.classList).toContain('suggested');
+    expect(button.textContent).toContain('Подходит');
+    expect(button.getAttribute('aria-label')).toContain('Подходит к текущей комбинации');
+  });
 });

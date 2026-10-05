@@ -252,12 +252,19 @@
           class="player-hand-region"
           [cards]="game.hand"
           [selectedCodes]="selectedCodes()"
+          [suggestedCodes]="suggestedCodes()"
           [disabled]="socket.actionPending() || gameplayPaused() || game.game_phase === 'complete'"
           (cardSelected)="toggleCard($event)"
         />
 
         @if (game.game_phase !== 'complete') {
           <div class="action-dock">
+            <app-hint-panel
+              [enabled]="hintPreference.enabled()"
+              [loading]="socket.hintPending()"
+              [combinations]="socket.hints()?.combinations ?? []"
+              (enabledChange)="setHintsEnabled($event)"
+            />
             <app-action-bar
               [actions]="game.available_actions"
               [selectedCards]="selectedCards()"

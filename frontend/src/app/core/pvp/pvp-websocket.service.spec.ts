@@ -100,6 +100,77 @@ describe('PvPWebSocketService', () => {
     expect(service.actionPending()).toBe(true);
   });
 
+  it('sends private versioned hint requests and ignores stale responses', () => {
+    const active = {
+      ...state(4, opponent(true)),
+      room_phase: 'GAME_ACTIVE',
+      you: { participant_id: 'p1' },
+      required_participant_id: 'p1',
+    } as unknown as PvPState;
+    service.connect('ABC123', 'secret');
+    const socket = FakeWebSocket.instances[0];
+    authenticate(socket, active);
+
+    service.requestHints(['9C']);
+    const first = JSON.parse(socket.sent.at(-1)!);
+    expect(first).toMatchObject({
+      type: 'HINT_REQUEST',
+      version: 4,
+      selected_card_ids: ['9C'],
+    });
+    service.requestHints(['9C', '9D']);
+    const second = JSON.parse(socket.sent.at(-1)!);
+    expect(second.request_id).toBeGreaterThan(first.request_id);
+
+    socket.message({
+      type: 'HINTS',
+      request_id: first.request_id,
+      version: 4,
+      hints: {
+        selected_card_ids: ['9C'],
+        suggested_card_ids: ['AC'],
+        suggested_action_types: ['INITIAL_ATTACK'],
+        combinations: [],
+      },
+    });
+    expect(service.hints()).toBeNull();
+
+    const currentHints = {
+      selected_card_ids: ['9C', '9D'],
+      suggested_card_ids: ['KC'],
+      suggested_action_types: ['INITIAL_ATTACK'],
+      combinations: [],
+    } as const;
+    socket.message({
+      type: 'HINTS',
+      request_id: second.request_id,
+      version: 4,
+      hints: currentHints,
+    });
+    expect(service.hints()).toEqual(currentHints);
+    expect(service.hintPending()).toBe(false);
+
+    socket.message({ type: 'STATE', state: { ...active, version: 5 } });
+    expect(service.hints()).toBeNull();
+  });
+
+  it('does not request hints when it is not the participant turn', () => {
+    const active = {
+      ...state(4, opponent(true)),
+      room_phase: 'GAME_ACTIVE',
+      you: { participant_id: 'p1' },
+      required_participant_id: 'p2',
+    } as unknown as PvPState;
+    service.connect('ABC123', 'secret');
+    const socket = FakeWebSocket.instances[0];
+    authenticate(socket, active);
+
+    service.requestHints(['9C']);
+
+    expect(socket.sent.map((value) => JSON.parse(value).type)).toEqual(['AUTH']);
+    expect(service.hintPending()).toBe(false);
+  });
+
   it('sends an explicit leave and stops reconnecting after the neutral room closure', () => {
     service.connect('ABC123', 'secret');
     const socket = FakeWebSocket.instances[0];

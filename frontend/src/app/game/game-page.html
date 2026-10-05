@@ -200,12 +200,19 @@
         class="player-hand-region"
         [cards]="currentGame.human_hand"
         [selectedCodes]="selectedCodes()"
+        [suggestedCodes]="suggestedCodes()"
         [disabled]="pending() || currentGame.phase === 'complete'"
         (cardSelected)="toggleCard($event)"
       />
 
       @if (currentGame.phase !== 'complete') {
         <div class="action-dock">
+          <app-hint-panel
+            [enabled]="hintPreference.enabled()"
+            [loading]="hintsLoading()"
+            [combinations]="hints()?.combinations ?? []"
+            (enabledChange)="setHintsEnabled($event)"
+          />
           <app-action-bar
             [actions]="currentGame.available_actions"
             [selectedCards]="selectedCards()"

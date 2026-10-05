@@ -782,8 +782,9 @@ and rooms remain process-local. Operational policy/data inventory is maintained 
 retention, processor, incident, rights, processing-record, and legal-review documents rather than
 duplicated in code.
 
-No analytics/advertising/marketing tracker is present. The auth cookie, locale and first-run flag
-in `localStorage`, and bot/PvP recovery data in `sessionStorage` are necessary/functional storage,
+No analytics/advertising/marketing tracker is present. The auth cookie, locale, first-run flag, and
+boolean `kiba.hintsEnabled` preference in `localStorage`, and bot/PvP recovery data in
+`sessionStorage` are necessary/functional storage,
 so no optional cookie banner is used. Any future non-essential tracking requires a fresh
 consent/privacy assessment.
 
@@ -1019,6 +1020,22 @@ For real multiplayer:
 - keep server logs sufficient to debug desyncs.
 
 ---
+
+### 15.1 Optional hint mode
+
+R8 adds a presentation aid without changing any gameplay rule. The backend remains authoritative:
+`sessions/hints.py` searches a bounded set of additions from only the requesting participant's hand
+and submits every candidate to the existing immutable `apply_game_action` transition. It returns at
+most three accepted combinations with language-neutral reason codes. The helper never reads an
+opponent hand for output, never exposes future draw order, and never mutates game or room state.
+
+Bot games request hints on demand through `POST /api/games/{game_id}/hints`. Private PvP uses an
+authenticated `HINT_REQUEST` WebSocket message with the current room version and a client request
+ID; `HINTS` is sent only to that participant and does not advance or broadcast room state. The UI
+cancels or ignores stale responses after selection or version changes. Angular only renders server
+results; it does not reimplement legality. Hints default on, can be switched off immediately, and
+the boolean preference is stored as `kiba.hintsEnabled` in `localStorage`. When off, clients make no
+hint requests.
 
 ## 16. Suggested implementation phases
 

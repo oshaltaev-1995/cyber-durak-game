@@ -43,6 +43,28 @@ button.playing-card:focus-visible {
   transform: translateY(-0.55rem);
 }
 
+.playing-card.suggested:not(.selected) {
+  border-color: #54e1f4;
+  border-style: dashed;
+  box-shadow:
+    0 0 0 3px rgb(84 225 244 / 28%),
+    0 0 1.25rem rgb(84 225 244 / 36%);
+}
+
+.suggested-badge {
+  position: absolute;
+  right: 0.25rem;
+  bottom: 1.55rem;
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.25rem;
+  color: #042a30;
+  background: #54e1f4;
+  font-size: 0.46rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .playing-card.compact {
   width: 3.65rem;
   height: 5.15rem;

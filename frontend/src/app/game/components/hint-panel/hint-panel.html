@@ -1,0 +1,33 @@
+<section class="hint-panel" [attr.aria-label]="i18n.t('hints.label')">
+  <div class="hint-heading">
+    <button
+      type="button"
+      class="hint-toggle"
+      role="switch"
+      [attr.aria-checked]="enabled()"
+      [attr.aria-label]="i18n.t('hints.toggleAria')"
+      (click)="enabledChange.emit(!enabled())"
+    >
+      <span aria-hidden="true">✦</span>
+      <strong>{{ i18n.t('hints.label') }}</strong>
+      <small>{{ i18n.t(enabled() ? 'hints.on' : 'hints.off') }}</small>
+    </button>
+    @if (enabled()) {
+      <span class="hint-help">{{ i18n.t('hints.help') }}</span>
+    }
+  </div>
+
+  @if (enabled() && loading()) {
+    <span class="hint-state">{{ i18n.t('hints.loading') }}</span>
+  } @else if (enabled() && combinations().length > 0) {
+    <div class="hint-options">
+      @for (hint of combinations(); track hint.action + ':' + hint.card_ids.join(',')) {
+        <span class="hint-option">
+          <b>{{ action(hint.action) }}</b>
+          <span>{{ hint.card_ids.join(' + ') }}</span>
+          <small>{{ equation(hint) }} · {{ reason(hint.reason) }}</small>
+        </span>
+      }
+    </div>
+  }
+</section>

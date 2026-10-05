@@ -31,9 +31,12 @@ from kiba_api.game import (
 from kiba_api.locale import Locale
 from kiba_api.sessions import (
     ActionCounters,
+    HintError,
     HumanActionType,
+    MoveHints,
     acting_seat,
     apply_game_action,
+    get_move_hints,
     record_accepted_action,
     remember_resolved_bout,
 )
@@ -602,6 +605,42 @@ class PvPRoomService:
             )
             self._persist_completed_room(record)
             return record.room
+
+    def get_hints(
+        self,
+        invite_code: str,
+        reconnect_token: str,
+        selected_cards: Iterable[Card],
+        *,
+        expected_version: int,
+    ) -> tuple[PvPRoom, MoveHints]:
+        """Return participant-private hints without changing room or game version."""
+        selected = tuple(selected_cards)
+        now = self._now()
+        self._store.cleanup(now, self._ttl, exclude=invite_code)
+        with self._store.locked_record(invite_code) as record:
+            room = record.room
+            participant = room.participant_by_token(reconnect_token)
+            if room.phase is PvPRoomPhase.CLOSED:
+                raise PvPActionError(PvPErrorCode.ROOM_CLOSED)
+            if room.state is None or room.phase is PvPRoomPhase.WAITING_FOR_OPPONENT:
+                raise PvPActionError(PvPErrorCode.GAME_NOT_READY)
+            if room.phase is PvPRoomPhase.COMPLETE or room.state.phase is GamePhase.COMPLETE:
+                raise PvPActionError(PvPErrorCode.GAME_COMPLETE)
+            if expected_version != room.version:
+                raise PvPActionError(PvPErrorCode.STALE_VERSION)
+            if any(not value.connected for value in room.participants):
+                raise PvPActionError(PvPErrorCode.GAME_NOT_READY)
+            try:
+                hints = get_move_hints(room.state, participant.seat, selected)
+            except HintError as error:
+                code = (
+                    PvPErrorCode.WRONG_TURN
+                    if error.code.value == "wrong_turn"
+                    else PvPErrorCode.ILLEGAL_ACTION
+                )
+                raise PvPActionError(code, error.code.value) from error
+            return room, hints
 
     def _persist_completed_room(self, record: _RoomRecord) -> None:
         room = record.room
