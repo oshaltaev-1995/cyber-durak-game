@@ -116,10 +116,18 @@
         <h2>Лимит атакующих карт</h2>
         <p>
           Общее число карт атаки, перевода и подкидывания не может превышать число карт в руке
-          защитника в момент, когда он стал защитником. Индикатор «Атака X / лимит Y» показывает
-          использованные карты и текущий максимум.
+          защитника в момент, когда он стал защитником. Этот общий лимит фиксирован, пока защитник
+          не меняется. Каждое новое добавление дополнительно ограничено текущим числом карт в руке
+          защитника.
         </p>
-        <div class="equation-block">У защитника 4 карты → в атаке может быть не более 4 карт</div>
+        <div class="equation-block">
+          Лимит 7, сыграно 2, у защитника осталось 4 → добавить можно не более 4
+        </div>
+        <p>
+          Индикатор «Атака 2 / 7 · Добавить не более 4» отдельно показывает общий лимит кона и
+          максимум для следующего добавления. Карты защиты не входят в счёт атаки, но уменьшают
+          текущую руку защитника.
+        </p>
         <p>
           После перевода защищается другой игрок, поэтому лимит пересчитывается по его оставшейся
           руке. Если в незакрытой атаке уже больше карт, чем новый защитник может принять, такой
@@ -132,9 +140,15 @@
         <h2>Как покрывать</h2>
         <p>
           Выберите любые карты, чья суммарная эффективная стоимость <strong>строго больше</strong>
-          активной атаки. Равенства недостаточно.
+          активной атаки. Равенства недостаточно. Каждая выбранная карта должна быть необходима:
+          если убрать любую одну карту и защита всё ещё успешна, весь выбор не принимается.
         </p>
         <div class="equation-block">Атака 36 · Защита Q + Q + 10 = 40 · 40 &gt; 36 ✓</div>
+        <p>
+          Например, против 40 набор A + A + 6 = 46 допустим, а A + A + 6 + 6 = 52 — нет: одна из
+          шестёрок лишняя. Не требуется искать наименьшую защиту во всей руке; без лишних карт
+          должен быть только фактически выбранный набор.
+        </p>
         <div class="rule-note">
           Покрывается только текущая незакрытая атака. Значения уже покрытых атак к ней не
           прибавляются.
@@ -403,10 +417,15 @@
         <h2>Attack card limit</h2>
         <p>
           The total number of attack, transfer and throw-in cards cannot exceed the current
-          defender’s hand size when they became defender. “Attack X / limit Y” shows how many cards
-          have been used and the current maximum.
+          defender’s hand size when they became defender. This total cap stays fixed until the
+          defender changes. Every new addition is also limited by the number of cards currently left
+          in the defender’s hand.
         </p>
-        <div class="equation-block">Defender has 4 cards → at most 4 attack cards</div>
+        <div class="equation-block">Cap 7, 2 played, defender has 4 left → add at most 4</div>
+        <p>
+          “Attack 2 / 7 · Add max 4” shows the bout cap and the next-addition maximum separately.
+          Defense cards do not count as attack cards, but they reduce the defender’s current hand.
+        </p>
         <p>
           A transfer makes the other player the defender, so the limit is recalculated from that
           player’s remaining hand. A transfer is not allowed if the unresolved attack already has
@@ -419,9 +438,15 @@
         <h2>Defense</h2>
         <p>
           Select any cards whose total effective value is <strong>strictly greater</strong> than the
-          active attack. Equality is not enough.
+          active attack. Equality is not enough. Every selected card must be necessary: if removing
+          any one card still leaves a successful defense, the whole selection is rejected.
         </p>
         <div class="equation-block">Attack 36 · Defense Q + Q + 10 = 40 · 40 &gt; 36 ✓</div>
+        <p>
+          Against 40, A + A + 6 = 46 is valid, while A + A + 6 + 6 = 52 is not because one Six is
+          unnecessary. You do not have to find the smallest defense in your whole hand; only the
+          cards actually selected must contain no unnecessary extra card.
+        </p>
         <div class="rule-note">
           Only the current unresolved attack is defended. Previous covered attacks are not added.
         </div>

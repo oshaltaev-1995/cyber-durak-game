@@ -14,8 +14,7 @@ export class ActionBarComponent {
   readonly actions = input.required<readonly HumanActionType[]>();
   readonly selectedCards = input.required<readonly GameCard[]>();
   readonly activeAttackValue = input<number | null>(null);
-  readonly attackCardLimit = input<number | null>(null);
-  readonly totalAttackCardCount = input<number | null>(null);
+  readonly maxAttackCardAddition = input<number | null>(null);
   readonly pending = input(false);
   readonly actionSelected = output<HumanActionType>();
 
@@ -51,21 +50,29 @@ export class ActionBarComponent {
   }
 
   protected actionDisabled(action: HumanActionType): boolean {
-    return this.pending() || (CARD_ACTIONS.has(action) && this.selectedCards().length === 0);
+    if (this.pending() || (CARD_ACTIONS.has(action) && this.selectedCards().length === 0)) {
+      return true;
+    }
+    if (
+      (action === 'INITIAL_ATTACK' || action === 'THROW_IN') &&
+      this.maxAttackCardAddition() !== null &&
+      this.selectedCards().length > (this.maxAttackCardAddition() ?? 0)
+    ) {
+      return true;
+    }
+    return action === 'DEFEND' && this.defenseHasRedundantCard();
   }
 
   protected selectionHint(): string | null {
     const count = this.selectedCards().length;
     if (count === 0) return null;
-    const limit = this.attackCardLimit();
-    const used = this.totalAttackCardCount() ?? 0;
-    const remaining = limit === null ? null : Math.max(0, limit - used);
+    const maxAddition = this.maxAttackCardAddition();
     if (
-      remaining !== null &&
-      count > remaining &&
+      maxAddition !== null &&
+      count > maxAddition &&
       (this.actions().includes('INITIAL_ATTACK') || this.actions().includes('THROW_IN'))
     ) {
-      return this.i18n.t('game.selectionTooMany', { count, limit: remaining });
+      return this.i18n.t('game.selectionTooMany', { count, limit: maxAddition });
     }
 
     const target = this.activeAttackValue();
@@ -75,6 +82,9 @@ export class ActionBarComponent {
       return this.i18n.t('game.transferMatches', { selected, target });
     }
     if (this.actions().includes('DEFEND')) {
+      if (this.defenseHasRedundantCard()) {
+        return this.i18n.t('game.defenseRedundant');
+      }
       return this.i18n.t(selected > target ? 'game.defenseEnough' : 'game.defenseNeedsMore', {
         selected,
         target,
@@ -87,6 +97,16 @@ export class ActionBarComponent {
       });
     }
     return null;
+  }
+
+  private defenseHasRedundantCard(): boolean {
+    const target = this.activeAttackValue();
+    const selected = this.selectedTotal();
+    return (
+      target !== null &&
+      selected > target &&
+      this.selectedCards().some((card) => selected - card.effective_value > target)
+    );
   }
 
   protected actionLabel(action: HumanActionType): string {

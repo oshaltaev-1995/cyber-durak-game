@@ -7,7 +7,7 @@ from typing import Self
 
 from kiba_api.game.attack import analyze_initial_attack
 from kiba_api.game.cards import Card, TrumpState
-from kiba_api.game.moves import analyze_throw_in, is_legal_defense
+from kiba_api.game.moves import analyze_defense, analyze_throw_in, is_legal_defense
 from kiba_api.game.scoring import get_cards_value
 from kiba_api.game.transfer import analyze_packet_transfer
 
@@ -48,6 +48,7 @@ class BoutErrorCode(StrEnum):
     NOT_ENOUGH_CARDS = "not_enough_cards"
     ILLEGAL_INITIAL_ATTACK = "illegal_initial_attack"
     ILLEGAL_DEFENSE = "illegal_defense"
+    REDUNDANT_DEFENSE = "redundant_defense"
     ILLEGAL_TRANSFER = "illegal_transfer"
     TRANSFER_CLOSED = "transfer_closed"
     ATTACK_CARD_LIMIT_EXCEEDED = "attack_card_limit_exceeded"
@@ -230,6 +231,16 @@ class BoutState:
             return None
         return packet.attack_value
 
+    @property
+    def remaining_bout_capacity(self) -> int:
+        """Return unused attacking-card capacity in the current defender context."""
+        return self.attack_card_limit - self.total_attack_card_count
+
+    @property
+    def max_attack_card_addition(self) -> int:
+        """Return how many attacking cards may be added by one action right now."""
+        return min(self.remaining_bout_capacity, self.hand_count(self.defender))
+
     def _validate_packets(self) -> None:
         for packet in self.packets:
             if get_cards_value(packet.attack_cards, self.trump_state) != packet.attack_value:
@@ -243,6 +254,12 @@ class BoutState:
                 != packet.defense_value
             ):
                 raise ValueError("packet defense value must match its effective card total")
+            if packet.defense_cards is not None and not is_legal_defense(
+                packet.defense_cards,
+                packet.attack_value,
+                self.trump_state,
+            ):
+                raise ValueError("packet defense cards must be sufficient and irredundant")
 
         if any(not packet.closed for packet in self.packets[:-1]):
             raise ValueError("only the latest packet may be unresolved")
@@ -370,13 +387,16 @@ def play_defense(
     selected = tuple(cards)
     _require_cards_available(state, actor, len(selected))
     packet = _get_active_packet(state)
-    if not is_legal_defense(selected, packet.attack_value, state.trump_state):
+    analysis = analyze_defense(selected, packet.attack_value, state.trump_state)
+    if not analysis.sufficient:
         raise BoutActionError(BoutErrorCode.ILLEGAL_DEFENSE)
+    if not analysis.irredundant:
+        raise BoutActionError(BoutErrorCode.REDUNDANT_DEFENSE)
 
     closed_packet = replace(
         packet,
         defense_cards=selected,
-        defense_value=get_cards_value(selected, state.trump_state),
+        defense_value=analysis.selected_value,
     )
     defender_is_empty = state.hand_count(actor) == len(selected)
     return _spend_cards(
@@ -489,7 +509,7 @@ def _require_cards_available(state: BoutState, actor: Seat, card_count: int) -> 
 
 
 def _require_attack_limit(state: BoutState, added_card_count: int) -> None:
-    if state.total_attack_card_count + added_card_count > state.attack_card_limit:
+    if added_card_count > state.max_attack_card_addition:
         raise BoutActionError(BoutErrorCode.ATTACK_CARD_LIMIT_EXCEEDED)
 
 

@@ -63,6 +63,7 @@ const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
   direct_anchor_cards: [],
   active_attack_value: null,
   attack_card_limit: 7,
+  max_attack_card_addition: 7,
   total_attack_card_count: 0,
   transfer_open: true,
   required_participant_id: 'p1',

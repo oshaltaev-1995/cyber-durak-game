@@ -189,6 +189,8 @@ is_connected
 attacker_seat
 defender_seat
 starting_defender_hand_size
+attack_card_limit
+total_attack_card_count
 table_cards[]
 attack_value
 transfer_target
@@ -218,6 +220,19 @@ BITO outcome. `GameState` immediately applies that completed bout in the same ca
 transition, so no intermediate attacker-decision state can expose another throw-in against a
 zero-card defender. Winner/draw evaluation remains game-level and still runs only after discard and
 refill.
+
+For the post-public-beta R7 canon, `attack_card_limit` is the fixed `bout_attack_cap` captured when
+the current participant becomes defender. `total_attack_card_count` counts attacking cards only.
+The domain derives each action's `max_attack_card_addition` as
+`min(attack_card_limit - total_attack_card_count, hand_count(defender))`; serializers expose that
+derived value so Angular does not reconstruct the legality rule. A transfer captures a new cap from
+the receiving defender's remaining hand and is rejected unless the entire unresolved attacking
+packet fits it.
+
+Defense validation uses the active packet target and the same effective values as ordinary scoring.
+An accepted selection must total strictly above the target and removing any one selected card must
+leave a total at or below the target. This is selection-local irredundancy, not a search for the
+globally cheapest defense in the hand.
 
 Refill first calculates both seats' deficits to seven. A sufficient pile retains ordinary
 attacker-first sequential refill. For an insufficient pile, the engine compares the small set of
@@ -357,7 +372,7 @@ rank-run throw-in candidates use at most one cheapest held card per normal rank.
 supplemental candidate is still submitted to the authoritative `GameState` action before the bot
 may choose it.
 
-The baseline prioritizes the cheapest legal defense and defends before transferring. It transfers
+The baseline prioritizes the cheapest legal irredundant defense and defends before transferring. It transfers
 only when no defense exists and an exact or same-rank-extended legal transfer survives bout limits;
 otherwise it takes.
 After defense it chooses the cheapest legal throw-in or finishes as bito when none exists. This is a
@@ -459,7 +474,8 @@ Rapid batches replace stale ghosts, and reduced-motion preferences skip flight/f
 entirely.
 
 Player-facing card shorthand is formatted centrally with Unicode suit symbols. High-confidence
-pre-action hints cover only server-exposed numeric defense/transfer targets and attack-card limits;
+pre-action hints cover only server-exposed numeric defense/transfer targets, the authoritative
+current maximum attack addition, and selection-local defense redundancy;
 complex combination legality remains authoritative on submit. Confirmed throw-in explanations use
 structured source-card metadata instead of embedding machine card codes in display strings.
 
@@ -857,6 +873,8 @@ Minimum categories:
 - exact equality rejected
 - greater value accepted
 - multi-card defense
+- redundant successful selection rejected
+- every card in an accepted selection is necessary under effective values
 
 ### Throw-ins
 
@@ -882,7 +900,8 @@ Minimum categories:
 - take → previous attacker attacks next
 - attacker draws first
 - refill to 7
-- fixed defender starting-hand limit
+- fixed defender bout cap plus current-hand addition limit
+- transfer resets the defender limit context
 - deck exhaustion
 
 ### Victory

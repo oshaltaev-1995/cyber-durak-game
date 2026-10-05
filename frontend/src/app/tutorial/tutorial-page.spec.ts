@@ -126,7 +126,17 @@ describe('TutorialPageComponent', () => {
     expect(text).toContain('После первой успешной защиты');
     expect(text).toContain('точную часть перевода');
     expect(text).toContain('7 → 7 + 7 → 21');
-    expect(text).toContain('лимит пересчитывается');
+    expect(text).toContain('он пересчитывается');
+    expect(text).toContain('Добавить не более 4');
+  });
+
+  it('teaches that successful defense cannot contain unnecessary cards', () => {
+    advanceTo(3);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toContain('каждая выбранная карта должна быть нужна');
+    expect(text).toContain('Лишнюю карту нельзя сбросить через защиту');
+    expect(text).toContain('Не нужно искать наименьшую защиту во всей руке');
   });
 
   it('teaches the card-selection then action interaction without an API game', () => {

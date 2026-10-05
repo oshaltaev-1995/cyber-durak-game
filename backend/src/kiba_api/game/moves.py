@@ -26,6 +26,20 @@ class ThrowInReason(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class DefenseAnalysis:
+    """Authoritative result for one selected defense packet."""
+
+    selected_value: int
+    sufficient: bool
+    irredundant: bool
+
+    @property
+    def legal(self) -> bool:
+        """Return whether the selection is both sufficient and irredundant."""
+        return self.sufficient and self.irredundant
+
+
+@dataclass(frozen=True, slots=True)
 class RankRun:
     """One server-confirmed contiguous normal-rank run."""
 
@@ -64,14 +78,33 @@ def is_legal_defense(
     attack_value: int,
     trump_state: TrumpState,
 ) -> bool:
-    """Return whether non-empty defense cards strictly exceed the attack value."""
+    """Return whether non-empty defense cards strictly exceed and are all necessary."""
+    return analyze_defense(cards, attack_value, trump_state).legal
+
+
+def analyze_defense(
+    cards: Iterable[Card],
+    attack_value: int,
+    trump_state: TrumpState,
+) -> DefenseAnalysis:
+    """Evaluate strict sufficiency and per-card necessity for a defense selection."""
     if isinstance(attack_value, bool) or not isinstance(attack_value, int):
         raise TypeError("attack_value must be an int")
     if attack_value < 0:
         raise ValueError("attack_value must not be negative")
 
     defense_cards = tuple(cards)
-    return bool(defense_cards) and get_cards_value(defense_cards, trump_state) > attack_value
+    selected_value = get_cards_value(defense_cards, trump_state)
+    sufficient = bool(defense_cards) and selected_value > attack_value
+    irredundant = sufficient and all(
+        selected_value - get_effective_value(card, trump_state) <= attack_value
+        for card in defense_cards
+    )
+    return DefenseAnalysis(
+        selected_value=selected_value,
+        sufficient=sufficient,
+        irredundant=irredundant,
+    )
 
 
 def get_throw_in_targets(

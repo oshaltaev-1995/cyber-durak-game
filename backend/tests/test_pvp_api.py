@@ -97,6 +97,7 @@ def test_rest_create_join_status_and_room_full_are_explicit(client: TestClient) 
     assert joiner["credential"]["seat"] == Seat.TWO.value
     assert creator["state"]["room_phase"] == "WAITING_FOR_OPPONENT"
     assert joiner["state"]["room_phase"] == "GAME_ACTIVE"
+    assert joiner["state"]["max_attack_card_addition"] is not None
     assert status.status_code == 200
     assert len(status.json()["participants"]) == 2
     assert "reconnect_token" not in status.text

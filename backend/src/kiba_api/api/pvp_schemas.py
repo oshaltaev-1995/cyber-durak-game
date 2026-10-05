@@ -72,6 +72,7 @@ class PvPStateResponse(BaseModel):
     direct_anchor_cards: list[CardResponse]
     active_attack_value: int | None
     attack_card_limit: int | None
+    max_attack_card_addition: int | None
     total_attack_card_count: int | None
     transfer_open: bool
     required_participant_id: str | None

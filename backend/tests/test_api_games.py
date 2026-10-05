@@ -83,8 +83,68 @@ def test_create_game_returns_public_human_vs_bot_state() -> None:
     assert body["result"] is None
     assert body["bout_phase"] is not None
     assert body["bout_starting_attacker"] in {Seat.ONE.value, Seat.TWO.value}
+    assert body["max_attack_card_addition"] is not None
     assert body["required_actor"] == "HUMAN"
     assert body["available_actions"]
+
+
+def test_action_api_rejects_redundant_defense_without_mutating_state() -> None:
+    attack = (card(Rank.ACE), card(Rank.ACE, Suit.DIAMONDS))
+    defense = (
+        card(Rank.ACE, Suit.HEARTS),
+        card(Rank.ACE, Suit.SPADES),
+        card(Rank.SIX),
+        card(Rank.SIX, Suit.DIAMONDS),
+    )
+    state = start_game_bout(game(defense, (*attack, card(Rank.SEVEN)), attacker=Seat.TWO))
+    state = play_game_initial_attack(state, Seat.TWO, attack)
+    client, game_id = client_for_state(state)
+    before = client.get(f"/api/games/{game_id}").json()
+
+    response = client.post(
+        f"/api/games/{game_id}/actions",
+        json={"action": "DEFEND", "cards": [card_to_code(value) for value in defense]},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "redundant_defense"
+    assert client.get(f"/api/games/{game_id}").json() == before
+
+
+def test_action_api_rejects_addition_above_current_defender_hand_limit() -> None:
+    attack = (card(Rank.ACE), card(Rank.ACE, Suit.DIAMONDS))
+    human_throw = (
+        card(Rank.NINE, Suit.DIAMONDS),
+        card(Rank.NINE, Suit.HEARTS),
+        card(Rank.NINE, Suit.SPADES),
+    )
+    bot_defense = (
+        card(Rank.SIX),
+        card(Rank.SEVEN),
+        card(Rank.EIGHT),
+        card(Rank.NINE),
+        card(Rank.JACK),
+    )
+    state = start_game_bout(
+        game((*attack, *human_throw), (*bot_defense, card(Rank.KING), card(Rank.QUEEN)))
+    )
+    state = play_game_initial_attack(state, Seat.ONE, attack)
+    state = play_game_defense(state, Seat.TWO, bot_defense)
+    client, game_id = client_for_state(state)
+    before = client.get(f"/api/games/{game_id}").json()
+
+    assert before["attack_card_limit"] == 7
+    assert before["total_attack_card_count"] == 2
+    assert before["max_attack_card_addition"] == 2
+
+    response = client.post(
+        f"/api/games/{game_id}/actions",
+        json={"action": "THROW_IN", "cards": [card_to_code(value) for value in human_throw]},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "attack_card_limit_exceeded"
+    assert client.get(f"/api/games/{game_id}").json() == before
 
 
 def test_get_game_returns_same_current_public_snapshot() -> None:

@@ -178,6 +178,7 @@
                 i18n.t('game.attackLimit', {
                   count: currentGame.total_attack_card_count ?? 0,
                   limit: currentGame.attack_card_limit ?? '—',
+                  max: currentGame.max_attack_card_addition ?? '—',
                 })
               }}
             </small>
@@ -209,8 +210,7 @@
             [actions]="currentGame.available_actions"
             [selectedCards]="selectedCards()"
             [activeAttackValue]="currentGame.active_attack_value"
-            [attackCardLimit]="currentGame.attack_card_limit"
-            [totalAttackCardCount]="currentGame.total_attack_card_count"
+            [maxAttackCardAddition]="currentGame.max_attack_card_addition"
             [pending]="pending()"
             (actionSelected)="submitAction($event)"
           />

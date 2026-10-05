@@ -138,6 +138,7 @@ export interface GameResponse {
   readonly direct_anchor_cards: readonly GameCard[];
   readonly active_attack_value: number | null;
   readonly attack_card_limit: number | null;
+  readonly max_attack_card_addition: number | null;
   readonly total_attack_card_count: number | null;
   readonly transfer_open: boolean;
   readonly required_actor: 'HUMAN' | 'BOT' | null;

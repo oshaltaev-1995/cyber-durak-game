@@ -282,13 +282,32 @@ However:
 > The total number of attacking / thrown-in cards may not exceed the number of cards the current
 > defender had when that participant became defender.
 
-Defense cards do not count toward this limit. The initial limit uses the defender's hand count when
-the bout starts and remains fixed while that participant remains defender.
+This post-public-beta canon clarification defines two simultaneous limits. When a participant
+becomes defender, record:
+
+`bout_attack_cap = that defender's hand size at the role change`
+
+For every new initial attack or throw-in addition, calculate:
+
+`remaining_bout_capacity = bout_attack_cap - attack_cards_already_played`
+
+`max_add_now = min(remaining_bout_capacity, defender_current_hand_size)`
+
+The new action may contain no more than `max_add_now` cards. The bout cap remains fixed during one
+defender tenure, while `defender_current_hand_size` falls as the defender spends cards. Defense
+cards never count as attacking cards; they affect later additions only by reducing the defender's
+current hand.
+
+Example: a defender begins with seven cards, so the bout cap is seven. Two attack cards are played
+and the defender spends three cards, leaving four. Although five spaces remain under the bout cap,
+only four cards may be added now: `min(7 - 2, 4) = 4`. If the attacker later adds two cards and the
+defender spends three more, one defender card remains and only one further attack card may be
+added: `min(7 - 4, 1) = 1`.
 
 If a transfer changes the defender, the limit resets to the new defender's remaining hand count at
-the moment the transfer is received. The transfer is legal only if the total number of attack,
-transfer, and throw-in cards already on the table after the proposed transfer does not exceed that
-new limit.
+the moment the role changes. All unresolved attacking cards, including the proposed transfer cards,
+must fit that new cap or the transfer is illegal. Later additions use the same `max_add_now` rule
+against the new defender. This clarification changes no two-player packet or role semantics.
 
 ---
 
@@ -296,11 +315,21 @@ new limit.
 
 The defender may beat an attack with **any card or combination of cards**, regardless of suit.
 
-The only required condition is:
+Two conditions are required for the cards actually selected:
 
 `defenseValue > attackValue`
 
+and, for every selected card `c`:
+
+`defenseValue - effectiveValue(c) <= attackValue`
+
 where both values are the sums of effective card values.
+
+In player terms: the defense must be strictly higher, and every selected card must be necessary.
+If removing any selected card would still leave a successful defense, the whole selection is
+illegal. This prevents using defense merely to discard extra cards. The player does not need to
+find the mathematically smallest possible defense from the whole hand; only the cards actually
+selected must all be necessary.
 
 Example:
 
@@ -321,6 +350,10 @@ Since:
 `40 > 36`
 
 the defense is legal.
+
+For an attack of 40, `A + A + 6 = 46` is legal because removing the 6 leaves only 40, while
+`A + A + 6 + 6 = 52` is illegal because removing either 6 still leaves 46. Effective values,
+including trump doubling, are used for this check.
 
 ### 9.1 Exact equality is not enough
 
@@ -754,14 +787,14 @@ The implementation should preserve these invariants:
 
 1. Card calculations always use **effective values**.
 2. Trump state is immutable during one bout.
-3. Defense requires `>` attack value.
+3. Defense requires `>` attack value and every selected defense card must be necessary.
 4. Transfer requires exact `==` accumulated attack value.
 5. Transfer value accumulates after every transfer.
 6. Throw-in total and mean are recalculated after every legal addition.
 7. Same-rank relations are legal independently of arithmetic.
 8. Multi-card combinations may satisfy an arithmetic target.
-9. Attack card count never exceeds the current defender's limit, which resets when a transfer
-   changes the defender.
+9. Attack card count never exceeds the current defender's bout cap, and each new addition also
+   cannot exceed the defender's current remaining hand; transfer resets this context.
 10. After the attacker finishes a fully covered bout as bito, the defender attacks next.
 11. After taking, previous attacker attacks again.
 12. Attacker refills first.

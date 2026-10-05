@@ -71,6 +71,7 @@ const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
   direct_anchor_cards: [],
   active_attack_value: null,
   attack_card_limit: 7,
+  max_attack_card_addition: 7,
   total_attack_card_count: 0,
   transfer_open: true,
   required_actor: 'HUMAN',
@@ -659,7 +660,13 @@ describe('GamePageComponent', () => {
   });
 
   it('warns when the selected attack count exceeds the remaining server limit', () => {
-    create(makeGame({ attack_card_limit: 1, total_attack_card_count: 0 }));
+    create(
+      makeGame({
+        attack_card_limit: 7,
+        max_attack_card_addition: 1,
+        total_attack_card_count: 2,
+      }),
+    );
     const cards = (fixture.nativeElement as HTMLElement).querySelectorAll('app-hand .playing-card');
     (cards[0] as HTMLButtonElement).click();
     (cards[1] as HTMLButtonElement).click();
@@ -667,6 +674,44 @@ describe('GamePageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Выбрано 2 — остаток лимита атаки 1',
     );
+    const attack = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Ходить',
+    );
+    expect(attack?.disabled).toBe(true);
+  });
+
+  it('shows bout cap and authoritative current maximum addition separately', () => {
+    create(
+      makeGame({
+        attack_card_limit: 7,
+        total_attack_card_count: 2,
+        max_attack_card_addition: 2,
+      }),
+    );
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Атака 2 / 7 · Добавить не более 2',
+    );
+  });
+
+  it('explains and disables a defense with an unnecessary selected card', () => {
+    create(
+      makeGame({
+        available_actions: ['DEFEND', 'TAKE'],
+        active_attack_value: 18,
+      }),
+    );
+    const cards = (fixture.nativeElement as HTMLElement).querySelectorAll('app-hand .playing-card');
+    cards.forEach((value) => (value as HTMLButtonElement).click());
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Одна или несколько выбранных карт защиты лишние',
+    );
+    const defend = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Покрыть',
+    );
+    expect(defend?.disabled).toBe(true);
   });
 
   it('asks before replacing an active game', () => {

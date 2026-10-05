@@ -56,10 +56,12 @@ from kiba_api.game.game import (
     take_game_bout,
 )
 from kiba_api.game.moves import (
+    DefenseAnalysis,
     RankRun,
     ThrowInAnalysis,
     ThrowInReason,
     ThrowInTargets,
+    analyze_defense,
     analyze_rank_run_throw_in,
     analyze_throw_in,
     get_throw_in_targets,
@@ -91,6 +93,7 @@ __all__ = [
     "BotActionType",
     "BotErrorCode",
     "Card",
+    "DefenseAnalysis",
     "GameActionError",
     "GameErrorCode",
     "GameOutcome",
@@ -113,6 +116,7 @@ __all__ = [
     "PacketTransferMode",
     "TrumpState",
     "analyze_initial_attack",
+    "analyze_defense",
     "analyze_packet_transfer",
     "analyze_rank_run_throw_in",
     "analyze_transfer",

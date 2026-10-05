@@ -90,6 +90,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             direct_anchor_cards=[],
             active_attack_value=None,
             attack_card_limit=None,
+            max_attack_card_addition=None,
             total_attack_card_count=None,
             transfer_open=False,
             required_participant_id=None,
@@ -172,6 +173,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
         ),
         active_attack_value=active_packet.attack_value if active_packet is not None else None,
         attack_card_limit=bout.attack_card_limit if bout is not None else None,
+        max_attack_card_addition=bout.max_attack_card_addition if bout is not None else None,
         total_attack_card_count=bout.total_attack_card_count if bout is not None else None,
         transfer_open=(
             bout.transfer_open

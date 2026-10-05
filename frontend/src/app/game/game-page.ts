@@ -39,6 +39,7 @@ import { HiddenTableSeat } from './presentation/table-seat.models';
 const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   illegal_initial_attack: 'error.illegal_initial_attack',
   illegal_defense: 'error.illegal_defense',
+  redundant_defense: 'error.redundant_defense',
   illegal_transfer: 'error.illegal_transfer',
   illegal_throw_in: 'error.illegal_throw_in',
   attack_card_limit_exceeded: 'error.attack_card_limit_exceeded',

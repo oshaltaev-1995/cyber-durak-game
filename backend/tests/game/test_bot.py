@@ -19,6 +19,7 @@ from kiba_api.game import (
     Suit,
     choose_bot_action,
     create_new_game,
+    is_legal_defense,
     play_bot_turn,
     play_game_defense,
     play_game_initial_attack,
@@ -143,6 +144,31 @@ def test_defense_prefers_cheapest_legal_total_and_supports_multiple_cards() -> N
     action = choose_bot_action(state, Seat.TWO)
 
     assert action == BotAction(BotActionType.DEFEND, (seven, jack))
+
+
+def test_large_take_sized_hand_still_produces_an_irredundant_defense() -> None:
+    attack = (card(Rank.ACE), card(Rank.ACE, Suit.DIAMONDS))
+    large_hand = (
+        card(Rank.SIX),
+        card(Rank.SIX, Suit.DIAMONDS),
+        card(Rank.SIX, Suit.HEARTS),
+        card(Rank.SIX, Suit.SPADES),
+        card(Rank.SEVEN),
+        card(Rank.SEVEN, Suit.DIAMONDS),
+        card(Rank.SEVEN, Suit.HEARTS),
+        card(Rank.SEVEN, Suit.SPADES),
+        card(Rank.EIGHT),
+        card(Rank.EIGHT, Suit.DIAMONDS),
+        card(Rank.EIGHT, Suit.HEARTS),
+        card(Rank.EIGHT, Suit.SPADES),
+    )
+    state = active_game((*attack, card(Rank.NINE)), large_hand)
+    state = play_game_initial_attack(state, Seat.ONE, attack)
+
+    action = choose_bot_action(state, Seat.TWO)
+
+    assert action.action_type is BotActionType.DEFEND
+    assert is_legal_defense(action.cards, 40, state.active_bout.trump_state)  # type: ignore[union-attr]
 
 
 def test_defense_uses_effective_values_and_avoids_costlier_trump() -> None:

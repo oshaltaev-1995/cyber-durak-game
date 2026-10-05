@@ -86,6 +86,7 @@ def test_bout_creation_assigns_two_seats_and_initial_state() -> None:
     assert state.table_cards == ()
     assert state.direct_anchor_cards == ()
     assert state.attack_card_limit == 5
+    assert state.max_attack_card_addition == 5
     assert state.total_attack_card_count == 0
     assert state.transfer_open is True
     assert state.outcome is None
@@ -273,6 +274,7 @@ def test_transfer_snowballs_from_18_to_36_to_72() -> None:
     assert state.hand_count(Seat.ONE) == 4
     assert state.hand_count(Seat.TWO) == 5
     assert state.attack_card_limit == 5
+    assert state.max_attack_card_addition == 0
 
 
 def test_transfer_rejects_packet_larger_than_new_defender_remaining_count() -> None:
@@ -294,6 +296,26 @@ def test_transfer_rejects_packet_larger_than_new_defender_remaining_count() -> N
     assert state.hand_count(Seat.TWO) == 7
 
 
+def test_transfer_recalculates_cap_from_new_defender_remaining_hand() -> None:
+    state = play_initial_attack(
+        start_bout(seat_one_hand_count=4),
+        Seat.ONE,
+        [card(Rank.SEVEN)],
+    )
+
+    transferred = play_transfer(
+        state,
+        Seat.TWO,
+        [card(Rank.SEVEN, Suit.DIAMONDS)],
+    )
+
+    assert transferred.defender is Seat.ONE
+    assert transferred.hand_count(Seat.ONE) == 3
+    assert transferred.attack_card_limit == 3
+    assert transferred.total_attack_card_count == 2
+    assert transferred.max_attack_card_addition == 1
+
+
 def test_legal_defense_closes_packet_and_disables_transfer() -> None:
     state = play_initial_attack(start_bout(), Seat.ONE, [card(Rank.JACK)])
 
@@ -313,6 +335,139 @@ def test_legal_defense_closes_packet_and_disables_transfer() -> None:
     assert defended.transfer_target is None
     assert defended.direct_anchor_cards == (card(Rank.KING),)
     assert defended.table_cards == (card(Rank.JACK), card(Rank.KING))
+
+
+def test_dynamic_attack_addition_uses_cap_and_current_defender_hand() -> None:
+    state = play_initial_attack(
+        start_bout(),
+        Seat.ONE,
+        [card(Rank.ACE), card(Rank.ACE, Suit.DIAMONDS)],
+    )
+    state = play_defense(
+        state,
+        Seat.TWO,
+        [card(Rank.QUEEN), card(Rank.QUEEN, Suit.DIAMONDS), card(Rank.JACK)],
+    )
+
+    assert state.attack_card_limit == 7
+    assert state.total_attack_card_count == 2
+    assert state.hand_count(Seat.TWO) == 4
+    assert state.remaining_bout_capacity == 5
+    assert state.max_attack_card_addition == 4
+
+    state = play_throw_in(
+        state,
+        Seat.ONE,
+        [card(Rank.QUEEN, Suit.HEARTS), card(Rank.QUEEN, Suit.SPADES)],
+    )
+    state = play_defense(
+        state,
+        Seat.TWO,
+        [card(Rank.JACK, Suit.DIAMONDS), card(Rank.TEN), card(Rank.NINE)],
+    )
+
+    assert state.total_attack_card_count == 4
+    assert state.hand_count(Seat.TWO) == 1
+    assert state.remaining_bout_capacity == 3
+    assert state.max_attack_card_addition == 1
+
+
+def test_dynamic_attack_addition_uses_global_cap_when_it_is_smaller() -> None:
+    attack = [
+        card(Rank.SIX),
+        card(Rank.SIX, Suit.DIAMONDS),
+        card(Rank.JACK),
+        card(Rank.SIX, Suit.HEARTS),
+        card(Rank.SIX, Suit.SPADES),
+        card(Rank.JACK, Suit.DIAMONDS),
+    ]
+    state = play_initial_attack(start_bout(), Seat.ONE, attack)
+    state = play_defense(
+        state,
+        Seat.TWO,
+        [card(Rank.ACE), card(Rank.ACE, Suit.DIAMONDS), card(Rank.TEN)],
+    )
+
+    assert state.remaining_bout_capacity == 1
+    assert state.hand_count(Seat.TWO) == 4
+    assert state.max_attack_card_addition == 1
+
+
+def test_dynamic_attack_addition_uses_current_hand_when_it_is_smaller() -> None:
+    state = play_initial_attack(
+        start_bout(),
+        Seat.ONE,
+        [card(Rank.ACE), card(Rank.ACE, Suit.DIAMONDS)],
+    )
+    state = play_defense(
+        state,
+        Seat.TWO,
+        [
+            card(Rank.NINE),
+            card(Rank.NINE, Suit.DIAMONDS),
+            card(Rank.NINE, Suit.HEARTS),
+            card(Rank.NINE, Suit.SPADES),
+            card(Rank.SIX),
+        ],
+    )
+
+    assert state.remaining_bout_capacity == 5
+    assert state.hand_count(Seat.TWO) == 2
+    assert state.max_attack_card_addition == 2
+
+    assert_bout_error(
+        BoutErrorCode.ATTACK_CARD_LIMIT_EXCEEDED,
+        play_throw_in,
+        state,
+        Seat.ONE,
+        [
+            card(Rank.NINE),
+            card(Rank.NINE, Suit.DIAMONDS),
+            card(Rank.NINE, Suit.HEARTS),
+        ],
+    )
+    assert state.total_attack_card_count == 2
+
+
+def test_defense_cards_do_not_consume_attack_card_capacity() -> None:
+    state = play_initial_attack(
+        start_bout(),
+        Seat.ONE,
+        [card(Rank.ACE), card(Rank.ACE, Suit.DIAMONDS)],
+    )
+
+    defended = play_defense(
+        state,
+        Seat.TWO,
+        [card(Rank.QUEEN), card(Rank.QUEEN, Suit.DIAMONDS), card(Rank.JACK)],
+    )
+
+    assert len(defended.table_cards) == 5
+    assert defended.total_attack_card_count == 2
+    assert defended.remaining_bout_capacity == 5
+
+
+def test_redundant_defense_is_rejected_before_final_card_bito() -> None:
+    state = play_initial_attack(
+        start_bout(seat_two_hand_count=4),
+        Seat.ONE,
+        [card(Rank.ACE), card(Rank.ACE, Suit.DIAMONDS)],
+    )
+
+    assert_bout_error(
+        BoutErrorCode.REDUNDANT_DEFENSE,
+        play_defense,
+        state,
+        Seat.TWO,
+        [
+            card(Rank.ACE),
+            card(Rank.ACE, Suit.DIAMONDS),
+            card(Rank.SIX),
+            card(Rank.SIX, Suit.DIAMONDS),
+        ],
+    )
+    assert state.phase is BoutPhase.WAITING_FOR_DEFENDER_RESPONSE
+    assert state.hand_count(Seat.TWO) == 4
 
 
 def test_final_defense_automatically_finishes_bito_and_rejects_throw_in() -> None:
@@ -457,7 +612,7 @@ def test_throw_in_may_combine_ranks_from_multiple_latest_defense_cards() -> None
     state = play_initial_attack(
         start_bout(seat_one_hand_count=4, seat_two_hand_count=4),
         Seat.ONE,
-        [card(Rank.SIX)],
+        [card(Rank.KING)],
     )
     defended = play_defense(
         state,
@@ -616,7 +771,7 @@ def test_only_latest_defense_packet_total_is_exposed() -> None:
     state = play_initial_attack(
         start_bout(seat_one_hand_count=5, seat_two_hand_count=6),
         Seat.ONE,
-        [card(Rank.SIX)],
+        [card(Rank.KING)],
     )
     state = play_defense(
         state,

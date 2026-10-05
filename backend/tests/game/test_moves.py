@@ -12,8 +12,11 @@ from kiba_api.game import (
     ThrowInReason,
     ThrowInTargets,
     TrumpState,
+    analyze_defense,
     analyze_rank_run_throw_in,
     analyze_throw_in,
+    get_cards_value,
+    get_effective_value,
     get_throw_in_targets,
     is_legal_defense,
 )
@@ -37,6 +40,101 @@ def test_multi_card_defense_above_attack_is_legal() -> None:
     defense = [card(Rank.QUEEN), card(Rank.QUEEN, Suit.DIAMONDS), card(Rank.TEN)]
 
     assert is_legal_defense(defense, 36, NO_TRUMP) is True
+
+
+@pytest.mark.parametrize(
+    ("defense", "attack_value", "legal"),
+    [
+        ((card(Rank.ACE), card(Rank.ACE, Suit.DIAMONDS)), 40, False),
+        (
+            (
+                card(Rank.ACE),
+                card(Rank.ACE, Suit.DIAMONDS),
+                card(Rank.SIX),
+            ),
+            40,
+            True,
+        ),
+        (
+            (
+                card(Rank.ACE),
+                card(Rank.ACE, Suit.DIAMONDS),
+                card(Rank.SIX),
+                card(Rank.SIX, Suit.DIAMONDS),
+            ),
+            40,
+            False,
+        ),
+        (
+            (
+                card(Rank.ACE),
+                card(Rank.ACE, Suit.DIAMONDS),
+                card(Rank.TEN),
+            ),
+            40,
+            True,
+        ),
+        ((card(Rank.JACK), card(Rank.SEVEN)), 18, True),
+        ((card(Rank.JACK), card(Rank.SEVEN), card(Rank.SIX)), 18, False),
+    ],
+)
+def test_defense_requires_every_selected_card_to_be_necessary(
+    defense: tuple[Card, ...],
+    attack_value: int,
+    legal: bool,
+) -> None:
+    assert is_legal_defense(defense, attack_value, NO_TRUMP) is legal
+
+
+def test_irredundant_defense_does_not_require_global_value_optimization() -> None:
+    trump_state = TrumpState.from_source_card(card(Rank.SEVEN, Suit.HEARTS))
+    selected = (card(Rank.NINE, Suit.HEARTS), card(Rank.ACE, Suit.HEARTS))
+
+    assert get_cards_value(selected, trump_state) == 58
+    assert is_legal_defense(selected, 45, trump_state) is True
+
+
+def test_defense_redundancy_uses_effective_trump_values() -> None:
+    trump_state = hearts_trump()
+    defense = (card(Rank.ACE), card(Rank.SIX))
+
+    analysis = analyze_defense(defense, 39, trump_state)
+
+    assert analysis.selected_value == 46
+    assert analysis.sufficient is True
+    assert analysis.irredundant is False
+    assert analysis.legal is False
+
+
+def test_single_effective_value_40_card_is_irredundant_against_39() -> None:
+    assert is_legal_defense([card(Rank.ACE)], 39, hearts_trump()) is True
+
+
+@pytest.mark.parametrize(
+    ("defense", "target"),
+    [
+        ((card(Rank.JACK), card(Rank.SEVEN)), 18),
+        (
+            (card(Rank.ACE), card(Rank.ACE, Suit.DIAMONDS), card(Rank.SIX)),
+            40,
+        ),
+        (
+            (card(Rank.QUEEN), card(Rank.QUEEN, Suit.DIAMONDS), card(Rank.TEN)),
+            36,
+        ),
+    ],
+)
+def test_every_accepted_defense_satisfies_irredundancy_invariant(
+    defense: tuple[Card, ...],
+    target: int,
+) -> None:
+    analysis = analyze_defense(defense, target, NO_TRUMP)
+
+    assert analysis.legal is True
+    assert analysis.selected_value > target
+    assert all(
+        analysis.selected_value - get_effective_value(card, NO_TRUMP) <= target for card in defense
+    )
 
 
 def test_defense_equal_to_attack_is_illegal() -> None:

@@ -86,8 +86,10 @@ describe('RulesPageComponent', () => {
     expect(text).toContain('10–A');
     expect(text).toContain('новая цель 7 + 14 = 21');
     expect(text).toContain('9 + 9 + 9');
-    expect(text).toContain('У защитника 4 карты');
+    expect(text).toContain('у защитника осталось 4');
     expect(text).toContain('лимит пересчитывается');
+    expect(text).toContain('добавить можно не более 4');
+    expect(text).toContain('одна из шестёрок лишняя');
   });
 
   it('renders the complete canonical English rules at runtime', () => {
@@ -103,8 +105,10 @@ describe('RulesPageComponent', () => {
     expect(text).toContain('exact-value part may be extended');
     expect(text).toContain('hand sizes as close as possible');
     expect(text).toContain('both hands empty — Draw');
-    expect(text).toContain('Defender has 4 cards');
+    expect(text).toContain('defender has 4 left');
     expect(text).toContain('limit is recalculated');
+    expect(text).toContain('Add max 4');
+    expect(text).toContain('one Six is unnecessary');
     expect(text).toContain('final cards');
     expect(text).toContain('Public Beta');
     expect(text).not.toContain('Alpha uses');

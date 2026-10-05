@@ -138,8 +138,9 @@ export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
     title: 'Как покрывать',
     lead: 'Защита должна быть строго дороже активной атаки.',
     points: [
-      'Можно выбрать любые карты: важна только сумма эффективных значений.',
+      'Можно выбрать любые карты, но каждая выбранная карта должна быть нужна для покрытия.',
       'Равенства недостаточно — нужно строго больше.',
+      'Лишнюю карту нельзя сбросить через защиту: если без неё сумма всё ещё больше атаки, выбор не принят.',
     ],
     cards: [
       card('QH', 'Q', 'hearts', 15),
@@ -148,7 +149,7 @@ export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
     ],
     cardCaption: 'Защита Q + Q + 10 даёт 40.',
     equations: ['Атака: J + J + 6 + 6 = 36', '40 > 36 ✓', '36 = 36 ✕'],
-    note: null,
+    note: 'Не нужно искать наименьшую защиту во всей руке — достаточно, чтобы в выбранном наборе не было лишних карт.',
     exercise: {
       prompt: 'Что покроет атаку 36?',
       choices: [
@@ -261,8 +262,8 @@ export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
       'Перевод расширяет ту же незакрытую атаку: следующая цель становится 36, затем 72.',
       'После первой успешной защиты переводы закрыты до конца кона.',
       'Если вся незакрытая атака одного ранга, точную часть перевода можно дополнить картами того же ранга.',
-      'Число атакующих карт ограничено рукой текущего защитника; после перевода лимит пересчитывается по руке нового защитника.',
-      '«Атака 2 / лимит 4» означает: две атакующие карты уже сыграны, максимум — четыре.',
+      'Общий лимит атаки фиксируется, когда игрок становится защитником; после перевода он пересчитывается по оставшейся руке нового защитника.',
+      'Каждое добавление также ограничено текущей рукой защитника. «Атака 2 / 7 · Добавить не более 4» означает: общий лимит 7, но сейчас можно добавить только 4 карты.',
     ],
     cards: [
       card('9C', '9', 'clubs', 9),
@@ -390,8 +391,9 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
     title: 'How to defend',
     lead: 'Defense must be strictly more valuable than the active attack.',
     points: [
-      'Any cards may be selected: only their total effective value matters.',
+      'Any cards may be selected, but every selected card must be necessary for the defense.',
       'Equality is not enough — the defense must be strictly greater.',
+      'An extra card cannot be discarded through defense: if the remaining cards still beat the attack, the selection is rejected.',
     ],
     cards: [
       card('QH', 'Q', 'hearts', 15),
@@ -400,7 +402,7 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
     ],
     cardCaption: 'Defense Q + Q + 10 totals 40.',
     equations: ['Attack: J + J + 6 + 6 = 36', '40 > 36 ✓', '36 = 36 ✕'],
-    note: null,
+    note: 'You do not have to find the smallest defense in your whole hand; the cards you actually select must simply contain no unnecessary extra card.',
     exercise: {
       prompt: 'Which defense covers an attack of 36?',
       choices: [
@@ -513,8 +515,8 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
       'A transfer extends the same unresolved attack: the next target becomes 36, then 72.',
       'Transfers close for the rest of the bout after the first successful defense.',
       'If the entire unresolved attack has one rank, the exact-value part may be extended with more cards of that rank.',
-      'Attack-card count is limited by the current defender’s hand; after a transfer, the limit is recalculated from the new defender’s remaining hand.',
-      '“Attack 2 / limit 4” means two attack cards are already in play and four is the maximum.',
+      'The total attack cap is fixed when a player becomes defender; after a transfer it is recalculated from the new defender’s remaining hand.',
+      'Each addition is also limited by the defender’s current hand. “Attack 2 / 7 · Add max 4” means the bout cap is 7 but only 4 cards may be added now.',
     ],
     cards: [
       card('9C', '9', 'clubs', 9),
