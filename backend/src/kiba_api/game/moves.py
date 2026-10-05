@@ -18,6 +18,7 @@ class ThrowInReason(StrEnum):
     """A confirmed rule that independently permits a throw-in selection."""
 
     SAME_RANK = "same_rank"
+    LATEST_DEFENSE_RANKS = "latest_defense_ranks"
     EXISTING_VALUE = "existing_value"
     DEFENSE_TOTAL = "defense_total"
     TABLE_TOTAL = "table_total"
@@ -156,8 +157,9 @@ def analyze_throw_in(
 
     reasons: set[ThrowInReason] = set()
 
-    if _has_represented_same_rank(selected, direct_anchors):
-        reasons.add(ThrowInReason.SAME_RANK)
+    anchored_rank_reason = _anchored_rank_reason(selected, direct_anchors)
+    if anchored_rank_reason is not None:
+        reasons.add(anchored_rank_reason)
 
     if any(
         matches_exact_value(selected, target, trump_state)
@@ -239,12 +241,16 @@ def analyze_rank_run_throw_in(
     return None
 
 
-def _has_represented_same_rank(
+def _anchored_rank_reason(
     selected: tuple[Card, ...],
     direct_anchors: tuple[Card, ...],
-) -> bool:
+) -> ThrowInReason | None:
     direct_anchor_ranks = {card.rank for card in direct_anchors}
-    return bool(selected) and all(card.rank in direct_anchor_ranks for card in selected)
+    if not selected or not all(card.rank in direct_anchor_ranks for card in selected):
+        return None
+    if len({card.rank for card in selected}) == 1:
+        return ThrowInReason.SAME_RANK
+    return ThrowInReason.LATEST_DEFENSE_RANKS
 
 
 def _validate_direct_anchors(

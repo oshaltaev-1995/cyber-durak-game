@@ -297,6 +297,45 @@ def test_throw_in_hint_reasons(
     )
 
 
+def test_mixed_latest_defense_rank_hint_uses_the_specific_true_reason() -> None:
+    attack = card(Rank.KING)
+    defense_jack = card(Rank.JACK, Suit.CLUBS)
+    defense_king = card(Rank.KING, Suit.CLUBS)
+    selected_jack = card(Rank.JACK, Suit.DIAMONDS)
+    suggested_king = card(Rank.KING, Suit.SPADES)
+    state = after_defense(
+        (attack, selected_jack, suggested_king, card(Rank.SIX)),
+        (defense_jack, defense_king, card(Rank.ACE), card(Rank.NINE)),
+        (attack,),
+        (defense_jack, defense_king),
+    )
+
+    hints = get_move_hints(state, Seat.ONE, (selected_jack,))
+    mixed = next(hint for hint in hints.combinations if suggested_king in hint.added_cards)
+
+    assert mixed.cards == (selected_jack, suggested_king)
+    assert mixed.reason is HintReason.LATEST_DEFENSE_RANKS
+    assert mixed.reason is not HintReason.SAME_RANK
+
+
+def test_actual_same_rank_hint_keeps_same_rank_reason() -> None:
+    attack = card(Rank.SIX)
+    defense_seven = card(Rank.SEVEN, Suit.CLUBS)
+    selected_seven = card(Rank.SEVEN, Suit.DIAMONDS)
+    suggested_seven = card(Rank.SEVEN, Suit.HEARTS)
+    state = after_defense(
+        (attack, selected_seven, suggested_seven),
+        (defense_seven, card(Rank.ACE), card(Rank.NINE)),
+        (attack,),
+        (defense_seven,),
+    )
+
+    hints = get_move_hints(state, Seat.ONE, (selected_seven,))
+    same_rank = next(hint for hint in hints.combinations if suggested_seven in hint.added_cards)
+
+    assert same_rank.reason is HintReason.SAME_RANK
+
+
 def test_rank_run_hint_and_dynamic_attack_limit() -> None:
     ten = card(Rank.TEN)
     jack = card(Rank.JACK)

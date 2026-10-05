@@ -210,6 +210,7 @@
           <app-hint-panel
             [enabled]="hintPreference.enabled()"
             [loading]="hintsLoading()"
+            [cards]="currentGame.human_hand"
             [combinations]="hints()?.combinations ?? []"
             (enabledChange)="setHintsEnabled($event)"
           />

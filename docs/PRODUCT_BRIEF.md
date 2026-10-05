@@ -102,6 +102,9 @@ Everything else depends on this.
 - after a normal completed match, either participant may request a rematch; a fresh match starts in
   the same room only after both participants consent, while decline and explicit Exit preserve their
   distinct non-gameplay meanings
+- optional hints use ordinary Unicode suit notation and give a deterministic, truthful explanation;
+  a mixed selection whose ranks all occur in the latest defense is not described as one same-rank
+  group
 - Russian and English use the same routes, authoritative gameplay, and one frontend build
 
 Example flow:
@@ -115,6 +118,9 @@ and complete WIN/DRAW matches. Active rooms are lost on backend restart, while c
 authenticated participant summaries and progression survive. Each rematch completion is an
 independent history/progression event with its own match identity. Matchmaking, rating, chat,
 spectators, persistent active rooms, and distributed room infrastructure remain later work.
+
+R10 closes the post-v1 two-player polish cycle. Its hint-explanation, card-notation, and rematch
+transition corrections do not change move legality or introduce any 3–4-player behavior.
 
 ---
 

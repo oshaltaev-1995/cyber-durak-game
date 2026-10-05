@@ -42,6 +42,7 @@ class HintReason(StrEnum):
 
     SINGLE_CARD = "single_card"
     SAME_RANK = "same_rank"
+    LATEST_DEFENSE_RANKS = "latest_defense_ranks"
     ARITHMETIC_EQUALITY = "arithmetic_equality"
     DEFENSE_TOTAL = "defense_total"
     TRANSFER_EXACT = "transfer_exact"
@@ -50,6 +51,17 @@ class HintReason(StrEnum):
     TABLE_TOTAL = "table_total"
     ARITHMETIC_MEAN = "arithmetic_mean"
     RANK_RUN = "rank_run"
+
+
+_THROW_IN_REASON_PRIORITY = (
+    ThrowInReason.SAME_RANK,
+    ThrowInReason.LATEST_DEFENSE_RANKS,
+    ThrowInReason.EXISTING_VALUE,
+    ThrowInReason.DEFENSE_TOTAL,
+    ThrowInReason.TABLE_TOTAL,
+    ThrowInReason.ARITHMETIC_MEAN,
+    ThrowInReason.RANK_RUN,
+)
 
 
 class HintErrorCode(StrEnum):
@@ -208,7 +220,9 @@ def _describe_legal_candidate(
         raise ValueError("card actions require an active bout")
     if action is HumanActionType.THROW_IN:
         analysis = analyze_throw_in(cards, bout.table_cards, bout.direct_anchor_cards, trump)
-        throw_reason = next(reason for reason in ThrowInReason if reason in analysis.reasons)
+        throw_reason = next(
+            reason for reason in _THROW_IN_REASON_PRIORITY if reason in analysis.reasons
+        )
         targets = get_throw_in_targets(bout.table_cards, bout.direct_anchor_cards, trump)
         target_value: int | None = None
         if throw_reason is ThrowInReason.EXISTING_VALUE:

@@ -73,6 +73,7 @@ _SUIT_ORDER = {suit: index for index, suit in enumerate(Suit)}
 _RANK_ORDER = {rank: index for index, rank in enumerate(Rank)}
 _THROW_IN_REASON_ORDER = (
     ThrowInReason.SAME_RANK,
+    ThrowInReason.LATEST_DEFENSE_RANKS,
     ThrowInReason.EXISTING_VALUE,
     ThrowInReason.DEFENSE_TOTAL,
     ThrowInReason.TABLE_TOTAL,
@@ -255,7 +256,7 @@ def _serialize_throw_in_reasons(
         run_length: int | None = None
         run_ranks: list[str] | None = None
         source_cards: list[CardResponse] = []
-        if reason is ThrowInReason.SAME_RANK:
+        if reason in {ThrowInReason.SAME_RANK, ThrowInReason.LATEST_DEFENSE_RANKS}:
             target_value = None
         elif reason is ThrowInReason.EXISTING_VALUE:
             matching_anchor = next(

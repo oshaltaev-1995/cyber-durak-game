@@ -24,7 +24,7 @@
       @for (hint of combinations(); track hint.action + ':' + hint.card_ids.join(',')) {
         <span class="hint-option">
           <b>{{ action(hint.action) }}</b>
-          <span>{{ hint.card_ids.join(' + ') }}</span>
+          <span>{{ cardExpression(hint.card_ids) }}</span>
           <small>{{ equation(hint) }} · {{ reason(hint.reason) }}</small>
         </span>
       }

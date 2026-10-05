@@ -610,12 +610,39 @@ describe('PvPRoomPageComponent', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('.rematch-starting'),
     ).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Соперник отключился');
     vi.advanceTimersByTime(650);
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('.rematch-starting')).toBeNull();
     expect(element.querySelector('.result-panel')).toBeNull();
     expect(element.querySelector('app-game-table')).not.toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('still surfaces a real opponent disconnect during the rematch transition', () => {
+    vi.useFakeTimers();
+    socket.state.set(
+      makeState({
+        room_phase: 'COMPLETE',
+        game_phase: 'complete',
+        version: 7,
+        result: {
+          outcome: 'DRAW',
+          winner_seat: null,
+          winner_participant_id: null,
+          winner_display_name: null,
+        },
+      }),
+    );
+    fixture.detectChanges();
+    socket.state.set(makeState({ version: 8, match_id: 'match-two' }));
+    socket.opponentStatus.set('disconnected');
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.connection-banner')?.textContent,
+    ).toContain('Соперник отключился');
     vi.useRealTimers();
   });
 

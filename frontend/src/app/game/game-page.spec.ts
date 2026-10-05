@@ -179,7 +179,10 @@ describe('GamePageComponent', () => {
     const cards = (fixture.nativeElement as HTMLElement).querySelectorAll('app-hand .playing-card');
     expect(cards[0].classList).toContain('selected');
     expect(cards[1].classList).toContain('suggested');
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('6C + QD');
+    const hintPanel = (fixture.nativeElement as HTMLElement).querySelector('.hint-panel')!;
+    expect(hintPanel.textContent).toContain('6♣ + Q♦');
+    expect(hintPanel.textContent).not.toMatch(/(?:10|[6-9JQKA])[CDHS](?![a-z])/);
+    expect(hintPanel.outerHTML).not.toMatch(/(?:aria-label|title)="[^"]*(?:10|[6-9JQKA])[CDHS]/);
   });
 
   it('never calls the hint API while the saved preference is off', () => {

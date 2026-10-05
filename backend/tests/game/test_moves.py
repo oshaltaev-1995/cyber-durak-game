@@ -463,33 +463,49 @@ def test_each_selected_rank_may_match_a_different_direct_anchor() -> None:
     )
     assert selected_together.selected_value == 19
     assert selected_together.reasons == frozenset(
-        {ThrowInReason.SAME_RANK, ThrowInReason.DEFENSE_TOTAL}
+        {ThrowInReason.LATEST_DEFENSE_RANKS, ThrowInReason.DEFENSE_TOTAL}
     )
     assert selected_together.legal is True
 
 
 @pytest.mark.parametrize(
-    "selection",
+    ("selection", "expected_reason"),
     [
-        [card(Rank.SEVEN, Suit.SPADES)],
-        [card(Rank.JACK, Suit.HEARTS)],
-        [card(Rank.SEVEN, Suit.SPADES), card(Rank.JACK, Suit.HEARTS)],
-        [card(Rank.SEVEN, Suit.SPADES), card(Rank.SEVEN, Suit.DIAMONDS)],
-        [card(Rank.JACK, Suit.HEARTS), card(Rank.JACK, Suit.SPADES)],
-        [
-            card(Rank.SEVEN, Suit.SPADES),
-            card(Rank.SEVEN, Suit.DIAMONDS),
-            card(Rank.JACK, Suit.HEARTS),
-        ],
-        [
-            card(Rank.SEVEN, Suit.SPADES),
-            card(Rank.JACK, Suit.HEARTS),
-            card(Rank.JACK, Suit.SPADES),
-        ],
+        ([card(Rank.SEVEN, Suit.SPADES)], ThrowInReason.SAME_RANK),
+        ([card(Rank.JACK, Suit.HEARTS)], ThrowInReason.SAME_RANK),
+        (
+            [card(Rank.SEVEN, Suit.SPADES), card(Rank.JACK, Suit.HEARTS)],
+            ThrowInReason.LATEST_DEFENSE_RANKS,
+        ),
+        (
+            [card(Rank.SEVEN, Suit.SPADES), card(Rank.SEVEN, Suit.DIAMONDS)],
+            ThrowInReason.SAME_RANK,
+        ),
+        (
+            [card(Rank.JACK, Suit.HEARTS), card(Rank.JACK, Suit.SPADES)],
+            ThrowInReason.SAME_RANK,
+        ),
+        (
+            [
+                card(Rank.SEVEN, Suit.SPADES),
+                card(Rank.SEVEN, Suit.DIAMONDS),
+                card(Rank.JACK, Suit.HEARTS),
+            ],
+            ThrowInReason.LATEST_DEFENSE_RANKS,
+        ),
+        (
+            [
+                card(Rank.SEVEN, Suit.SPADES),
+                card(Rank.JACK, Suit.HEARTS),
+                card(Rank.JACK, Suit.SPADES),
+            ],
+            ThrowInReason.LATEST_DEFENSE_RANKS,
+        ),
     ],
 )
-def test_same_rank_reason_accepts_selections_drawn_from_all_anchor_ranks(
+def test_anchored_rank_reason_distinguishes_single_and_mixed_rank_selections(
     selection: list[Card],
+    expected_reason: ThrowInReason,
 ) -> None:
     attack = card(Rank.SIX)
     direct_anchors = [
@@ -504,7 +520,12 @@ def test_same_rank_reason_accepts_selections_drawn_from_all_anchor_ranks(
         NO_TRUMP,
     )
 
-    assert ThrowInReason.SAME_RANK in analysis.reasons
+    assert expected_reason in analysis.reasons
+    assert (
+        ThrowInReason.LATEST_DEFENSE_RANKS
+        if expected_reason is ThrowInReason.SAME_RANK
+        else ThrowInReason.SAME_RANK
+    ) not in analysis.reasons
 
 
 @pytest.mark.parametrize(
@@ -533,6 +554,7 @@ def test_same_rank_reason_rejects_any_rank_absent_from_direct_anchors(
     )
 
     assert ThrowInReason.SAME_RANK not in analysis.reasons
+    assert ThrowInReason.LATEST_DEFENSE_RANKS not in analysis.reasons
 
 
 def test_jokers_share_the_same_rank_for_throw_ins() -> None:

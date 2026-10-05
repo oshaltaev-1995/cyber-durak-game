@@ -22,6 +22,7 @@ class HintCombinationResponse(BaseModel):
     reason: Literal[
         "single_card",
         "same_rank",
+        "latest_defense_ranks",
         "arithmetic_equality",
         "defense_total",
         "transfer_exact",
@@ -100,6 +101,7 @@ class TrumpResponse(BaseModel):
 class ThrowInReasonResponse(BaseModel):
     type: Literal[
         "same_rank",
+        "latest_defense_ranks",
         "existing_value",
         "defense_total",
         "table_total",

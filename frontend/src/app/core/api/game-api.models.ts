@@ -27,7 +27,13 @@ export interface TrumpState {
 }
 
 export type ThrowInReasonType =
-  'same_rank' | 'existing_value' | 'defense_total' | 'table_total' | 'arithmetic_mean' | 'rank_run';
+  | 'same_rank'
+  | 'latest_defense_ranks'
+  | 'existing_value'
+  | 'defense_total'
+  | 'table_total'
+  | 'arithmetic_mean'
+  | 'rank_run';
 
 export interface ThrowInReason {
   readonly type: ThrowInReasonType;
@@ -149,6 +155,7 @@ export interface GameResponse {
 export type HintReasonType =
   | 'single_card'
   | 'same_rank'
+  | 'latest_defense_ranks'
   | 'arithmetic_equality'
   | 'defense_total'
   | 'transfer_exact'

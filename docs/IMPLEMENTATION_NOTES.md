@@ -1064,6 +1064,28 @@ neutral terminal transition: it clears rematch state, closes the room for both s
 reconnect claims, and fabricates no result. The Angular client clears selections, hint payloads, and
 card-motion history at the match boundary while preserving the user's local Hint preference.
 
+### 15.3 R10 hint explanation and rematch presentation contract
+
+Hint throw-in explanations use stable structured reason codes. `same_rank` means every selected
+card actually has one rank. A legal mixed selection whose ranks are all represented by the latest
+defense uses `latest_defense_ranks`. When several proofs are true, Hint presentation chooses the
+first true reason in this deterministic order: same rank, latest-defense ranks, existing value,
+latest-defense total, table total, arithmetic mean, then rank run. This priority changes only the
+explanation; every candidate is still admitted solely by the authoritative immutable game
+transition.
+
+Hint payloads retain canonical machine card IDs for action submission and hand lookup. Angular
+resolves those IDs against the requesting participant's already-authorized structured hand cards
+and reuses the shared `formatCardShort` Unicode-suit formatter for every visible and accessible
+combination. Missing structured card data produces a generic localized combination label rather
+than exposing a raw machine code.
+
+The short accepted-rematch overlay is presentation-only. During that match-boundary state, the
+normal turn-status line also reports the neutral rematch-starting state instead of treating the
+local presentation pause as an opponent disconnect. Authoritative participant connectivity and
+WebSocket events still surface a real disconnect immediately; there is no timeout-based suppression
+and no change to room, consent, reconnect, or gameplay state.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

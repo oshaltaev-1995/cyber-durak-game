@@ -330,6 +330,7 @@
             <app-hint-panel
               [enabled]="hintPreference.enabled()"
               [loading]="socket.hintPending()"
+              [cards]="game.hand"
               [combinations]="socket.hints()?.combinations ?? []"
               (enabledChange)="setHintsEnabled($event)"
             />

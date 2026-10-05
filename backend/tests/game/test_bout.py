@@ -632,7 +632,9 @@ def test_throw_in_may_combine_ranks_from_multiple_latest_defense_cards() -> None
     )
     thrown = play_throw_in(defended, Seat.ONE, selection)
 
-    assert analysis.reasons == frozenset({ThrowInReason.SAME_RANK, ThrowInReason.DEFENSE_TOTAL})
+    assert analysis.reasons == frozenset(
+        {ThrowInReason.LATEST_DEFENSE_RANKS, ThrowInReason.DEFENSE_TOTAL}
+    )
     assert thrown.phase is BoutPhase.WAITING_FOR_DEFENDER_RESPONSE
     assert thrown.active_packet is not None
     assert thrown.active_packet.attack_cards == tuple(selection)

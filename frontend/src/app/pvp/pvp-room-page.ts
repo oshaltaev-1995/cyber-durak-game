@@ -417,6 +417,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
 
   private getStatusText(): string {
     const state = this.state();
+    if (this.startingRematch()) return this.i18n.t('pvp.rematchStarting');
     if (this.socket.status() === 'connecting') return this.i18n.t('pvp.connecting');
     if (this.socket.status() === 'reconnecting') return this.i18n.t('pvp.reconnecting');
     if (this.socket.status() === 'offline') return this.i18n.t('pvp.offline');

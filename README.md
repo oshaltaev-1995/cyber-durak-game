@@ -15,6 +15,10 @@ authoritative WebSocket actions, and browser-session reconnect credentials.
 Completed private matches support a consensual rematch in the same room: both participants must
 agree, then the server creates a fresh independently identified 36-card match while preserving the
 invite, seats, identities, and reconnect credentials.
+The final two-player R10 polish keeps Hint legality unchanged while distinguishing mixed ranks from
+the latest defense from a true same-rank combination. All player-facing Hint card shorthand uses
+the shared Unicode-suit notation (for example, `J♦ + K♠`), and accepted-rematch bootstrap is shown
+as a neutral transition without manufacturing an opponent-disconnected state.
 Registration is never required to play. Completed authenticated bot and private-PvP matches persist
 history and progression; guest results remain unsaved, and guests always use the classic appearance.
 The single Angular application defaults new visitors to English and provides an instant `EN | RU`
