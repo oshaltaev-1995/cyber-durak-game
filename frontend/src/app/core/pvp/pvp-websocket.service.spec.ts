@@ -44,7 +44,14 @@ class FakeWebSocket extends EventTarget {
 }
 
 const state = (version: number, opponent: PvPState['opponent'] = null): PvPState =>
-  ({ invite_code: 'ABC123', version, opponent }) as unknown as PvPState;
+  ({
+    invite_code: 'ABC123',
+    match_id: 'match-one',
+    room_phase: 'GAME_ACTIVE',
+    rematch_status: 'NONE',
+    version,
+    opponent,
+  }) as unknown as PvPState;
 
 const opponent = (connected: boolean): NonNullable<PvPState['opponent']> => ({
   participant_id: 'p2',
@@ -196,6 +203,66 @@ describe('PvPWebSocketService', () => {
     expect(service.state()?.room_phase).toBe('CLOSED');
     socket.drop(4000);
     expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+
+  it('sends versioned rematch consent and clears pending state on authoritative update', () => {
+    service.connect('ABC123', 'secret');
+    const socket = FakeWebSocket.instances[0];
+    const complete = {
+      ...state(8, opponent(true)),
+      room_phase: 'COMPLETE',
+      game_phase: 'complete',
+      you: { participant_id: 'p1' },
+    } as unknown as PvPState;
+    authenticate(socket, complete);
+
+    service.requestRematch();
+    service.requestRematch();
+    expect(JSON.parse(socket.sent.at(-1)!)).toEqual({
+      type: 'REMATCH_REQUEST',
+      version: 8,
+      match_id: 'match-one',
+    });
+    expect(
+      socket.sent.filter((value) => JSON.parse(value).type === 'REMATCH_REQUEST'),
+    ).toHaveLength(1);
+    expect(service.rematchPending()).toBe(true);
+
+    socket.message({
+      type: 'STATE',
+      state: { ...complete, version: 9, rematch_status: 'WAITING' },
+    });
+    expect(service.rematchPending()).toBe(false);
+    expect(service.state()?.rematch_status).toBe('WAITING');
+
+    service.cancelRematch();
+    expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({
+      type: 'REMATCH_CANCEL',
+      version: 9,
+      match_id: 'match-one',
+    });
+  });
+
+  it('surfaces rematch rejection without mutating the completed result', () => {
+    service.connect('ABC123', 'secret');
+    const socket = FakeWebSocket.instances[0];
+    const complete = {
+      ...state(8, opponent(true)),
+      room_phase: 'COMPLETE',
+      game_phase: 'complete',
+      result: { outcome: 'DRAW' },
+      you: { participant_id: 'p1' },
+    } as unknown as PvPState;
+    authenticate(socket, complete);
+    service.requestRematch();
+    socket.message({
+      type: 'REMATCH_REJECTED',
+      error: { code: 'REMATCH_NOT_AVAILABLE', domain_code: null },
+    });
+
+    expect(service.rematchPending()).toBe(false);
+    expect(service.actionError()?.code).toBe('REMATCH_NOT_AVAILABLE');
+    expect(service.state()?.result?.outcome).toBe('DRAW');
   });
 
   it('distinguishes an opponent exit from a recoverable disconnect', () => {

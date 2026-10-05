@@ -46,8 +46,10 @@ class PvPResultResponse(BaseModel):
 
 class PvPStateResponse(BaseModel):
     invite_code: str
+    match_id: str | None
     room_phase: str
     version: int
+    rematch_status: Literal["NONE", "WAITING", "INCOMING", "DECLINED"]
     you: ParticipantResponse
     opponent: ParticipantResponse | None
     game_phase: str | None
@@ -105,6 +107,12 @@ class WebSocketPingMessage(_StrictModel):
 
 class WebSocketLeaveMessage(_StrictModel):
     type: Literal["LEAVE"]
+
+
+class WebSocketRematchMessage(_StrictModel):
+    type: Literal["REMATCH_REQUEST", "REMATCH_ACCEPT", "REMATCH_DECLINE", "REMATCH_CANCEL"]
+    match_id: str = Field(min_length=1)
+    version: int = Field(ge=0)
 
 
 class WebSocketHintRequestMessage(_StrictModel):

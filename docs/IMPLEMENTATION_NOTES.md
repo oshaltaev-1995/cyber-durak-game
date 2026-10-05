@@ -651,8 +651,9 @@ stored only in `sessionStorage` under the invite code; it is never placed in a U
 The PvP client receives its own hand and only the opponent's public name/connection state/hand
 count. It does not model opponent cards or future draw order, does not optimistically mutate the
 table, and drives actions exclusively from server `available_actions`. PvP rooms remain guest-first
-and process-local, with no bot participation, matchmaking, chat, spectators, match persistence, XP,
-statistics, or rematch protocol. A post-match “new room” starts the invitation flow again.
+and process-local, with no bot participation, matchmaking, chat, or spectators. Later phases add
+completed-match persistence and a consensual same-room rematch protocol without changing this
+hidden-information boundary.
 
 Phase 5C hardens this client around one constrained connection state. Unexpected closure retries at
 bounded `0.5s`, `1s`, `2s`, `4s`, then `5s` intervals for at most eight attempts; a manual retry is
@@ -686,8 +687,9 @@ internally scrollable without widening the page or overlapping the action row.
 ### 10.9 Persistent private-PvP results
 
 Phase 5D extends the existing user-owned `completed_matches` stream instead of creating PvP-only
-statistics or progression tables. A completed room's opaque `room_id` is its non-secret shared PvP
-match identity. Each authenticated participant receives one perspective row, protected by a unique
+statistics or progression tables. Each completed game has an opaque, non-secret shared PvP
+`match_id`, separate from the stable room/invite identity. Each authenticated participant receives
+one perspective row, protected by a unique
 `(user_id, pvp_match_id)` index: outcomes, final card counts, and accepted-action counters are local
 to that seat. The row snapshots the opponent's public display name and nullable user ID; it never
 stores email, reconnect credentials, hidden hands, draw order, or live room state. Guests create no
@@ -1036,6 +1038,31 @@ cancels or ignores stale responses after selection or version changes. Angular o
 results; it does not reimplement legality. Hints default on, can be switched off immediately, and
 the boolean preference is stored as `kiba.hintsEnabled` in `localStorage`. When off, clients make no
 hint requests.
+
+### 15.2 Consensual private-PvP rematches
+
+R9 keeps one process-local room and its invite, seats, participant identities, account associations,
+reconnect credentials, sockets, and monotonically increasing room version across matches. A
+separate opaque `match_id` identifies each authoritative game generation. On a normal COMPLETE
+state, participant-specific serialization exposes only `NONE`, `WAITING`, `INCOMING`, or `DECLINED`;
+it does not expose another participant's credential or unrelated metadata.
+
+Clients send versioned `REMATCH_REQUEST`, `REMATCH_ACCEPT`, `REMATCH_DECLINE`, or `REMATCH_CANCEL`
+messages. Consent is recorded under the existing per-room lock. The first consent leaves the prior
+result and progression presentation intact; the second consent persists the prior completion if
+needed and calls the same `create_new_game` then `start_game_bout` bootstrap used by the initial PvP
+match. Consequently every rematch has a fresh 36-card shuffle, seven cards per seat, a new exposed
+top card and dual trump, an empty table/discard, reset action summaries, and the canonical
+lowest-effective-trump initial-attacker rule. Simultaneous same-version requests are coalesced into
+one transition, and duplicate messages cannot start a second game from an old match identity.
+
+Completed persistence remains keyed by `(user_id, pvp_match_id)`, so starting a rematch cannot
+duplicate the previous history or XP and a later rematch completion creates a separate perspective
+for each authenticated participant. Guests remain unsaved. Disconnect/reconnect preserves consent;
+decline keeps the result visible and does not close the room. Authenticated `LEAVE` remains the R6
+neutral terminal transition: it clears rematch state, closes the room for both seats, revokes
+reconnect claims, and fabricates no result. The Angular client clears selections, hint payloads, and
+card-motion history at the match boundary while preserving the user's local Hint preference.
 
 ## 16. Suggested implementation phases
 

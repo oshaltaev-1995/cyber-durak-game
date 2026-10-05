@@ -13,6 +13,7 @@ import {
 } from '../api/game-api.models';
 
 export type PvPRoomPhase = 'WAITING_FOR_OPPONENT' | 'GAME_ACTIVE' | 'COMPLETE' | 'CLOSED';
+export type PvPRematchStatus = 'NONE' | 'WAITING' | 'INCOMING' | 'DECLINED';
 
 export interface PvPParticipant {
   readonly participant_id: string;
@@ -37,8 +38,10 @@ export interface PvPResult {
 
 export interface PvPState {
   readonly invite_code: string;
+  readonly match_id: string | null;
   readonly room_phase: PvPRoomPhase;
   readonly version: number;
+  readonly rematch_status: PvPRematchStatus;
   readonly you: PvPParticipant;
   readonly opponent: PvPParticipant | null;
   readonly game_phase: GamePhase | null;
@@ -111,6 +114,7 @@ export type PvPServerMessage =
   | { readonly type: 'STATE'; readonly state: PvPState }
   | { readonly type: 'GAME_COMPLETE'; readonly state: PvPState }
   | { readonly type: 'ACTION_REJECTED'; readonly error: PvPErrorBody }
+  | { readonly type: 'REMATCH_REJECTED'; readonly error: PvPErrorBody }
   | {
       readonly type: 'HINTS';
       readonly request_id: number;

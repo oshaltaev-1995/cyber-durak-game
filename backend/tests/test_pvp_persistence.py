@@ -88,7 +88,7 @@ def completed_room(
     )
     started = datetime(2026, 8, 28, 10, tzinfo=UTC)
     return PvPRoom(
-        room_id="shared-pvp-match",
+        room_id="stable-room",
         invite_code="INVITE",
         phase=PvPRoomPhase.COMPLETE,
         participants=(one, two),
@@ -113,6 +113,7 @@ def completed_room(
         version=14,
         created_at=started - timedelta(minutes=1),
         updated_at=started + timedelta(minutes=4),
+        match_id="shared-pvp-match",
     )
 
 
@@ -141,7 +142,7 @@ def test_authenticated_pvp_perspectives_are_atomic_idempotent_and_snapshotted(
         rows = list(session.scalars(select(CompletedMatch).order_by(CompletedMatch.user_seat)))
         assert len(rows) == 2
         alice, bob = rows
-        assert alice.pvp_match_id == bob.pvp_match_id == room.room_id
+        assert alice.pvp_match_id == bob.pvp_match_id == room.match_id
         assert (alice.outcome, bob.outcome) == ("WIN", "LOSS")
         assert (alice.opponent_display_name, bob.opponent_display_name) == ("Bob", "Alice")
         assert (alice.opponent_user_id, bob.opponent_user_id) == (bob_id, alice_id)

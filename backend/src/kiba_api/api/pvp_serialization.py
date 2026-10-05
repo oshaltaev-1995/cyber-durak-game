@@ -60,8 +60,10 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
     if state is None:
         return PvPStateResponse(
             invite_code=room.invite_code,
+            match_id=room.match_id,
             room_phase=room.phase.value,
             version=room.version,
+            rematch_status=_rematch_status(room, viewer),
             you=_serialize_participant(viewer),
             opponent=_serialize_participant(opponent) if opponent else None,
             game_phase=None,
@@ -118,8 +120,10 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
 
     return PvPStateResponse(
         invite_code=room.invite_code,
+        match_id=room.match_id,
         room_phase=room.phase.value,
         version=room.version,
+        rematch_status=_rematch_status(room, viewer),
         you=_serialize_participant(viewer),
         opponent=_serialize_participant(opponent) if opponent else None,
         game_phase=state.phase.value,
@@ -196,6 +200,19 @@ def _serialize_participant(participant: PvPParticipant) -> ParticipantResponse:
         connected=participant.connected,
         authenticated=participant.user_id is not None,
     )
+
+
+def _rematch_status(room: PvPRoom, viewer: PvPParticipant) -> str:
+    """Return only the participant-relative consent state needed by the result UI."""
+    if room.phase is not PvPRoomPhase.COMPLETE:
+        return "NONE"
+    if room.rematch_declined_by is not None and room.rematch_declined_by != viewer.participant_id:
+        return "DECLINED"
+    if viewer.participant_id in room.rematch_acceptances:
+        return "WAITING"
+    if room.rematch_acceptances:
+        return "INCOMING"
+    return "NONE"
 
 
 def _serialize_result(room: PvPRoom) -> PvPResultResponse | None:

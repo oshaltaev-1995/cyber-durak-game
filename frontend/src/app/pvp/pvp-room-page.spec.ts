@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { GameCard } from '../core/api/game-api.models';
+import { TranslationService } from '../core/i18n/translation.service';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
 import { PvPWebSocketService } from '../core/pvp/pvp-websocket.service';
 import {
@@ -25,8 +26,10 @@ const card: GameCard = {
 
 const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
   invite_code: 'ABC123',
+  match_id: 'match-one',
   room_phase: 'GAME_ACTIVE',
   version: 1,
+  rematch_status: 'NONE',
   you: {
     participant_id: 'p1',
     seat: 'one',
@@ -80,6 +83,7 @@ describe('PvPRoomPageComponent', () => {
     status: signal<PvPConnectionStatus>('connected'),
     actionError: signal<PvPErrorBody | null>(null),
     actionPending: signal(false),
+    rematchPending: signal(false),
     hints: signal(null),
     hintPending: signal(false),
     opponentStatus: signal<PvPOpponentStatus>('connected'),
@@ -93,6 +97,10 @@ describe('PvPRoomPageComponent', () => {
     clearHints: vi.fn(),
     retry: vi.fn(),
     leaveRoom: vi.fn(),
+    requestRematch: vi.fn(),
+    acceptRematch: vi.fn(),
+    declineRematch: vi.fn(),
+    cancelRematch: vi.fn(),
   };
 
   beforeEach(async () => {
@@ -101,6 +109,7 @@ describe('PvPRoomPageComponent', () => {
     socket.status.set('connected');
     socket.actionError.set(null);
     socket.actionPending.set(false);
+    socket.rematchPending.set(false);
     socket.hints.set(null);
     socket.hintPending.set(false);
     socket.opponentStatus.set('connected');
@@ -114,6 +123,10 @@ describe('PvPRoomPageComponent', () => {
     socket.disconnect.mockReset();
     socket.retry.mockReset();
     socket.leaveRoom.mockReset();
+    socket.requestRematch.mockReset();
+    socket.acceptRematch.mockReset();
+    socket.declineRematch.mockReset();
+    socket.cancelRematch.mockReset();
     credentials.get.mockReset().mockReturnValue({ reconnect_token: 'secret' });
     credentials.clear.mockReset();
     await TestBed.configureTestingModule({
@@ -474,6 +487,208 @@ describe('PvPRoomPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Создайте аккаунт');
   });
 
+  it('offers rematch as the primary result action and sends a request', () => {
+    socket.state.set(
+      makeState({
+        room_phase: 'COMPLETE',
+        game_phase: 'complete',
+        result: {
+          outcome: 'DRAW',
+          winner_seat: null,
+          winner_participant_id: null,
+          winner_display_name: null,
+        },
+      }),
+    );
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const rematch = [...element.querySelectorAll<HTMLButtonElement>('.rematch-button')].find(
+      (button) => button.textContent?.trim() === 'Сыграть ещё',
+    );
+
+    expect(rematch).toBeDefined();
+    expect(element.querySelector('.rematch-actions > .room-again')?.textContent).toContain(
+      'Создать новую комнату',
+    );
+    rematch?.click();
+    expect(socket.requestRematch).toHaveBeenCalledOnce();
+  });
+
+  it('does not show rematch controls during active PvP', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.rematch-actions')).toBeNull();
+    expect(
+      [...element.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === 'Сыграть ещё',
+      ),
+    ).toBe(false);
+  });
+
+  it('renders waiting, incoming, and declined rematch states with their actions', () => {
+    const completed = {
+      room_phase: 'COMPLETE' as const,
+      game_phase: 'complete' as const,
+      result: {
+        outcome: 'DRAW' as const,
+        winner_seat: null,
+        winner_participant_id: null,
+        winner_display_name: null,
+      },
+    };
+    socket.state.set(makeState({ ...completed, rematch_status: 'WAITING' }));
+    fixture.detectChanges();
+    let element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Ждём ответа соперника');
+    element.querySelector<HTMLButtonElement>('.rematch-button')?.click();
+    expect(socket.cancelRematch).toHaveBeenCalledOnce();
+
+    socket.state.set(makeState({ ...completed, version: 3, rematch_status: 'INCOMING' }));
+    fixture.detectChanges();
+    element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('#rematch-incoming-title')?.textContent).toContain(
+      'Соперник хочет реванш',
+    );
+    const incomingButtons = element.querySelectorAll<HTMLButtonElement>('.rematch-button');
+    incomingButtons[0].click();
+    incomingButtons[1].click();
+    expect(socket.acceptRematch).toHaveBeenCalledOnce();
+    expect(socket.declineRematch).toHaveBeenCalledOnce();
+
+    socket.state.set(makeState({ ...completed, version: 4, rematch_status: 'DECLINED' }));
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Соперник отказался от повторной партии',
+    );
+  });
+
+  it('switches rematch copy at runtime without changing rematch state', () => {
+    const completed = makeState({
+      room_phase: 'COMPLETE',
+      game_phase: 'complete',
+      rematch_status: 'INCOMING',
+      result: {
+        outcome: 'DRAW',
+        winner_seat: null,
+        winner_participant_id: null,
+        winner_display_name: null,
+      },
+    });
+    socket.state.set(completed);
+    const i18n = TestBed.inject(TranslationService);
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Opponent wants a rematch',
+    );
+
+    i18n.setLocale('ru');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Соперник хочет реванш');
+    expect(socket.state()).toBe(completed);
+  });
+
+  it('clears old presentation motion and shows a short rematch transition', () => {
+    vi.useFakeTimers();
+    socket.state.set(
+      makeState({
+        room_phase: 'COMPLETE',
+        game_phase: 'complete',
+        version: 7,
+        result: {
+          outcome: 'DRAW',
+          winner_seat: null,
+          winner_participant_id: null,
+          winner_display_name: null,
+        },
+      }),
+    );
+    fixture.detectChanges();
+    socket.state.set(makeState({ version: 8, match_id: 'match-two' }));
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Начинаем новую партию');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.rematch-starting'),
+    ).not.toBeNull();
+    vi.advanceTimersByTime(650);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.rematch-starting')).toBeNull();
+    expect(element.querySelector('.result-panel')).toBeNull();
+    expect(element.querySelector('app-game-table')).not.toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('preserves the local Hint preference and clears selected cards across rematch', () => {
+    const hintToggle = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.hint-toggle',
+    )!;
+    hintToggle.click();
+    const cardButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      'app-hand .playing-card',
+    )!;
+    cardButton.click();
+    fixture.detectChanges();
+    expect(hintToggle.getAttribute('aria-checked')).toBe('false');
+    expect(cardButton.getAttribute('aria-pressed')).toBe('true');
+
+    socket.state.set(
+      makeState({
+        room_phase: 'COMPLETE',
+        game_phase: 'complete',
+        version: 7,
+        result: {
+          outcome: 'DRAW',
+          winner_seat: null,
+          winner_participant_id: null,
+          winner_display_name: null,
+        },
+      }),
+    );
+    fixture.detectChanges();
+    socket.state.set(makeState({ version: 8, match_id: 'match-two' }));
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLButtonElement>('.hint-toggle')
+        ?.getAttribute('aria-checked'),
+    ).toBe('false');
+    expect(
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLButtonElement>('app-hand .playing-card')
+        ?.getAttribute('aria-pressed'),
+    ).toBe('false');
+  });
+
+  it('waits for server confirmation when exiting a completed room', () => {
+    socket.state.set(
+      makeState({
+        room_phase: 'COMPLETE',
+        game_phase: 'complete',
+        result: {
+          outcome: 'DRAW',
+          winner_seat: null,
+          winner_participant_id: null,
+          winner_display_name: null,
+        },
+      }),
+    );
+    fixture.detectChanges();
+    const exit = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Выйти',
+    ) as HTMLButtonElement;
+    exit.click();
+    fixture.detectChanges();
+    const confirm = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll('.restart-confirmation button'),
+    ].find((button) => button.textContent?.trim() === 'Выйти') as HTMLButtonElement;
+    confirm.click();
+
+    expect(socket.leaveRoom).toHaveBeenCalledOnce();
+    expect(credentials.clear).not.toHaveBeenCalledWith('ABC123');
+  });
+
   it('renders only the authenticated local participant progression on completion', () => {
     socket.state.set(
       makeState({
@@ -515,5 +730,8 @@ describe('PvPRoomPageComponent', () => {
     expect(text).toContain('Первая победа');
     expect(text).toContain('Победитель');
     expect(text).not.toContain('Создайте аккаунт');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.result-links .result-history-link'),
+    ).toHaveLength(2);
   });
 });

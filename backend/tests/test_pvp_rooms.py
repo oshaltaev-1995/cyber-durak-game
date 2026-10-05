@@ -8,7 +8,18 @@ from uuid import uuid4
 
 import pytest
 
-from kiba_api.game import Card, GamePhase, GameState, Rank, Seat, Suit, create_new_game
+from kiba_api.api.pvp_serialization import serialize_pvp_state
+from kiba_api.game import (
+    BotActionType,
+    Card,
+    GamePhase,
+    GameState,
+    Rank,
+    Seat,
+    Suit,
+    choose_bot_action,
+    create_new_game,
+)
 from kiba_api.pvp import (
     PvPActionError,
     PvPError,
@@ -43,6 +54,61 @@ def create_started_room(service: PvPRoomService):
     room, creator = service.create_room("Creator")
     room, joiner = service.join_room(room.invite_code, "Friend")
     return room, creator, joiner
+
+
+def tiny_game() -> GameState:
+    return GameState(
+        seat_one_hand=(Card(Rank.ACE, Suit.CLUBS),),
+        seat_two_hand=(Card(Rank.SIX, Suit.CLUBS),),
+        draw_pile=(),
+        discard_pile=(),
+        current_attacker=Seat.ONE,
+    )
+
+
+def complete_tiny_room(service: PvPRoomService):
+    room, creator, joiner = create_started_room(service)
+    attacked = service.play_action(
+        room.invite_code,
+        creator.reconnect_token,
+        HumanActionType.INITIAL_ATTACK,
+        (Card(Rank.ACE, Suit.CLUBS),),
+        expected_version=room.version,
+    )
+    complete = service.play_action(
+        room.invite_code,
+        joiner.reconnect_token,
+        HumanActionType.TAKE,
+        expected_version=attacked.version,
+    )
+    return complete, creator, joiner
+
+
+def complete_room_with_policy(service: PvPRoomService, invite_code: str) -> PvPRoomPhase:
+    mapping = {
+        BotActionType.INITIAL_ATTACK: HumanActionType.INITIAL_ATTACK,
+        BotActionType.DEFEND: HumanActionType.DEFEND,
+        BotActionType.TRANSFER: HumanActionType.TRANSFER,
+        BotActionType.THROW_IN: HumanActionType.THROW_IN,
+        BotActionType.TAKE: HumanActionType.TAKE,
+        BotActionType.BITO: HumanActionType.BITO,
+    }
+    for _action_count in range(1000):
+        room = service.get_room(invite_code)
+        assert room.state is not None
+        if room.state.phase is GamePhase.COMPLETE:
+            return room.phase
+        actor = acting_seat(room.state)
+        assert actor is not None
+        action = choose_bot_action(room.state, actor)
+        service.play_action(
+            invite_code,
+            room.participant(actor).reconnect_token,
+            mapping[action.action_type],
+            action.cards,
+            expected_version=room.version,
+        )
+    pytest.fail("PvP match exceeded the defensive action bound")
 
 
 def test_room_lifecycle_assigns_seats_and_starts_one_authoritative_game() -> None:
@@ -267,6 +333,252 @@ def test_authoritative_completion_records_once_and_reconnect_reuses_result() -> 
     assert completions == [room.room_id]
     assert complete.action_summary(Seat.ONE).action_count == 1
     assert complete.action_summary(Seat.TWO).take_count == 1
+
+
+def test_rematch_consent_is_relative_and_starts_fresh_game_in_same_room() -> None:
+    completions: list[str] = []
+
+    def record(room):
+        assert room.match_id is not None
+        completions.append(room.match_id)
+        return tuple(
+            PvPParticipantCompletion(value.participant_id, False) for value in room.participants
+        )
+
+    service = PvPRoomService(
+        game_factory=tiny_game,
+        token_factory=TokenFactory(),
+        completion_recorder=record,
+    )
+    complete, creator, joiner = complete_tiny_room(service)
+    old_match_id = complete.match_id
+    old_result = complete.state.result if complete.state is not None else None
+    requested = service.request_rematch(
+        complete.invite_code,
+        creator.reconnect_token,
+        match_id=old_match_id or "",
+        expected_version=complete.version,
+    )
+
+    assert serialize_pvp_state(requested, creator).rematch_status == "WAITING"
+    assert serialize_pvp_state(requested, joiner).rematch_status == "INCOMING"
+    assert requested.state is not None and requested.state.result == old_result
+    assert completions == [old_match_id]
+
+    started = service.request_rematch(
+        requested.invite_code,
+        joiner.reconnect_token,
+        match_id=old_match_id or "",
+        expected_version=requested.version,
+    )
+
+    assert started.room_id == complete.room_id
+    assert started.invite_code == complete.invite_code
+    assert started.participants == complete.participants
+    assert started.match_id is not None and started.match_id != old_match_id
+    assert started.phase is PvPRoomPhase.GAME_ACTIVE
+    assert started.state is not None
+    assert started.state.phase is GamePhase.BOUT_ACTIVE
+    assert started.state.result is None
+    assert started.last_bout is None
+    assert started.completion_results == ()
+    assert started.rematch_acceptances == ()
+    assert started.action_summary(Seat.ONE).action_count == 0
+    assert started.action_summary(Seat.TWO).action_count == 0
+    assert completions == [old_match_id]
+
+
+def test_rematch_uses_the_canonical_fresh_36_card_bootstrap() -> None:
+    rng = random.Random(90210)
+    created: list[GameState] = []
+
+    def fresh_game() -> GameState:
+        state = create_new_game(rng)
+        created.append(state)
+        return state
+
+    service = PvPRoomService(game_factory=fresh_game, token_factory=TokenFactory())
+    room, creator, joiner = create_started_room(service)
+    assert complete_room_with_policy(service, room.invite_code) is PvPRoomPhase.COMPLETE
+    complete = service.get_room(room.invite_code)
+    assert complete.match_id is not None
+    requested = service.request_rematch(
+        room.invite_code,
+        creator.reconnect_token,
+        match_id=complete.match_id,
+        expected_version=complete.version,
+    )
+    started = service.request_rematch(
+        room.invite_code,
+        joiner.reconnect_token,
+        match_id=complete.match_id,
+        expected_version=requested.version,
+    )
+
+    assert len(created) == 2
+    assert created[0].seat_one_hand + created[0].seat_two_hand + created[0].draw_pile != (
+        created[1].seat_one_hand + created[1].seat_two_hand + created[1].draw_pile
+    )
+    assert started.state is not None and started.state.active_bout is not None
+    assert len(started.state.seat_one_hand) == 7
+    assert len(started.state.seat_two_hand) == 7
+    assert len(started.state.draw_pile) == 22
+    assert started.state.draw_pile[0] == created[1].draw_pile[0]
+    assert started.state.current_trump_state == created[1].current_trump_state
+    assert started.initial_attacker == created[1].current_attacker
+    assert started.state.active_bout.attacker == created[1].current_attacker
+    assert started.state.active_bout.table_cards == ()
+    assert started.state.discard_pile == ()
+    assert started.state.result is None
+
+
+def test_simultaneous_rematch_requests_start_exactly_one_new_match() -> None:
+    game_count = 0
+
+    def counted_game() -> GameState:
+        nonlocal game_count
+        game_count += 1
+        return tiny_game()
+
+    service = PvPRoomService(game_factory=counted_game, token_factory=TokenFactory())
+    complete, creator, joiner = complete_tiny_room(service)
+    assert complete.match_id is not None
+
+    def request(token: str):
+        return service.request_rematch(
+            complete.invite_code,
+            token,
+            match_id=complete.match_id or "",
+            expected_version=complete.version,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = tuple(executor.map(request, (creator.reconnect_token, joiner.reconnect_token)))
+
+    final = service.get_room(complete.invite_code)
+    assert game_count == 2
+    assert sum(value.phase is PvPRoomPhase.GAME_ACTIVE for value in results) == 1
+    assert final.phase is PvPRoomPhase.GAME_ACTIVE
+    assert final.match_id != complete.match_id
+    assert final.version == complete.version + 2
+
+
+def test_duplicate_rematch_request_is_idempotent_and_old_match_cannot_restart() -> None:
+    service = PvPRoomService(game_factory=tiny_game, token_factory=TokenFactory())
+    complete, creator, joiner = complete_tiny_room(service)
+    assert complete.match_id is not None
+    requested = service.request_rematch(
+        complete.invite_code,
+        creator.reconnect_token,
+        match_id=complete.match_id,
+        expected_version=complete.version,
+    )
+    duplicate = service.request_rematch(
+        complete.invite_code,
+        creator.reconnect_token,
+        match_id=complete.match_id,
+        expected_version=complete.version,
+    )
+
+    assert duplicate is requested
+    assert duplicate.version == requested.version
+    started = service.request_rematch(
+        complete.invite_code,
+        joiner.reconnect_token,
+        match_id=complete.match_id,
+        expected_version=requested.version,
+    )
+    with pytest.raises(PvPActionError) as stale_match:
+        service.request_rematch(
+            complete.invite_code,
+            creator.reconnect_token,
+            match_id=complete.match_id,
+            expected_version=started.version,
+        )
+
+    assert stale_match.value.code is PvPErrorCode.REMATCH_NOT_AVAILABLE
+
+
+def test_rematch_decline_cancel_reconnect_and_completed_exit_are_explicit() -> None:
+    service = PvPRoomService(game_factory=tiny_game, token_factory=TokenFactory())
+    complete, creator, joiner = complete_tiny_room(service)
+    assert complete.match_id is not None
+    service.connect(complete.invite_code, creator.reconnect_token, "creator-socket")
+    service.connect(complete.invite_code, joiner.reconnect_token, "joiner-socket")
+    requested = service.request_rematch(
+        complete.invite_code,
+        creator.reconnect_token,
+        match_id=complete.match_id,
+        expected_version=complete.version,
+    )
+    disconnected = service.disconnect(
+        complete.invite_code,
+        creator.participant_id,
+        "creator-socket",
+    )
+    reconnected = service.connect(
+        complete.invite_code,
+        creator.reconnect_token,
+        "creator-reconnected",
+    )
+
+    assert disconnected.rematch_acceptances == requested.rematch_acceptances
+    assert reconnected.room.rematch_acceptances == requested.rematch_acceptances
+    cancelled = service.cancel_rematch(
+        complete.invite_code,
+        creator.reconnect_token,
+        match_id=complete.match_id,
+        expected_version=requested.version,
+    )
+    assert cancelled.rematch_acceptances == ()
+
+    requested_again = service.request_rematch(
+        complete.invite_code,
+        creator.reconnect_token,
+        match_id=complete.match_id,
+        expected_version=cancelled.version,
+    )
+    declined = service.decline_rematch(
+        complete.invite_code,
+        joiner.reconnect_token,
+        match_id=complete.match_id,
+        expected_version=requested_again.version,
+    )
+    assert serialize_pvp_state(declined, creator).rematch_status == "DECLINED"
+    assert serialize_pvp_state(declined, joiner).rematch_status == "NONE"
+    assert declined.state is not None and declined.state.result is not None
+
+    closed = service.leave_room(
+        complete.invite_code,
+        creator.reconnect_token,
+        "creator-reconnected",
+    )
+    assert closed.phase is PvPRoomPhase.CLOSED
+    assert closed.rematch_acceptances == ()
+    assert closed.rematch_declined_by is None
+
+
+def test_rematch_rejects_active_game_wrong_match_and_outsider() -> None:
+    service = PvPRoomService(game_factory=tiny_game, token_factory=TokenFactory())
+    room, creator, _joiner = create_started_room(service)
+    assert room.match_id is not None
+    with pytest.raises(PvPActionError) as active:
+        service.request_rematch(
+            room.invite_code,
+            creator.reconnect_token,
+            match_id=room.match_id,
+            expected_version=room.version,
+        )
+    with pytest.raises(PvPError) as outsider:
+        service.request_rematch(
+            room.invite_code,
+            "not-a-participant",
+            match_id=room.match_id,
+            expected_version=room.version,
+        )
+
+    assert active.value.code is PvPErrorCode.REMATCH_NOT_AVAILABLE
+    assert outsider.value.code is PvPErrorCode.INVALID_CREDENTIAL
 
 
 def test_wrong_turn_illegal_action_and_stale_version_do_not_mutate_room() -> None:

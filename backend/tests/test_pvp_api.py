@@ -11,11 +11,21 @@ from starlette.websockets import WebSocketDisconnect
 
 from kiba_api.api.cards import card_to_code
 from kiba_api.config import Settings
-from kiba_api.game import BotActionType, GamePhase, Seat, choose_bot_action, create_new_game
+from kiba_api.game import (
+    BotActionType,
+    Card,
+    GamePhase,
+    GameState,
+    Rank,
+    Seat,
+    Suit,
+    choose_bot_action,
+    create_new_game,
+)
 from kiba_api.main import create_app
 from kiba_api.persistence import Base, CompletedMatch, Database, XPLedgerEntry
 from kiba_api.pvp import PvPError, PvPErrorCode, PvPRoomService, RoomTTLPolicy
-from kiba_api.sessions import acting_seat
+from kiba_api.sessions import HumanActionType, acting_seat
 
 ORIGIN = "http://testserver"
 
@@ -603,6 +613,84 @@ def test_websocket_action_rate_limit_is_machine_readable(database: Database) -> 
     client.close()
 
 
+def test_websocket_rematch_request_is_participant_relative_and_accept_starts_once(
+    database: Database,
+) -> None:
+    def tiny_game() -> GameState:
+        return GameState(
+            seat_one_hand=(Card(Rank.ACE, Suit.CLUBS),),
+            seat_two_hand=(Card(Rank.SIX, Suit.CLUBS),),
+            draw_pile=(),
+            discard_pile=(),
+            current_attacker=Seat.ONE,
+        )
+
+    service = PvPRoomService(game_factory=tiny_game)
+    settings = Settings(database_url="sqlite://", csrf_trusted_origins=(ORIGIN,))
+    rematch_client = TestClient(
+        create_app(database=database, settings=settings, pvp_service=service)
+    )
+    creator, joiner = create_and_join(rematch_client)
+    with rematch_client.websocket_connect(
+        websocket_path(creator), headers={"Origin": ORIGIN}
+    ) as one:
+        authenticate(one, creator)
+        with rematch_client.websocket_connect(
+            websocket_path(joiner), headers={"Origin": ORIGIN}
+        ) as two:
+            authenticate(two, joiner)
+            one.receive_json()
+            one.receive_json()
+            one.send_json(
+                {
+                    "type": "ACTION",
+                    "version": 0,
+                    "action": "INITIAL_ATTACK",
+                    "cards": ["AC"],
+                }
+            )
+            one.receive_json()
+            two.receive_json()
+            two.send_json({"type": "ACTION", "version": 1, "action": "TAKE", "cards": []})
+            completed_one = one.receive_json()["state"]
+            two.receive_json()
+            one.receive_json()
+            two.receive_json()
+            old_match_id = completed_one["match_id"]
+
+            one.send_json(
+                {
+                    "type": "REMATCH_REQUEST",
+                    "version": completed_one["version"],
+                    "match_id": old_match_id,
+                }
+            )
+            requested_one = one.receive_json()["state"]
+            requested_two = two.receive_json()["state"]
+            assert requested_one["rematch_status"] == "WAITING"
+            assert requested_two["rematch_status"] == "INCOMING"
+            assert requested_one["result"] == completed_one["result"]
+
+            two.send_json(
+                {
+                    "type": "REMATCH_ACCEPT",
+                    "version": requested_two["version"],
+                    "match_id": old_match_id,
+                }
+            )
+            rematch_one = one.receive_json()["state"]
+            rematch_two = two.receive_json()["state"]
+
+    assert rematch_one["invite_code"] == creator["invite_code"]
+    assert rematch_two["invite_code"] == creator["invite_code"]
+    assert rematch_one["match_id"] == rematch_two["match_id"] != old_match_id
+    assert rematch_one["room_phase"] == "GAME_ACTIVE"
+    assert rematch_one["result"] is None
+    assert rematch_one["rematch_status"] == "NONE"
+    assert service.get_room(creator["invite_code"]).version == requested_one["version"] + 1
+    rematch_client.close()
+
+
 def test_full_two_client_match_completes_through_websocket_actions(
     client: TestClient,
     pvp_service: PvPRoomService,
@@ -784,9 +872,76 @@ def test_authenticated_pvp_completion_persists_private_progression_once(
         rows = list(session.scalars(select(CompletedMatch)))
         assert len(rows) == 2
         assert len({row.pvp_match_id for row in rows}) == 1
+        first_match_id = rows[0].pvp_match_id
         ledger_count = session.scalar(select(func.count()).select_from(XPLedgerEntry))
-    service.get_room(creator["invite_code"])
+        base_xp_count = session.scalar(
+            select(func.count())
+            .select_from(XPLedgerEntry)
+            .where(XPLedgerEntry.source_type == "MATCH")
+        )
+        assert base_xp_count == 2
+
+    first_complete = service.get_room(creator["invite_code"])
+    assert first_complete.match_id == first_match_id
+    requested = service.request_rematch(
+        creator["invite_code"],
+        creator["credential"]["reconnect_token"],
+        match_id=first_complete.match_id or "",
+        expected_version=first_complete.version,
+    )
+    second_started = service.request_rematch(
+        creator["invite_code"],
+        joiner["credential"]["reconnect_token"],
+        match_id=first_complete.match_id or "",
+        expected_version=requested.version,
+    )
+    assert second_started.match_id != first_match_id
     with database.session() as session:
         assert session.scalar(select(func.count()).select_from(CompletedMatch)) == 2
         assert session.scalar(select(func.count()).select_from(XPLedgerEntry)) == ledger_count
+
+    for _action_count in range(1000):
+        room = service.get_room(creator["invite_code"])
+        assert room.state is not None
+        if room.state.phase is GamePhase.COMPLETE:
+            break
+        actor = acting_seat(room.state)
+        assert actor is not None
+        action = choose_bot_action(room.state, actor)
+        participant = room.participant(actor)
+        service.play_action(
+            room.invite_code,
+            participant.reconnect_token,
+            HumanActionType(mapping[action.action_type]),
+            action.cards,
+            expected_version=room.version,
+        )
+    else:
+        pytest.fail("authenticated PvP rematch exceeded the action bound")
+
+    second_complete = service.get_room(creator["invite_code"])
+    assert second_complete.phase.value == "COMPLETE"
+    with database.session() as session:
+        rows = list(session.scalars(select(CompletedMatch)))
+        assert len(rows) == 4
+        match_ids = {row.pvp_match_id for row in rows}
+        assert len(match_ids) == 2
+        assert first_match_id in match_ids
+        assert second_complete.match_id in match_ids
+        assert all(sum(row.pvp_match_id == value for row in rows) == 2 for value in match_ids)
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(XPLedgerEntry)
+                .where(XPLedgerEntry.source_type == "MATCH")
+            )
+            == 4
+        )
+        second_ledger_count = session.scalar(select(func.count()).select_from(XPLedgerEntry))
+    service.get_room(creator["invite_code"])
+    with database.session() as session:
+        assert session.scalar(select(func.count()).select_from(CompletedMatch)) == 4
+        assert (
+            session.scalar(select(func.count()).select_from(XPLedgerEntry)) == second_ledger_count
+        )
     client.close()

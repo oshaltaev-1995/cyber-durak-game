@@ -69,6 +69,7 @@ class PvPErrorCode(StrEnum):
     STALE_VERSION = "STALE_VERSION"
     RATE_LIMITED = "RATE_LIMITED"
     MESSAGE_TOO_LARGE = "MESSAGE_TOO_LARGE"
+    REMATCH_NOT_AVAILABLE = "REMATCH_NOT_AVAILABLE"
 
 
 class PvPError(ValueError):
@@ -167,6 +168,9 @@ class PvPRoom:
     version: int
     created_at: datetime
     updated_at: datetime
+    match_id: str | None = None
+    rematch_acceptances: tuple[str, ...] = ()
+    rematch_declined_by: str | None = None
 
     def __post_init__(self) -> None:
         if not self.room_id or not self.invite_code:
@@ -198,6 +202,14 @@ class PvPRoom:
         if len({summary.seat for summary in self.action_summaries}) != len(self.action_summaries):
             raise ValueError("action summary seats must be unique")
         participant_ids = {participant.participant_id for participant in self.participants}
+        if len(set(self.rematch_acceptances)) != len(self.rematch_acceptances):
+            raise ValueError("rematch acceptances must be unique")
+        if not set(self.rematch_acceptances).issubset(participant_ids):
+            raise ValueError("rematch acceptances must belong to room participants")
+        if self.rematch_declined_by is not None and self.rematch_declined_by not in participant_ids:
+            raise ValueError("rematch decline must belong to a room participant")
+        if self.rematch_declined_by is not None and self.rematch_acceptances:
+            raise ValueError("a declined rematch cannot retain acceptances")
         completion_ids = {result.participant_id for result in self.completion_results}
         if len(completion_ids) != len(self.completion_results):
             raise ValueError("participant completion results must be unique")
@@ -207,7 +219,7 @@ class PvPRoom:
             raise ValueError("completion results require a complete room")
 
         if self.phase is PvPRoomPhase.WAITING_FOR_OPPONENT:
-            if len(self.participants) != 1 or self.state is not None:
+            if len(self.participants) != 1 or self.state is not None or self.match_id is not None:
                 raise ValueError("a waiting room must have one participant and no game")
         elif self.phase is PvPRoomPhase.GAME_ACTIVE:
             if len(self.participants) != 2 or self.state is None:
@@ -216,10 +228,18 @@ class PvPRoom:
                 raise ValueError("an active room must expose a started bout")
             if self.game_started_at is None or self.initial_attacker is None:
                 raise ValueError("an active room requires game start metadata")
+            if self.match_id is None:
+                raise ValueError("an active room requires a match identity")
         elif self.phase is PvPRoomPhase.COMPLETE and (
             self.state is None or self.state.phase is not GamePhase.COMPLETE
         ):
             raise ValueError("a complete room requires a complete game")
+        if self.phase is PvPRoomPhase.COMPLETE and self.match_id is None:
+            raise ValueError("a complete room requires a match identity")
+        if self.phase is not PvPRoomPhase.COMPLETE and (
+            self.rematch_acceptances or self.rematch_declined_by is not None
+        ):
+            raise ValueError("rematch decisions require a complete room")
 
     def participant(self, seat: Seat) -> PvPParticipant:
         for participant in self.participants:
@@ -415,6 +435,7 @@ class PvPRoomService:
             version=0,
             created_at=now,
             updated_at=now,
+            match_id=None,
         )
         self._store.create(room)
         return room, creator
@@ -456,6 +477,7 @@ class PvPRoomService:
                     PvPSeatActionSummary(Seat.ONE),
                     PvPSeatActionSummary(Seat.TWO),
                 ),
+                match_id=self._new_match_id(None),
                 updated_at=now,
             )
             return record.room, participant
@@ -532,14 +554,125 @@ class PvPRoomService:
             participant = room.participant_by_token(reconnect_token)
             if participant.connection_id != connection_id:
                 raise PvPError(PvPErrorCode.INVALID_CREDENTIAL)
-            if room.phase is PvPRoomPhase.COMPLETE:
-                raise PvPError(PvPErrorCode.GAME_COMPLETE)
             disconnected = tuple(replace(value, connection_id=None) for value in room.participants)
             record.room = replace(
                 room,
                 phase=PvPRoomPhase.CLOSED,
                 participants=disconnected,
                 completion_results=(),
+                rematch_acceptances=(),
+                rematch_declined_by=None,
+                version=room.version + 1,
+                updated_at=now,
+            )
+            return record.room
+
+    def request_rematch(
+        self,
+        invite_code: str,
+        reconnect_token: str,
+        *,
+        match_id: str,
+        expected_version: int,
+    ) -> PvPRoom:
+        """Record one participant's consent and start exactly one fresh match when mutual."""
+        now = self._now()
+        self._store.cleanup(now, self._ttl, exclude=invite_code)
+        with self._store.locked_record(invite_code) as record:
+            room = record.room
+            participant = room.participant_by_token(reconnect_token)
+            self._require_rematch_room(room, match_id)
+            if participant.participant_id in room.rematch_acceptances:
+                return room
+            simultaneous = (
+                expected_version + 1 == room.version
+                and room.rematch_declined_by is None
+                and len(room.rematch_acceptances) == 1
+                and room.rematch_acceptances[0] != participant.participant_id
+            )
+            if expected_version != room.version and not simultaneous:
+                raise PvPActionError(PvPErrorCode.STALE_VERSION)
+
+            self._persist_completed_room(record)
+            room = record.room
+            if self._completion_recorder is not None and not room.completion_results:
+                raise PvPActionError(
+                    PvPErrorCode.REMATCH_NOT_AVAILABLE,
+                    "completion_pending",
+                )
+
+            acceptances = (
+                () if room.rematch_declined_by is not None else room.rematch_acceptances
+            ) + (participant.participant_id,)
+            if len(acceptances) == len(room.participants):
+                return self._start_rematch(record, room, now)
+            record.room = replace(
+                room,
+                rematch_acceptances=acceptances,
+                rematch_declined_by=None,
+                version=room.version + 1,
+                updated_at=now,
+            )
+            return record.room
+
+    def decline_rematch(
+        self,
+        invite_code: str,
+        reconnect_token: str,
+        *,
+        match_id: str,
+        expected_version: int,
+    ) -> PvPRoom:
+        """Decline the opponent's pending proposal without closing the completed room."""
+        now = self._now()
+        with self._store.locked_record(invite_code) as record:
+            room = record.room
+            participant = room.participant_by_token(reconnect_token)
+            self._require_rematch_room(room, match_id)
+            if room.rematch_declined_by == participant.participant_id:
+                return room
+            if expected_version != room.version:
+                raise PvPActionError(PvPErrorCode.STALE_VERSION)
+            if (
+                not room.rematch_acceptances
+                or participant.participant_id in room.rematch_acceptances
+            ):
+                raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
+            record.room = replace(
+                room,
+                rematch_acceptances=(),
+                rematch_declined_by=participant.participant_id,
+                version=room.version + 1,
+                updated_at=now,
+            )
+            return record.room
+
+    def cancel_rematch(
+        self,
+        invite_code: str,
+        reconnect_token: str,
+        *,
+        match_id: str,
+        expected_version: int,
+    ) -> PvPRoom:
+        """Withdraw the local pending consent without interpreting it as a decline."""
+        now = self._now()
+        with self._store.locked_record(invite_code) as record:
+            room = record.room
+            participant = room.participant_by_token(reconnect_token)
+            self._require_rematch_room(room, match_id)
+            if participant.participant_id not in room.rematch_acceptances:
+                return room
+            if expected_version != room.version:
+                raise PvPActionError(PvPErrorCode.STALE_VERSION)
+            record.room = replace(
+                room,
+                rematch_acceptances=tuple(
+                    value
+                    for value in room.rematch_acceptances
+                    if value != participant.participant_id
+                ),
+                rematch_declined_by=None,
                 version=room.version + 1,
                 updated_at=now,
             )
@@ -656,6 +789,50 @@ class PvPRoomService:
             logger.exception("PvP completion persistence failed for room %s", room.room_id)
             return
         record.room = replace(room, completion_results=completion_results)
+
+    def _require_rematch_room(self, room: PvPRoom, match_id: str) -> None:
+        if room.phase is PvPRoomPhase.CLOSED:
+            raise PvPActionError(PvPErrorCode.ROOM_CLOSED)
+        if (
+            room.phase is not PvPRoomPhase.COMPLETE
+            or room.state is None
+            or room.state.phase is not GamePhase.COMPLETE
+            or room.match_id != match_id
+        ):
+            raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
+
+    def _start_rematch(self, record: _RoomRecord, room: PvPRoom, now: datetime) -> PvPRoom:
+        state = self._game_factory()
+        if state.phase is not GamePhase.READY_FOR_BOUT:
+            raise ValueError("PvP game factory must return READY_FOR_BOUT")
+        initial_attacker = state.current_attacker
+        state = start_game_bout(state)
+        record.room = replace(
+            room,
+            phase=PvPRoomPhase.GAME_ACTIVE,
+            state=state,
+            last_bout=None,
+            game_started_at=now,
+            initial_attacker=initial_attacker,
+            action_summaries=(
+                PvPSeatActionSummary(Seat.ONE),
+                PvPSeatActionSummary(Seat.TWO),
+            ),
+            completion_results=(),
+            match_id=self._new_match_id(room.match_id),
+            rematch_acceptances=(),
+            rematch_declined_by=None,
+            version=room.version + 1,
+            updated_at=now,
+        )
+        return record.room
+
+    def _new_match_id(self, previous: str | None) -> str:
+        for _attempt in range(20):
+            value = self._token_factory(18)
+            if value and value != previous:
+                return value
+        raise RuntimeError("could not allocate a unique match identity")
 
     def _new_participant(
         self,

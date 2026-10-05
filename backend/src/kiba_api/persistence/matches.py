@@ -132,6 +132,8 @@ class MatchHistoryService:
             raise ValueError("only a completed authoritative PvP room can be recorded")
         if room.game_started_at is None or room.initial_attacker is None:
             raise ValueError("a recorded PvP game requires start metadata")
+        if room.match_id is None:
+            raise ValueError("a recorded PvP game requires a match identity")
 
         candidates = tuple(value for value in room.participants if value.user_id is not None)
         if not candidates:
@@ -160,8 +162,8 @@ class MatchHistoryService:
                     participant.participant_id,
                     CompletedMatch(
                         user_id=participant.user_id,
-                        game_session_id=f"pvp:{room.room_id}:{participant.seat.value}",
-                        pvp_match_id=room.room_id,
+                        game_session_id=f"pvp:{room.match_id}:{participant.seat.value}",
+                        pvp_match_id=room.match_id,
                         opponent_type=OpponentType.PVP.value,
                         opponent_user_id=opponent.user_id,
                         opponent_display_name=opponent.display_name,
@@ -184,7 +186,7 @@ class MatchHistoryService:
             )
 
         with self._database.session() as database_session:
-            existing = _pvp_records(database_session, room.room_id, authenticated)
+            existing = _pvp_records(database_session, room.match_id, authenticated)
             for participant_id, record in records:
                 if participant_id not in existing:
                     database_session.add(record)
@@ -192,7 +194,7 @@ class MatchHistoryService:
                 database_session.commit()
             except IntegrityError:
                 database_session.rollback()
-            persisted = _pvp_records(database_session, room.room_id, authenticated)
+            persisted = _pvp_records(database_session, room.match_id, authenticated)
             if len(persisted) != len(authenticated):
                 raise RuntimeError("PvP match persistence did not converge")
             return persisted

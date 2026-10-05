@@ -26,6 +26,7 @@ export class PvPWebSocketService {
   readonly status = signal<PvPConnectionStatus>('idle');
   readonly actionError = signal<PvPErrorBody | null>(null);
   readonly actionPending = signal(false);
+  readonly rematchPending = signal(false);
   readonly hints = signal<HintResponse | null>(null);
   readonly hintPending = signal(false);
   readonly opponentStatus = signal<PvPOpponentStatus>('unknown');
@@ -62,6 +63,7 @@ export class PvPWebSocketService {
     this.reconnectAttempts = 0;
     this.uncertainAction = false;
     this.actionPending.set(false);
+    this.rematchPending.set(false);
     this.clearHints();
     this.actionError.set(null);
     this.connectionNotice.set(null);
@@ -139,6 +141,22 @@ export class PvPWebSocketService {
     this.socket.send(JSON.stringify({ type: 'LEAVE' }));
   }
 
+  requestRematch(): void {
+    this.sendRematch('REMATCH_REQUEST');
+  }
+
+  acceptRematch(): void {
+    this.sendRematch('REMATCH_ACCEPT');
+  }
+
+  declineRematch(): void {
+    this.sendRematch('REMATCH_DECLINE');
+  }
+
+  cancelRematch(): void {
+    this.sendRematch('REMATCH_CANCEL');
+  }
+
   retry(): void {
     if (
       this.inviteCode === null ||
@@ -164,6 +182,7 @@ export class PvPWebSocketService {
     this.unbindLifecycleEvents();
     this.status.set('idle');
     this.actionPending.set(false);
+    this.rematchPending.set(false);
     this.clearHints();
     this.leavePending.set(false);
     this.uncertainAction = false;
@@ -196,6 +215,7 @@ export class PvPWebSocketService {
       this.clearHealthTimer();
       if (this.actionPending()) this.uncertainAction = true;
       this.actionPending.set(false);
+      this.rematchPending.set(false);
       this.leavePending.set(false);
       if (!this.reconnectEnabled) return;
       if (event.code === 4001) {
@@ -234,6 +254,7 @@ export class PvPWebSocketService {
         this.reconnectAttempts = 0;
         this.status.set('connected');
         this.actionPending.set(false);
+        this.rematchPending.set(false);
         this.leavePending.set(false);
         if (this.uncertainAction) {
           this.connectionNotice.set('action_recovered');
@@ -246,6 +267,13 @@ export class PvPWebSocketService {
       case 'ACTION_REJECTED':
         this.actionError.set(message.error);
         this.actionPending.set(false);
+        if (message.error.code === 'STALE_VERSION') {
+          this.connectionNotice.set('state_updated');
+        }
+        return;
+      case 'REMATCH_REJECTED':
+        this.actionError.set(message.error);
+        this.rematchPending.set(false);
         if (message.error.code === 'STALE_VERSION') {
           this.connectionNotice.set('state_updated');
         }
@@ -271,6 +299,7 @@ export class PvPWebSocketService {
         return;
       case 'ERROR':
         this.actionPending.set(false);
+        this.rematchPending.set(false);
         this.leavePending.set(false);
         if (TERMINAL_ROOM_ERRORS.has(message.error.code)) {
           this.stopForTerminalError(message.error);
@@ -294,6 +323,7 @@ export class PvPWebSocketService {
         this.clearHealthTimer();
         this.clearOpponentNoticeTimer();
         this.actionPending.set(false);
+        this.rematchPending.set(false);
         this.leavePending.set(false);
         this.opponentStatus.set('unknown');
         this.status.set('idle');
@@ -336,6 +366,24 @@ export class PvPWebSocketService {
     return true;
   }
 
+  private sendRematch(
+    type: 'REMATCH_REQUEST' | 'REMATCH_ACCEPT' | 'REMATCH_DECLINE' | 'REMATCH_CANCEL',
+  ): void {
+    const state = this.state();
+    if (
+      this.status() !== 'connected' ||
+      this.socket?.readyState !== WebSocket.OPEN ||
+      state?.room_phase !== 'COMPLETE' ||
+      state.match_id === null ||
+      this.rematchPending()
+    ) {
+      return;
+    }
+    this.rematchPending.set(true);
+    this.actionError.set(null);
+    this.socket.send(JSON.stringify({ type, version: state.version, match_id: state.match_id }));
+  }
+
   private scheduleReconnect(): void {
     if (!this.reconnectEnabled) return;
     if (navigator.onLine === false) {
@@ -367,6 +415,7 @@ export class PvPWebSocketService {
     if (!this.reconnectEnabled) return;
     if (this.actionPending()) this.uncertainAction = true;
     this.actionPending.set(false);
+    this.rematchPending.set(false);
     this.cancelReconnectTimer();
     this.stopSocket();
     this.status.set('offline');

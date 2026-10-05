@@ -12,6 +12,9 @@ account identity with completed-match history, statistics, XP, derived levels an
 persistent visual cosmetic rewards, plus a responsive playable Angular human-versus-bot table. The
 Alpha 2 also provides process-local private two-player rooms with invite links, an Angular lobby,
 authoritative WebSocket actions, and browser-session reconnect credentials.
+Completed private matches support a consensual rematch in the same room: both participants must
+agree, then the server creates a fresh independently identified 36-card match while preserving the
+invite, seats, identities, and reconnect credentials.
 Registration is never required to play. Completed authenticated bot and private-PvP matches persist
 history and progression; guest results remain unsaved, and guests always use the classic appearance.
 The single Angular application defaults new visitors to English and provides an instant `EN | RU`

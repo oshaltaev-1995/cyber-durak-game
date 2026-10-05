@@ -15,6 +15,12 @@
   } @else if (state(); as game) {
     <main id="main-content" class="game-board" tabindex="-1">
       <app-card-motion-overlay [motions]="cardMotion.motions()" />
+      @if (startingRematch()) {
+        <div class="rematch-starting" role="status" aria-live="polite">
+          <span aria-hidden="true">↻</span>
+          <strong>{{ i18n.t('pvp.rematchStarting') }}</strong>
+        </div>
+      }
       <div class="game-utilities">
         <span>{{ i18n.t('pvp.privateRoom', { code: game.invite_code }) }}</span>
         @if (game.room_phase !== 'CLOSED') {
@@ -211,7 +217,69 @@
                 {{ i18n.t('pvp.savePending') }}
               </p>
             }
-            <a class="room-again" routerLink="/pvp">{{ i18n.t('pvp.newRoom') }}</a>
+            <div class="rematch-actions">
+              <div class="rematch-primary">
+                @switch (game.rematch_status) {
+                  @case ('WAITING') {
+                    <p class="rematch-status" role="status">{{ i18n.t('pvp.rematchWaiting') }}</p>
+                    <button
+                      class="rematch-button secondary"
+                      type="button"
+                      [disabled]="socket.rematchPending()"
+                      (click)="cancelRematch()"
+                    >
+                      {{ i18n.t('pvp.rematchCancel') }}
+                    </button>
+                  }
+                  @case ('INCOMING') {
+                    <section class="rematch-incoming" aria-labelledby="rematch-incoming-title">
+                      <h3 id="rematch-incoming-title">{{ i18n.t('pvp.rematchIncomingTitle') }}</h3>
+                      <p>{{ i18n.t('pvp.rematchIncomingHint') }}</p>
+                      <div>
+                        <button
+                          class="rematch-button"
+                          type="button"
+                          [disabled]="socket.rematchPending()"
+                          (click)="acceptRematch()"
+                        >
+                          {{ i18n.t('pvp.rematchAccept') }}
+                        </button>
+                        <button
+                          class="rematch-button secondary"
+                          type="button"
+                          [disabled]="socket.rematchPending()"
+                          (click)="declineRematch()"
+                        >
+                          {{ i18n.t('pvp.rematchDecline') }}
+                        </button>
+                      </div>
+                    </section>
+                  }
+                  @case ('DECLINED') {
+                    <p class="rematch-status" role="status">{{ i18n.t('pvp.rematchDeclined') }}</p>
+                    <button
+                      class="rematch-button"
+                      type="button"
+                      [disabled]="socket.rematchPending()"
+                      (click)="requestRematch()"
+                    >
+                      {{ i18n.t('pvp.rematch') }}
+                    </button>
+                  }
+                  @default {
+                    <button
+                      class="rematch-button"
+                      type="button"
+                      [disabled]="socket.rematchPending()"
+                      (click)="requestRematch()"
+                    >
+                      {{ i18n.t('pvp.rematch') }}
+                    </button>
+                  }
+                }
+              </div>
+              <a class="room-again secondary" routerLink="/pvp">{{ i18n.t('pvp.newRoom') }}</a>
+            </div>
           </section>
         } @else {
           <div class="status-banner" aria-live="polite">

@@ -39,6 +39,7 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   STALE_VERSION: 'pvp.stale',
   RATE_LIMITED: 'pvp.rateLimited',
   GAME_COMPLETE: 'pvp.gameCompleteError',
+  REMATCH_NOT_AVAILABLE: 'pvp.rematchUnavailable',
   INVALID_CREDENTIAL: 'pvp.invalidCredential',
   illegal_initial_attack: 'error.illegal_initial_attack',
   illegal_defense: 'error.illegal_defense',
@@ -80,6 +81,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
   protected readonly copyStatus = signal<'idle' | 'copied' | 'failed'>('idle');
   protected readonly leaveConfirmation = signal(false);
+  protected readonly startingRematch = signal(false);
   protected readonly state = this.socket.state;
   protected readonly selectedCards = computed<readonly GameCard[]>(() => {
     const selected = this.selectedCodes();
@@ -96,6 +98,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     const state = this.state();
     return (
       state?.room_phase === 'CLOSED' ||
+      this.startingRematch() ||
       this.socket.roomClosure() !== null ||
       this.socket.status() !== 'connected' ||
       this.socket.opponentStatus() === 'disconnected' ||
@@ -120,13 +123,19 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   private previousState: PvPState | null = null;
   private submittedAction: HumanActionType | null = null;
   private submittedCards: readonly GameCard[] = [];
+  private rematchTransitionTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     effect(() => {
       const current = this.state();
       if (current !== null) {
         if (current.version > this.lastVersion && this.lastVersion >= 0) {
-          if (this.previousState !== null) this.presentTransition(this.previousState, current);
+          const startsRematch =
+            this.previousState?.game_phase === 'complete' &&
+            current.room_phase === 'GAME_ACTIVE' &&
+            current.match_id !== this.previousState.match_id;
+          if (startsRematch) this.presentRematchStart();
+          else if (this.previousState !== null) this.presentTransition(this.previousState, current);
           this.selectedCodes.set(new Set());
         } else {
           const ownedCodes = new Set(current.hand.map((card) => card.code));
@@ -174,6 +183,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.rematchTransitionTimer !== null) clearTimeout(this.rematchTransitionTimer);
     this.cardMotion.clear();
     this.socket.disconnect();
   }
@@ -372,15 +382,37 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
         });
   }
 
+  protected requestRematch(): void {
+    this.socket.requestRematch();
+  }
+
+  protected acceptRematch(): void {
+    this.socket.acceptRematch();
+  }
+
+  protected declineRematch(): void {
+    this.socket.declineRematch();
+  }
+
+  protected cancelRematch(): void {
+    this.socket.cancelRematch();
+  }
+
   protected leave(): void {
     this.leaveConfirmation.set(false);
-    if (this.state()?.game_phase === 'complete') {
-      this.credentials.clear(this.inviteCode);
-      this.socket.disconnect();
-      void this.router.navigate(['/pvp']);
-      return;
-    }
     this.socket.leaveRoom();
+  }
+
+  private presentRematchStart(): void {
+    this.cardMotion.clear();
+    this.submittedAction = null;
+    this.submittedCards = [];
+    if (this.rematchTransitionTimer !== null) clearTimeout(this.rematchTransitionTimer);
+    this.startingRematch.set(true);
+    this.rematchTransitionTimer = setTimeout(() => {
+      this.rematchTransitionTimer = null;
+      this.startingRematch.set(false);
+    }, 650);
   }
 
   private getStatusText(): string {

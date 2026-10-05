@@ -167,6 +167,84 @@
 .result-panel p {
   color: var(--text-muted);
 }
+.rematch-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(10rem, 0.65fr);
+  width: min(100%, 34rem);
+  margin: 1.25rem auto 0;
+  gap: 0.7rem;
+  align-items: end;
+}
+.rematch-primary,
+.rematch-incoming {
+  display: grid;
+  gap: 0.65rem;
+}
+.rematch-incoming {
+  padding: 0.85rem;
+  border: 1px solid rgb(73 229 190 / 32%);
+  border-radius: 0.85rem;
+  background: rgb(73 229 190 / 7%);
+}
+.rematch-incoming h3,
+.rematch-incoming p,
+.rematch-status {
+  margin: 0;
+}
+.rematch-incoming h3 {
+  font-size: 1rem;
+}
+.rematch-incoming > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.rematch-button {
+  min-height: 3rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.75rem;
+  color: #06241d;
+  background: var(--accent);
+  font-weight: 780;
+}
+.rematch-button.secondary,
+.room-again.secondary {
+  color: var(--text-strong);
+  border-color: var(--border);
+  background: rgb(255 255 255 / 6%);
+}
+.rematch-button:focus-visible,
+.room-again:focus-visible,
+.result-history-link:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+.rematch-button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+.rematch-starting {
+  position: absolute;
+  z-index: 8;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.6rem;
+  color: var(--text-strong);
+  background: rgb(2 16 14 / 84%);
+  backdrop-filter: blur(6px);
+}
+.rematch-starting span {
+  color: var(--accent);
+  font-size: 2rem;
+}
+.result-history-link {
+  min-height: 2.5rem;
+  display: inline-grid;
+  place-items: center;
+  padding-inline: 0.5rem;
+}
 .room-again {
   display: inline-grid;
   place-items: center;
@@ -200,5 +278,9 @@
   .connection-notice {
     right: 5.8rem;
     font-size: 0.7rem;
+  }
+  .rematch-actions,
+  .rematch-incoming > div {
+    grid-template-columns: 1fr;
   }
 }

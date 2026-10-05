@@ -99,6 +99,9 @@ Everything else depends on this.
 - participant-specific state that never exposes the opponent hand or future draw order
 - authenticated private-PvP results participate in the same history, statistics, XP, achievement,
   and cosmetic progression as bot results; guest PvP remains unsaved
+- after a normal completed match, either participant may request a rematch; a fresh match starts in
+  the same room only after both participants consent, while decline and explicit Exit preserve their
+  distinct non-gameplay meanings
 - Russian and English use the same routes, authoritative gameplay, and one frontend build
 
 Example flow:
@@ -109,8 +112,9 @@ The Alpha 2 private-room slice is deliberately process-local: it provides privat
 creation/join, a responsive Angular invite and game flow, guest or optional-account display
 identity, browser-session reconnect credentials, authoritative two-seat WebSocket action routing,
 and complete WIN/DRAW matches. Active rooms are lost on backend restart, while completed
-authenticated participant summaries and progression survive. Matchmaking, rating, chat, spectators,
-persistent active rooms, and distributed room infrastructure remain later work.
+authenticated participant summaries and progression survive. Each rematch completion is an
+independent history/progression event with its own match identity. Matchmaking, rating, chat,
+spectators, persistent active rooms, and distributed room infrastructure remain later work.
 
 ---
 

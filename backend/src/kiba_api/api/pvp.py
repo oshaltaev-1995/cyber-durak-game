@@ -22,6 +22,7 @@ from kiba_api.api.pvp_schemas import (
     WebSocketHintRequestMessage,
     WebSocketLeaveMessage,
     WebSocketPingMessage,
+    WebSocketRematchMessage,
 )
 from kiba_api.api.pvp_serialization import (
     serialize_pvp_state,
@@ -243,6 +244,67 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                     continue
                 await _broadcast_room_closed(room, hub, participant_id)
                 return
+            if message_type in {
+                "REMATCH_REQUEST",
+                "REMATCH_ACCEPT",
+                "REMATCH_DECLINE",
+                "REMATCH_CANCEL",
+            }:
+                try:
+                    message = WebSocketRematchMessage.model_validate(payload)
+                    try:
+                        websocket.app.state.pvp_action_rate_limiter.check(
+                            f"{invite_code}:{participant_id}"
+                        )
+                    except AuthError:
+                        await websocket.send_json(
+                            _error_message("REMATCH_REJECTED", PvPErrorCode.RATE_LIMITED)
+                        )
+                        continue
+                    if message.type in {"REMATCH_REQUEST", "REMATCH_ACCEPT"}:
+                        room = service.request_rematch(
+                            invite_code,
+                            reconnect_token,
+                            match_id=message.match_id,
+                            expected_version=message.version,
+                        )
+                    elif message.type == "REMATCH_DECLINE":
+                        room = service.decline_rematch(
+                            invite_code,
+                            reconnect_token,
+                            match_id=message.match_id,
+                            expected_version=message.version,
+                        )
+                    else:
+                        room = service.cancel_rematch(
+                            invite_code,
+                            reconnect_token,
+                            match_id=message.match_id,
+                            expected_version=message.version,
+                        )
+                except ValidationError:
+                    await websocket.send_json(
+                        _error_message(
+                            "REMATCH_REJECTED",
+                            PvPErrorCode.REMATCH_NOT_AVAILABLE,
+                            "invalid_request",
+                        )
+                    )
+                    continue
+                except PvPActionError as error:
+                    await websocket.send_json(
+                        _error_message("REMATCH_REJECTED", error.code, error.domain_code)
+                    )
+                    if error.code is PvPErrorCode.STALE_VERSION:
+                        latest = service.get_room(invite_code)
+                        latest_participant = latest.participant_by_id(participant_id)
+                        await _send_state(websocket, latest, latest_participant)
+                    continue
+                except PvPError as error:
+                    await websocket.send_json(_error_message("REMATCH_REJECTED", error.code))
+                    continue
+                await _broadcast_state(room, hub)
+                continue
             if message_type == "HINT_REQUEST":
                 message: WebSocketHintRequestMessage | None = None
                 try:
