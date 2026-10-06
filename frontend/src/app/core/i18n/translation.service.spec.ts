@@ -16,6 +16,8 @@ describe('runtime localization', () => {
 
   it('keeps RU and EN catalogues complete and parses the supported browser languages', () => {
     expect(Object.keys(en).sort()).toEqual(Object.keys(ru).sort());
+    expect(en['meta.default']).toBe('KIBA — Arithmetic Durak');
+    expect(ru['meta.default']).toBe('KIBA — Арифметический дурак');
     expect(parseLocale('ru-RU')).toBe('ru');
     expect(parseLocale('en-US')).toBe('en');
     expect(parseLocale('de-DE')).toBe('en');

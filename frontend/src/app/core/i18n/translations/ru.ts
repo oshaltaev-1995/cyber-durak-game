@@ -1,5 +1,5 @@
 export const ru = {
-  'meta.default': 'KIBA — Карточная игра',
+  'meta.default': 'KIBA — Арифметический дурак',
   'meta.rules': 'Правила — KIBA',
   'meta.tutorial': 'Обучение — KIBA',
   'meta.play': 'Играть — KIBA',

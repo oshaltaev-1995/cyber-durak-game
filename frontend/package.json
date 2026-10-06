@@ -7,6 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:social-meta": "node scripts/validate-social-metadata.mjs",
+    "test:social-meta:built": "node scripts/validate-social-metadata.mjs dist/frontend/browser/index.html dist/frontend/browser/assets/kiba-social-preview-v1.jpg",
     "lint": "ng lint",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

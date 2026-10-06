@@ -91,6 +91,20 @@ Rollback must never alter Kennel/Husky Compose files, networks, volumes, databas
 - Public listeners remain 22/tcp, 80/tcp, 443/tcp, and the pre-existing Amnezia UDP listener only.
 - Kennel Operations, Husky Tracking, Caddy, Amnezia, and Docker remain healthy.
 
+## Social-sharing verification
+
+The crawler-visible metadata is static in `frontend/src/index.html`; Angular route title updates are
+not its source of truth. The one canonical URL is `https://cyberdurak.com/`, including when nginx
+serves the SPA document for gameplay, account, or private-room routes, so those routes do not become
+separate canonical landing pages or expose room state in previews. Validate the source and the
+versioned 1200×630 JPEG with `npm run test:social-meta`, then inspect the built and live raw HTML
+with `npm run test:social-meta:built` and LinkedInBot, Twitterbot, facebookexternalhit, and
+TelegramBot user agents.
+
+After a preview revision is deployed, submit `https://cyberdurak.com/` to the
+[LinkedIn Post Inspector](https://www.linkedin.com/post-inspector/) to refresh LinkedIn's external
+cache. Authentication is an owner action; never enter owner credentials during deployment.
+
 ## Secrets and operational limits
 
 Production credentials stay server-local and out of Git. Do not print PostgreSQL or SMTP values.

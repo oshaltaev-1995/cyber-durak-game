@@ -1,7 +1,7 @@
 import { TranslationKey } from './ru';
 
 export const en: Record<TranslationKey, string> = {
-  'meta.default': 'KIBA — Card Game',
+  'meta.default': 'KIBA — Arithmetic Durak',
   'meta.rules': 'Rules — KIBA',
   'meta.tutorial': 'Tutorial — KIBA',
   'meta.play': 'Play — KIBA',
