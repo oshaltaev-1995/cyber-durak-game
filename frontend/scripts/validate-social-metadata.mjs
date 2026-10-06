@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const htmlPath = join(root, process.argv[2] ?? 'src/index.html');
-const imagePath = join(root, process.argv[3] ?? 'public/assets/kiba-social-preview-v1.jpg');
+const imagePath = join(root, process.argv[3] ?? 'public/assets/kiba-social-preview-v2.jpg');
 const html = readFileSync(htmlPath, 'utf8');
 const description =
   'A tactical card game inspired by Durak, with arithmetic combinations, transfers, advanced throw-ins and real-time PvP.';
@@ -20,8 +20,8 @@ const expectedMeta = new Map([
   ['og:title', 'KIBA — Arithmetic Durak'],
   ['og:description', description],
   ['og:url', 'https://cyberdurak.com/'],
-  ['og:image', 'https://cyberdurak.com/assets/kiba-social-preview-v1.jpg'],
-  ['og:image:secure_url', 'https://cyberdurak.com/assets/kiba-social-preview-v1.jpg'],
+  ['og:image', 'https://cyberdurak.com/assets/kiba-social-preview-v2.jpg'],
+  ['og:image:secure_url', 'https://cyberdurak.com/assets/kiba-social-preview-v2.jpg'],
   ['og:image:type', 'image/jpeg'],
   ['og:image:width', '1200'],
   ['og:image:height', '630'],
@@ -31,7 +31,7 @@ const expectedMeta = new Map([
   ['twitter:card', 'summary_large_image'],
   ['twitter:title', 'KIBA — Arithmetic Durak'],
   ['twitter:description', description],
-  ['twitter:image', 'https://cyberdurak.com/assets/kiba-social-preview-v1.jpg'],
+  ['twitter:image', 'https://cyberdurak.com/assets/kiba-social-preview-v2.jpg'],
   ['twitter:image:alt', 'KIBA arithmetic card game table'],
 ]);
 
@@ -40,23 +40,24 @@ if (titleMatches.length !== 1 || titleMatches[0][1] !== 'KIBA — Arithmetic Dur
   throw new Error('The exact document title must appear exactly once.');
 }
 
-const canonicalTags = linkTags.filter(
-  (tag) =>
-    readAttribute(tag, 'rel') === 'canonical' &&
-    readAttribute(tag, 'href') === 'https://cyberdurak.com/',
-);
-if (canonicalTags.length !== 1) {
-  throw new Error(`canonical must appear exactly once; found ${canonicalTags.length}`);
+const canonicalTags = linkTags.filter((tag) => readAttribute(tag, 'rel') === 'canonical');
+if (
+  canonicalTags.length !== 1 ||
+  readAttribute(canonicalTags[0], 'href') !== 'https://cyberdurak.com/'
+) {
+  throw new Error('The exact canonical URL must appear exactly once.');
 }
 
 for (const [key, content] of expectedMeta) {
   const attribute = key.startsWith('og:') ? 'property' : 'name';
-  const matches = metaTags.filter(
-    (tag) => readAttribute(tag, attribute) === key && readAttribute(tag, 'content') === content,
-  );
-  if (matches.length !== 1) {
-    throw new Error(`${key} must appear exactly once with exact content; found ${matches.length}`);
+  const matches = metaTags.filter((tag) => readAttribute(tag, attribute) === key);
+  if (matches.length !== 1 || readAttribute(matches[0], 'content') !== content) {
+    throw new Error(`${key} must appear exactly once with exact content.`);
   }
+}
+
+if (html.includes('kiba-social-preview-v1.jpg')) {
+  throw new Error('Initial HTML must not retain an active v1 social preview reference.');
 }
 
 const image = readFileSync(imagePath);
