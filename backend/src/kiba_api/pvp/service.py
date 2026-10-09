@@ -1,4 +1,4 @@
-"""Process-local authoritative orchestration for private two-seat rooms."""
+"""Process-local authoritative orchestration for private 2–4 seat rooms."""
 
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ from kiba_api.game import (
     GameState,
     Seat,
     create_new_game,
+    seats_for_player_count,
     start_game_bout,
 )
 from kiba_api.locale import Locale
@@ -70,6 +71,9 @@ class PvPErrorCode(StrEnum):
     RATE_LIMITED = "RATE_LIMITED"
     MESSAGE_TOO_LARGE = "MESSAGE_TOO_LARGE"
     REMATCH_NOT_AVAILABLE = "REMATCH_NOT_AVAILABLE"
+    FEATURE_NOT_AVAILABLE = "FEATURE_NOT_AVAILABLE"
+    INVALID_CAPACITY = "INVALID_CAPACITY"
+    PARTICIPANT_ALREADY_JOINED = "PARTICIPANT_ALREADY_JOINED"
 
 
 class PvPError(ValueError):
@@ -168,6 +172,7 @@ class PvPRoom:
     version: int
     created_at: datetime
     updated_at: datetime
+    capacity: int = 2
     match_id: str | None = None
     rematch_acceptances: tuple[str, ...] = ()
     rematch_declined_by: str | None = None
@@ -177,8 +182,15 @@ class PvPRoom:
             raise ValueError("room identifiers must not be empty")
         if not isinstance(self.phase, PvPRoomPhase):
             raise TypeError("phase must be a PvPRoomPhase")
-        if not isinstance(self.participants, tuple) or not 1 <= len(self.participants) <= 2:
-            raise ValueError("a private room requires one or two participants")
+        try:
+            seat_order = seats_for_player_count(self.capacity)
+        except (TypeError, ValueError) as error:
+            raise ValueError("room capacity must be between two and four") from error
+        if (
+            not isinstance(self.participants, tuple)
+            or not 1 <= len(self.participants) <= self.capacity
+        ):
+            raise ValueError("room participants must fit the configured capacity")
         if not all(isinstance(value, PvPParticipant) for value in self.participants):
             raise TypeError("participants must contain PvPParticipant values")
         if len({value.seat for value in self.participants}) != len(self.participants):
@@ -187,8 +199,13 @@ class PvPRoom:
             raise ValueError("room participant ids must be unique")
         if len({value.reconnect_token for value in self.participants}) != len(self.participants):
             raise ValueError("room reconnect credentials must be unique")
-        if self.participants[0].seat is not Seat.ONE:
-            raise ValueError("the room creator must occupy Seat.ONE")
+        if any(value.seat not in seat_order for value in self.participants):
+            raise ValueError("participant seats must fit the configured capacity")
+        expected_participant_order = tuple(
+            seat for seat in seat_order if any(value.seat is seat for value in self.participants)
+        )
+        if tuple(value.seat for value in self.participants) != expected_participant_order:
+            raise ValueError("participants must retain ascending canonical seat order")
         if isinstance(self.version, bool) or not isinstance(self.version, int) or self.version < 0:
             raise ValueError("room version must be a non-negative integer")
         if self.created_at.tzinfo is None or self.updated_at.tzinfo is None:
@@ -219,11 +236,15 @@ class PvPRoom:
             raise ValueError("completion results require a complete room")
 
         if self.phase is PvPRoomPhase.WAITING_FOR_OPPONENT:
-            if len(self.participants) != 1 or self.state is not None or self.match_id is not None:
-                raise ValueError("a waiting room must have one participant and no game")
+            if (
+                not 1 <= len(self.participants) < self.capacity
+                or self.state is not None
+                or self.match_id is not None
+            ):
+                raise ValueError("a waiting room must be below capacity and have no game")
         elif self.phase is PvPRoomPhase.GAME_ACTIVE:
-            if len(self.participants) != 2 or self.state is None:
-                raise ValueError("an active room must have two participants and one game")
+            if len(self.participants) != self.capacity or self.state is None:
+                raise ValueError("an active room must be full and have one game")
             if self.state.phase is not GamePhase.BOUT_ACTIVE:
                 raise ValueError("an active room must expose a started bout")
             if self.game_started_at is None or self.initial_attacker is None:
@@ -236,6 +257,10 @@ class PvPRoom:
             raise ValueError("a complete room requires a complete game")
         if self.phase is PvPRoomPhase.COMPLETE and self.match_id is None:
             raise ValueError("a complete room requires a match identity")
+        if self.phase in {PvPRoomPhase.GAME_ACTIVE, PvPRoomPhase.COMPLETE} and (
+            self.state is None or self.state.seat_order != seat_order
+        ):
+            raise ValueError("room capacity and authoritative game seats must match")
         if self.phase is not PvPRoomPhase.COMPLETE and (
             self.rematch_acceptances or self.rematch_declined_by is not None
         ):
@@ -385,6 +410,7 @@ class InMemoryPvPRoomStore:
 
 _Clock = Callable[[], datetime]
 _GameFactory = Callable[[], GameState]
+_MultiplayerGameFactory = Callable[[int], GameState]
 _TokenFactory = Callable[[int], str]
 _CompletionRecorder = Callable[[PvPRoom], tuple[PvPParticipantCompletion, ...]]
 
@@ -397,6 +423,7 @@ class PvPRoomService:
         *,
         store: InMemoryPvPRoomStore | None = None,
         game_factory: _GameFactory = create_new_game,
+        multiplayer_game_factory: _MultiplayerGameFactory | None = None,
         clock: _Clock = lambda: datetime.now(UTC),
         token_factory: _TokenFactory = secrets.token_urlsafe,
         ttl: RoomTTLPolicy | None = None,
@@ -404,6 +431,11 @@ class PvPRoomService:
     ) -> None:
         self._store = store or InMemoryPvPRoomStore()
         self._game_factory = game_factory
+        self._multiplayer_game_factory = (
+            multiplayer_game_factory
+            if multiplayer_game_factory is not None
+            else lambda player_count: create_new_game(player_count=player_count)
+        )
         self._clock = clock
         self._token_factory = token_factory
         self._ttl = ttl or RoomTTLPolicy()
@@ -413,10 +445,15 @@ class PvPRoomService:
         self,
         display_name: str,
         *,
+        capacity: int = 2,
         user_id: UUID | None = None,
         preferred_locale: Locale = Locale.RU,
     ) -> tuple[PvPRoom, PvPParticipant]:
         """Create a waiting room and assign its creator to Seat.ONE."""
+        try:
+            seats_for_player_count(capacity)
+        except (TypeError, ValueError) as error:
+            raise PvPError(PvPErrorCode.INVALID_CAPACITY) from error
         now = self._now()
         self._store.cleanup(now, self._ttl)
         invite_code = self._unique_invite_code()
@@ -435,6 +472,7 @@ class PvPRoomService:
             version=0,
             created_at=now,
             updated_at=now,
+            capacity=capacity,
             match_id=None,
         )
         self._store.create(room)
@@ -448,35 +486,55 @@ class PvPRoomService:
         user_id: UUID | None = None,
         preferred_locale: Locale = Locale.RU,
     ) -> tuple[PvPRoom, PvPParticipant]:
-        """Assign Seat.TWO and start the authoritative game exactly once."""
+        """Assign the lowest free seat and start exactly when capacity is reached."""
         now = self._now()
         self._store.cleanup(now, self._ttl, exclude=invite_code)
         with self._store.locked_record(invite_code) as record:
             self._raise_if_expired(record, now)
-            if len(record.room.participants) >= 2:
+            room = record.room
+            if (
+                room.phase is not PvPRoomPhase.WAITING_FOR_OPPONENT
+                or len(room.participants) >= room.capacity
+            ):
                 raise PvPError(PvPErrorCode.ROOM_FULL)
+            if user_id is not None and any(
+                value.user_id == user_id for value in room.participants if value.user_id is not None
+            ):
+                raise PvPError(PvPErrorCode.PARTICIPANT_ALREADY_JOINED)
+            occupied = {value.seat for value in room.participants}
+            seat = next(
+                value for value in seats_for_player_count(room.capacity) if value not in occupied
+            )
             participant = self._new_participant(
-                Seat.TWO,
+                seat,
                 display_name,
                 user_id,
                 preferred_locale,
             )
-            state = self._game_factory()
+            participants = _ordered_participants((*room.participants, participant))
+            if len(participants) < room.capacity:
+                record.room = replace(
+                    room,
+                    participants=participants,
+                    updated_at=now,
+                )
+                return record.room, participant
+
+            state = self._create_game(room.capacity)
             if state.phase is not GamePhase.READY_FOR_BOUT:
                 raise ValueError("PvP game factory must return READY_FOR_BOUT")
+            if state.seat_order != seats_for_player_count(room.capacity):
+                raise ValueError("PvP game factory returned the wrong player count")
             initial_attacker = state.current_attacker
             state = start_game_bout(state)
             record.room = replace(
-                record.room,
+                room,
                 phase=PvPRoomPhase.GAME_ACTIVE,
-                participants=record.room.participants + (participant,),
+                participants=participants,
                 state=state,
                 game_started_at=now,
                 initial_attacker=initial_attacker,
-                action_summaries=(
-                    PvPSeatActionSummary(Seat.ONE),
-                    PvPSeatActionSummary(Seat.TWO),
-                ),
+                action_summaries=tuple(PvPSeatActionSummary(value.seat) for value in participants),
                 match_id=self._new_match_id(None),
                 updated_at=now,
             )
@@ -546,7 +604,7 @@ class PvPRoomService:
         reconnect_token: str,
         connection_id: str,
     ) -> PvPRoom:
-        """Intentionally close a room without creating a competitive result."""
+        """Release a multiplayer lobby seat or neutrally close a started room."""
         now = self._now()
         with self._store.locked_record(invite_code) as record:
             self._raise_if_expired(record, now)
@@ -554,6 +612,22 @@ class PvPRoomService:
             participant = room.participant_by_token(reconnect_token)
             if participant.connection_id != connection_id:
                 raise PvPError(PvPErrorCode.INVALID_CREDENTIAL)
+            if (
+                room.phase is PvPRoomPhase.WAITING_FOR_OPPONENT
+                and room.capacity > 2
+                and len(room.participants) > 1
+            ):
+                record.room = replace(
+                    room,
+                    participants=tuple(
+                        value
+                        for value in room.participants
+                        if value.participant_id != participant.participant_id
+                    ),
+                    version=room.version + 1,
+                    updated_at=now,
+                )
+                return record.room
             disconnected = tuple(replace(value, connection_id=None) for value in room.participants)
             record.room = replace(
                 room,
@@ -754,6 +828,8 @@ class PvPRoomService:
         with self._store.locked_record(invite_code) as record:
             room = record.room
             participant = room.participant_by_token(reconnect_token)
+            if room.capacity != 2:
+                raise PvPActionError(PvPErrorCode.FEATURE_NOT_AVAILABLE, "multiplayer_hints")
             if room.phase is PvPRoomPhase.CLOSED:
                 raise PvPActionError(PvPErrorCode.ROOM_CLOSED)
             if room.state is None or room.phase is PvPRoomPhase.WAITING_FOR_OPPONENT:
@@ -779,6 +855,7 @@ class PvPRoomService:
         room = record.room
         if (
             room.phase is not PvPRoomPhase.COMPLETE
+            or room.capacity != 2
             or room.completion_results
             or self._completion_recorder is None
         ):
@@ -793,6 +870,8 @@ class PvPRoomService:
     def _require_rematch_room(self, room: PvPRoom, match_id: str) -> None:
         if room.phase is PvPRoomPhase.CLOSED:
             raise PvPActionError(PvPErrorCode.ROOM_CLOSED)
+        if room.capacity != 2:
+            raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
         if (
             room.phase is not PvPRoomPhase.COMPLETE
             or room.state is None
@@ -802,7 +881,7 @@ class PvPRoomService:
             raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
 
     def _start_rematch(self, record: _RoomRecord, room: PvPRoom, now: datetime) -> PvPRoom:
-        state = self._game_factory()
+        state = self._create_game(room.capacity)
         if state.phase is not GamePhase.READY_FOR_BOUT:
             raise ValueError("PvP game factory must return READY_FOR_BOUT")
         initial_attacker = state.current_attacker
@@ -814,9 +893,8 @@ class PvPRoomService:
             last_bout=None,
             game_started_at=now,
             initial_attacker=initial_attacker,
-            action_summaries=(
-                PvPSeatActionSummary(Seat.ONE),
-                PvPSeatActionSummary(Seat.TWO),
+            action_summaries=tuple(
+                PvPSeatActionSummary(participant.seat) for participant in room.participants
             ),
             completion_results=(),
             match_id=self._new_match_id(room.match_id),
@@ -826,6 +904,9 @@ class PvPRoomService:
             updated_at=now,
         )
         return record.room
+
+    def _create_game(self, capacity: int) -> GameState:
+        return self._game_factory() if capacity == 2 else self._multiplayer_game_factory(capacity)
 
     def _new_match_id(self, previous: str | None) -> str:
         for _attempt in range(20):
@@ -909,3 +990,10 @@ def _replace_action_summary(
     updated: PvPSeatActionSummary,
 ) -> tuple[PvPSeatActionSummary, ...]:
     return tuple(updated if item.seat is updated.seat else item for item in summaries)
+
+
+def _ordered_participants(
+    participants: tuple[PvPParticipant, ...],
+) -> tuple[PvPParticipant, ...]:
+    order = {seat: index for index, seat in enumerate(seats_for_player_count(4))}
+    return tuple(sorted(participants, key=lambda participant: order[participant.seat]))

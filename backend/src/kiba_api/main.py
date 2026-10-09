@@ -271,6 +271,10 @@ def create_app(
             PvPErrorCode.STALE_VERSION: 409,
             PvPErrorCode.RATE_LIMITED: 429,
             PvPErrorCode.MESSAGE_TOO_LARGE: 413,
+            PvPErrorCode.FEATURE_NOT_AVAILABLE: 409,
+            PvPErrorCode.INVALID_CAPACITY: 422,
+            PvPErrorCode.PARTICIPANT_ALREADY_JOINED: 409,
+            PvPErrorCode.REMATCH_NOT_AVAILABLE: 409,
         }
         return _error_response(status_codes[error.code], error.code.value)
 

@@ -105,14 +105,30 @@ def test_rest_create_join_status_and_room_full_are_explicit(client: TestClient) 
 
     assert creator["credential"]["seat"] == Seat.ONE.value
     assert joiner["credential"]["seat"] == Seat.TWO.value
+    assert creator["state"]["capacity"] == 2
+    assert creator["state"]["joined_count"] == 1
+    assert creator["state"]["seat_order"] == [Seat.ONE.value, Seat.TWO.value]
     assert creator["state"]["room_phase"] == "WAITING_FOR_OPPONENT"
     assert joiner["state"]["room_phase"] == "GAME_ACTIVE"
     assert joiner["state"]["max_attack_card_addition"] is not None
     assert status.status_code == 200
+    assert status.json()["capacity"] == 2
+    assert status.json()["joined_count"] == 2
     assert len(status.json()["participants"]) == 2
     assert "reconnect_token" not in status.text
     assert full.status_code == 409
     assert full.json() == {"detail": {"code": "ROOM_FULL"}}
+
+
+@pytest.mark.parametrize("capacity", [1, 5])
+def test_rest_rejects_invalid_room_capacity(client: TestClient, capacity: int) -> None:
+    response = client.post(
+        "/api/pvp/rooms",
+        json={"nickname": "Creator", "capacity": capacity},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "invalid_request"
 
 
 def test_waiting_creator_can_recover_state_ping_and_get_game_not_ready(client: TestClient) -> None:

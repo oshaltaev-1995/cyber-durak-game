@@ -183,8 +183,17 @@ def remember_resolved_bout(
             discarded_table = updated_state.discard_pile[len(previous_state.discard_pile) :]
             defense_cards = discarded_table[len(previous_bout.table_cards) :]
             if defense_cards:
-                return play_defense(previous_bout, previous_bout.defender, defense_cards)
+                return _finish_reconstructed_bout(
+                    play_defense(previous_bout, previous_bout.defender, defense_cards)
+                )
         if len(updated_state.discard_pile) > len(previous_state.discard_pile):
-            return finish_bout(previous_bout, previous_bout.attacker)
+            return _finish_reconstructed_bout(finish_bout(previous_bout, previous_bout.attacker))
         return take(previous_bout, previous_bout.defender)
     return current_last_bout
+
+
+def _finish_reconstructed_bout(bout: BoutState) -> BoutState:
+    """Mirror automatic unplayable-attacker passes in the retained public bout."""
+    while bout.phase is not BoutPhase.COMPLETE:
+        bout = finish_bout(bout, bout.attacker)
+    return bout

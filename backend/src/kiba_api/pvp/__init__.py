@@ -1,4 +1,4 @@
-"""Private two-participant room orchestration."""
+"""Private two-to-four-participant room orchestration."""
 
 from kiba_api.pvp.service import (
     InMemoryPvPRoomStore,

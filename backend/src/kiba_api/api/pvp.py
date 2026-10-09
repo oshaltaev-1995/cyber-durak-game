@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from kiba_api.api.auth import OptionalCurrentUser, is_trusted_origin
 from kiba_api.api.cards import CardCodeError, parse_card_codes
 from kiba_api.api.pvp_schemas import (
+    RoomCreateRequest,
     RoomIdentityRequest,
     RoomJoinResponse,
     RoomStatusResponse,
@@ -104,7 +105,7 @@ PvPHubDependency = Annotated[PvPConnectionHub, Depends(get_pvp_hub)]
 
 @router.post("", response_model=RoomJoinResponse, status_code=201, summary="Create a private room")
 async def create_room(
-    payload: RoomIdentityRequest,
+    payload: RoomCreateRequest,
     request: Request,
     service: PvPServiceDependency,
     user: OptionalCurrentUser,
@@ -113,6 +114,7 @@ async def create_room(
     display_name = user.display_name if user is not None else _guest_name(payload.nickname)
     room, participant = service.create_room(
         display_name,
+        capacity=payload.capacity,
         user_id=user.id if user is not None else None,
         preferred_locale=(
             parse_locale(user.preferred_locale)
@@ -136,7 +138,7 @@ async def join_room(
     hub: PvPHubDependency,
     user: OptionalCurrentUser,
 ) -> RoomJoinResponse:
-    """Assign Seat.TWO, initialize one game, and wake any connected creator."""
+    """Assign the lowest free seat and start the room when it reaches capacity."""
     display_name = user.display_name if user is not None else _guest_name(payload.nickname)
     room, participant = service.join_room(
         invite_code,
@@ -148,7 +150,13 @@ async def join_room(
             else parse_locale(request.headers.get("accept-language"))
         ),
     )
-    await _broadcast_event(room, hub, "OPPONENT_CONNECTED", exclude=participant.participant_id)
+    await _broadcast_event(
+        room,
+        hub,
+        "OPPONENT_CONNECTED",
+        exclude=participant.participant_id,
+        affected=participant,
+    )
     await _broadcast_state(room, hub)
     return serialize_room_join(room, participant)
 
@@ -207,6 +215,7 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
             hub,
             "OPPONENT_CONNECTED",
             exclude=participant_id,
+            affected=registration.participant,
         )
         await _broadcast_state(registration.room, hub, exclude=participant_id)
 
@@ -231,6 +240,7 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                     await websocket.send_json(_error_message("ERROR", PvPErrorCode.ROOM_NOT_FOUND))
                 continue
             if message_type == "LEAVE":
+                leaving_participant = registration.room.participant_by_id(participant_id)
                 try:
                     WebSocketLeaveMessage.model_validate(payload)
                     room = service.leave_room(invite_code, reconnect_token, connection_id)
@@ -242,7 +252,18 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                 except PvPError as error:
                     await websocket.send_json(_error_message("ERROR", error.code))
                     continue
-                await _broadcast_room_closed(room, hub, participant_id)
+                if room.phase is PvPRoomPhase.CLOSED:
+                    await _broadcast_room_closed(room, hub, participant_id)
+                else:
+                    await websocket.close(code=4000, reason="participant left room")
+                    await _broadcast_event(
+                        room,
+                        hub,
+                        "PARTICIPANT_LEFT",
+                        exclude=participant_id,
+                        affected=leaving_participant,
+                    )
+                    await _broadcast_state(room, hub, exclude=participant_id)
                 return
             if message_type in {
                 "REMATCH_REQUEST",
@@ -423,6 +444,7 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                         hub,
                         "OPPONENT_DISCONNECTED",
                         exclude=participant_id,
+                        affected=participant,
                     )
                     await _broadcast_state(room, hub, exclude=participant_id)
 
@@ -481,12 +503,21 @@ async def _broadcast_event(
     event_type: str,
     *,
     exclude: str | None = None,
+    affected: PvPParticipant | None = None,
 ) -> None:
     for participant_id, websocket in hub.connections(room.invite_code):
         if participant_id == exclude:
             continue
         try:
-            await websocket.send_json({"type": event_type, "version": room.version})
+            message = {"type": event_type, "version": room.version}
+            if affected is not None:
+                message.update(
+                    {
+                        "participant_id": affected.participant_id,
+                        "seat": affected.seat.value,
+                    }
+                )
+            await websocket.send_json(message)
         except (RuntimeError, WebSocketDisconnect):
             continue
 

@@ -1,4 +1,4 @@
-"""HTTP and WebSocket schemas for private two-participant rooms."""
+"""HTTP and WebSocket schemas for private 2–4 participant rooms."""
 
 from typing import Literal
 
@@ -23,12 +23,23 @@ class RoomIdentityRequest(_StrictModel):
     nickname: str | None = None
 
 
+class RoomCreateRequest(RoomIdentityRequest):
+    capacity: int = Field(default=2, ge=2, le=4)
+
+
 class ParticipantResponse(BaseModel):
     participant_id: str
     seat: str
     display_name: str
     connected: bool
     authenticated: bool
+
+
+class PlayerStateResponse(ParticipantResponse):
+    is_self: bool
+    hand_count: int | None
+    active: bool
+    finished: bool
 
 
 class ParticipantCredentialResponse(BaseModel):
@@ -49,6 +60,13 @@ class PvPStateResponse(BaseModel):
     match_id: str | None
     room_phase: str
     version: int
+    capacity: int
+    joined_count: int
+    seat_order: list[str]
+    players: list[PlayerStateResponse]
+    active_seats: list[str]
+    finished_seats: list[str]
+    finish_groups: list[list[str]]
     rematch_status: Literal["NONE", "WAITING", "INCOMING", "DECLINED"]
     you: ParticipantResponse
     opponent: ParticipantResponse | None
@@ -67,6 +85,7 @@ class PvPStateResponse(BaseModel):
     table_arithmetic: TableArithmeticResponse
     bout_starting_attacker: str | None
     attacker: str | None
+    lead_attacker: str | None
     defender: str | None
     bout_phase: str | None
     packets: list[PacketResponse]
@@ -93,6 +112,8 @@ class RoomStatusResponse(BaseModel):
     invite_code: str
     room_phase: str
     version: int
+    capacity: int
+    joined_count: int
     participants: list[ParticipantResponse]
 
 

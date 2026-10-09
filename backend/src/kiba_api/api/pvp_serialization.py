@@ -3,6 +3,7 @@
 from kiba_api.api.pvp_schemas import (
     ParticipantCredentialResponse,
     ParticipantResponse,
+    PlayerStateResponse,
     PvPResultResponse,
     PvPStateResponse,
     RoomJoinResponse,
@@ -22,6 +23,7 @@ from kiba_api.game import (
     GameOutcome,
     GamePhase,
     Seat,
+    seats_for_player_count,
     summarize_table_arithmetic,
 )
 from kiba_api.pvp import PvPParticipant, PvPRoom, PvPRoomPhase
@@ -48,21 +50,36 @@ def serialize_room_status(room: PvPRoom) -> RoomStatusResponse:
         invite_code=room.invite_code,
         room_phase=room.phase.value,
         version=room.version,
+        capacity=room.capacity,
+        joined_count=len(room.participants),
         participants=[_serialize_participant(value) for value in room.participants],
     )
 
 
 def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateResponse:
     """Serialize one room strictly from the requesting participant's perspective."""
-    opponent = next((value for value in room.participants if value.seat is not viewer.seat), None)
+    opponent = (
+        next((value for value in room.participants if value.seat is not viewer.seat), None)
+        if room.capacity == 2
+        else None
+    )
     state = room.state
     completion = room.completion_for(viewer.participant_id)
+    player_states = [_serialize_player(room, value, viewer) for value in room.participants]
+    seat_order = [seat.value for seat in seats_for_player_count(room.capacity)]
     if state is None:
         return PvPStateResponse(
             invite_code=room.invite_code,
             match_id=room.match_id,
             room_phase=room.phase.value,
             version=room.version,
+            capacity=room.capacity,
+            joined_count=len(room.participants),
+            seat_order=seat_order,
+            players=player_states,
+            active_seats=[],
+            finished_seats=[],
+            finish_groups=[],
             rematch_status=_rematch_status(room, viewer),
             you=_serialize_participant(viewer),
             opponent=_serialize_participant(opponent) if opponent else None,
@@ -85,6 +102,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             ),
             bout_starting_attacker=None,
             attacker=None,
+            lead_attacker=None,
             defender=None,
             bout_phase=None,
             packets=[],
@@ -123,6 +141,13 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
         match_id=room.match_id,
         room_phase=room.phase.value,
         version=room.version,
+        capacity=room.capacity,
+        joined_count=len(room.participants),
+        seat_order=seat_order,
+        players=player_states,
+        active_seats=[seat.value for seat in state.active_seats],
+        finished_seats=[seat.value for seat in state.finished_seats],
+        finish_groups=[[seat.value for seat in group] for group in state.finish_groups],
         rematch_status=_rematch_status(room, viewer),
         you=_serialize_participant(viewer),
         opponent=_serialize_participant(opponent) if opponent else None,
@@ -166,6 +191,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             state.bout_starting_attacker.value if state.bout_starting_attacker is not None else None
         ),
         attacker=bout.attacker.value if bout is not None else None,
+        lead_attacker=bout.lead_attacker.value if bout is not None else None,
         defender=bout.defender.value if bout is not None else None,
         bout_phase=bout_phase,
         packets=packets,
@@ -199,6 +225,21 @@ def _serialize_participant(participant: PvPParticipant) -> ParticipantResponse:
         display_name=participant.display_name,
         connected=participant.connected,
         authenticated=participant.user_id is not None,
+    )
+
+
+def _serialize_player(
+    room: PvPRoom,
+    participant: PvPParticipant,
+    viewer: PvPParticipant,
+) -> PlayerStateResponse:
+    state = room.state
+    return PlayerStateResponse(
+        **_serialize_participant(participant).model_dump(),
+        is_self=participant.participant_id == viewer.participant_id,
+        hand_count=len(state.hand(participant.seat)) if state is not None else None,
+        active=(state is not None and participant.seat in state.active_seats),
+        finished=(state is not None and participant.seat in state.finished_seats),
     )
 
 

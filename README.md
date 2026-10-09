@@ -151,11 +151,15 @@ WS   /api/pvp/rooms/{invite_code}/ws
 ```
 
 Guest create/join requests use `{"nickname":"Игрок"}`; an authenticated account instead supplies
-its saved display name. Create and join return an opaque participant reconnect credential. A client
+its saved display name. Backend-only integration clients may add `"capacity":3` or `"capacity":4`
+to room creation; omission remains the current two-player default used by Angular. Create and join
+return an opaque participant reconnect credential. A client
 opens the room WebSocket, sends that credential in an initial `AUTH` JSON message, then exchanges
 versioned `ACTION` messages and complete participant-specific `STATE` snapshots. Only the requesting
-participant's hand is sent; the opponent is a public name plus hand count, and future draw-pile order
-is never exposed. The development proxy supports both HTTP and WebSocket traffic on the same
+participant's hand is sent; every other player is represented by public identity/state and hand
+count only, and future draw-pile order is never exposed. See
+[`docs/PVP_PROTOCOL.md`](docs/PVP_PROTOCOL.md) for the additive 2–4-seat backend contract. The
+development proxy supports both HTTP and WebSocket traffic on the same
 `/api` origin, including the documented LAN frontend URL.
 
 The Angular room client stores its reconnect credential in `sessionStorage`, never in the invite

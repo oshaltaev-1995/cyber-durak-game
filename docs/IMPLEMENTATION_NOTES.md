@@ -1111,6 +1111,24 @@ legal addition. Executable traceability in `backend/tests/game/test_multiplayer.
 48 frozen M1 scenarios. M2 does not change room capacity, public API or WebSocket payloads,
 persistence, frontend behavior, or production activation.
 
+### 15.6 M3 generalized private-room transport
+
+The process-local PvP room now has immutable capacity `2`–`4`; omitted capacity still means two, so
+the existing Angular client needs no change. Joins claim the lowest available canonical seat and the
+room starts only when full. The generalized M2 `GameState` remains authoritative for roles and
+actions. The connection hub broadcasts to every connected participant, producing a separate
+hidden-information-safe projection for each seat. Additive snapshot fields expose ordered public
+players, active/finished seats, lead attacker, and canonical finish groups while retaining the
+legacy two-player fields and message names.
+
+Temporary disconnects retain participant identity and seat, including multiple simultaneous
+disconnects. A finished participant remains an observer of their own match. Pre-start multiplayer
+Exit releases a lobby seat when the room can continue waiting; after start it closes the room
+neutrally, never masquerading as canonical FINISH. Two-player rematch, hints, and persistence remain
+unchanged. Three-/four-player rematch and hints are explicitly unsupported, and their terminal
+finish groups are deliberately not written into the binary match-history schema. Details are in
+[`PVP_PROTOCOL.md`](PVP_PROTOCOL.md). Active rooms remain process-local and are not restart durable.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap
