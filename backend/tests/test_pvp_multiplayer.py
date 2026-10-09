@@ -20,6 +20,7 @@ from kiba_api.game import (
     Rank,
     Seat,
     Suit,
+    choose_bot_action,
     create_36_card_deck,
     create_new_game,
 )
@@ -667,6 +668,33 @@ def test_rest_and_websocket_flow_starts_at_capacity_and_broadcasts_private_state
                 assert {message["state"]["version"] for message in broadcasts} == {1}
                 assert len(broadcasts[actor_index]["state"]["hand"]) == 6
                 assert all(len(message["state"]["players"]) == capacity for message in broadcasts)
+
+                authoritative = service.get_room(payloads[0]["invite_code"])
+                assert authoritative.state is not None
+                responder_seat = acting_seat(authoritative.state)
+                assert responder_seat is not None
+                response = choose_bot_action(authoritative.state, responder_seat)
+                responder_index = next(
+                    index
+                    for index, payload in enumerate(payloads)
+                    if payload["credential"]["seat"] == responder_seat.value
+                )
+                sockets[responder_index].send_json(
+                    {
+                        "type": "ACTION",
+                        "version": authoritative.version,
+                        "action": response.action_type.name,
+                        "cards": [_card_code(value) for value in response.cards],
+                    }
+                )
+                response_broadcasts = [socket.receive_json() for socket in sockets]
+                assert all(message["type"] == "STATE" for message in response_broadcasts)
+                assert {message["state"]["version"] for message in response_broadcasts} == {2}
+                assert all(
+                    message["state"]["required_seat"]
+                    == response_broadcasts[0]["state"]["required_seat"]
+                    for message in response_broadcasts
+                )
     finally:
         database.dispose()
 
