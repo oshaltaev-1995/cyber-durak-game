@@ -375,13 +375,13 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
       if (localActor) {
         return this.i18n.t('game.youTook', {
           count: summary.table_card_count,
-          cards: this.i18n.cardCount(summary.table_card_count),
+          cards: this.i18n.takeCardCount(summary.table_card_count),
         });
       }
       return this.i18n.t('game.opponentTook', {
         name: actorName,
         count: summary.table_card_count,
-        cards: this.i18n.cardCount(summary.table_card_count),
+        cards: this.i18n.takeCardCount(summary.table_card_count),
       });
     }
     return localActor

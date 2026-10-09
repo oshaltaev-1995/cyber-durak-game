@@ -512,6 +512,14 @@ describe('PvPRoomPageComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Последний кон');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Bob взял(а) 5 карт');
+
+    socket.state.set(
+      makeState({
+        last_bout_summary: { outcome: 'TAKE', actor_seat: 'one', table_card_count: 1 },
+      }),
+    );
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Вы взяли 1 карту');
   });
 
   it('resumes the same room from the stored reconnect credential', () => {

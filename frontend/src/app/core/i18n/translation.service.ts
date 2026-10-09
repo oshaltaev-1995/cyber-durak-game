@@ -6,6 +6,19 @@ import { en } from './translations/en';
 import { ru, TranslationKey } from './translations/ru';
 
 type TranslationParams = Readonly<Record<string, string | number>>;
+type CardCountForm = 'one' | 'few' | 'many';
+
+const CARD_COUNT_KEYS: Readonly<Record<CardCountForm, TranslationKey>> = {
+  one: 'common.cards.one',
+  few: 'common.cards.few',
+  many: 'common.cards.many',
+};
+
+const TAKE_CARD_COUNT_KEYS: Readonly<Record<CardCountForm, TranslationKey>> = {
+  one: 'common.cards.take.one',
+  few: 'common.cards.take.few',
+  many: 'common.cards.take.many',
+};
 
 @Injectable({ providedIn: 'root' })
 export class TranslationService {
@@ -43,15 +56,22 @@ export class TranslationService {
   }
 
   cardCount(count: number): string {
-    if (this.selected() === 'en')
-      return this.t(count === 1 ? 'common.cards.one' : 'common.cards.many');
+    return this.t(CARD_COUNT_KEYS[this.cardCountForm(count)]);
+  }
+
+  takeCardCount(count: number): string {
+    return this.t(TAKE_CARD_COUNT_KEYS[this.cardCountForm(count)]);
+  }
+
+  private cardCountForm(count: number): CardCountForm {
+    if (this.selected() === 'en') return count === 1 ? 'one' : 'many';
     const mod10 = count % 10;
     const mod100 = count % 100;
-    if (mod10 === 1 && mod100 !== 11) return this.t('common.cards.one');
+    if (mod10 === 1 && mod100 !== 11) return 'one';
     if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-      return this.t('common.cards.few');
+      return 'few';
     }
-    return this.t('common.cards.many');
+    return 'many';
   }
 
   formatDate(value: string, options: Intl.DateTimeFormatOptions = { dateStyle: 'medium' }): string {

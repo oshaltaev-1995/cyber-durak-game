@@ -748,6 +748,14 @@ describe('GamePageComponent', () => {
 
     TestBed.inject(GameSessionState).game.set(
       makeGame({
+        last_bout_summary: { outcome: 'TAKE', actor_seat: 'one', table_card_count: 1 },
+      }),
+    );
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Вы взяли 1 карту');
+
+    TestBed.inject(GameSessionState).game.set(
+      makeGame({
         last_bout_summary: { outcome: 'BITO', actor_seat: 'one', table_card_count: 4 },
       }),
     );

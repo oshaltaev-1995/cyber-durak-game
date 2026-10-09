@@ -48,6 +48,40 @@ describe('runtime localization', () => {
     expect(document.documentElement.lang).toBe('en');
   });
 
+  it.each([
+    [1, 'карту'],
+    [2, 'карты'],
+    [4, 'карты'],
+    [5, 'карт'],
+    [11, 'карт'],
+    [14, 'карт'],
+    [21, 'карту'],
+    [22, 'карты'],
+    [25, 'карт'],
+  ])('renders the Russian TAKE message for %i with %s', (count, cards) => {
+    localStorage.setItem(KIBA_LOCALE_STORAGE_KEY, 'ru');
+    const service = TestBed.inject(TranslationService);
+
+    expect(service.t('game.youTook', { count, cards: service.takeCardCount(count) })).toBe(
+      `Вы взяли ${count} ${cards}`,
+    );
+  });
+
+  it('keeps nominative card labels and English TAKE wording unchanged', () => {
+    localStorage.setItem(KIBA_LOCALE_STORAGE_KEY, 'ru');
+    const service = TestBed.inject(TranslationService);
+
+    expect(service.cardCount(1)).toBe('карта');
+    expect(service.takeCardCount(1)).toBe('карту');
+    service.setLocale('en');
+    expect(service.t('game.youTook', { count: 1, cards: service.takeCardCount(1) })).toBe(
+      'You took 1 card',
+    );
+    expect(service.t('game.youTook', { count: 2, cards: service.takeCardCount(2) })).toBe(
+      'You took 2 cards',
+    );
+  });
+
   it('adds the active locale to API requests', () => {
     localStorage.setItem(KIBA_LOCALE_STORAGE_KEY, 'en');
     TestBed.configureTestingModule({

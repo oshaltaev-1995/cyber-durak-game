@@ -459,7 +459,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
           : 'game.opponentTook',
         {
           count: summary.table_card_count,
-          cards: this.i18n.cardCount(summary.table_card_count),
+          cards: this.i18n.takeCardCount(summary.table_card_count),
           name: actorName ?? '',
         },
       );
@@ -749,7 +749,10 @@ export class GamePageComponent implements OnInit, OnDestroy {
       return this.i18n.t(key[event.type], {
         name,
         count: event.card_count,
-        cards: this.i18n.cardCount(event.card_count),
+        cards:
+          event.type === 'BOT_TAKE'
+            ? this.i18n.takeCardCount(event.card_count)
+            : this.i18n.cardCount(event.card_count),
       });
     }
     switch (event.type) {
@@ -765,7 +768,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
         return event.card_count > 0
           ? this.i18n.t('game.botTakes', {
               count: event.card_count,
-              cards: this.i18n.cardCount(event.card_count),
+              cards: this.i18n.takeCardCount(event.card_count),
             })
           : this.i18n.t('game.botTakesCards');
       case 'BOT_BITO':
