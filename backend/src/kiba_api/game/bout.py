@@ -1,4 +1,4 @@
-"""Immutable two-participant orchestration for one Kiba bout."""
+"""Immutable 2–4 participant orchestration for one Kiba bout."""
 
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
@@ -13,15 +13,107 @@ from kiba_api.game.transfer import analyze_packet_transfer
 
 
 class Seat(StrEnum):
-    """One of the two participant positions supported by Alpha 1 bouts."""
+    """One stable position in the canonical clockwise seat ring."""
 
     ONE = "one"
     TWO = "two"
+    THREE = "three"
+    FOUR = "four"
 
     @property
     def other(self) -> "Seat":
-        """Return the only other seat in a two-participant bout."""
-        return Seat.TWO if self is Seat.ONE else Seat.ONE
+        """Return the legacy two-player opponent.
+
+        Multiplayer traversal must use :func:`next_active_clockwise`; this property remains only
+        for existing two-player application adapters and tests.
+        """
+        if self is Seat.ONE:
+            return Seat.TWO
+        if self is Seat.TWO:
+            return Seat.ONE
+        raise ValueError("other is defined only for the legacy two-player seats")
+
+
+SUPPORTED_SEATS = (Seat.ONE, Seat.TWO, Seat.THREE, Seat.FOUR)
+
+
+def seats_for_player_count(player_count: int) -> tuple[Seat, ...]:
+    """Return the fixed canonical ring for a supported player count."""
+    if isinstance(player_count, bool) or not isinstance(player_count, int):
+        raise TypeError("player_count must be an int")
+    if not 2 <= player_count <= 4:
+        raise ValueError("player_count must be between 2 and 4")
+    return SUPPORTED_SEATS[:player_count]
+
+
+def clockwise_after(seat_order: tuple[Seat, ...], seat: Seat) -> tuple[Seat, ...]:
+    """Return every other seated position clockwise, with stable wraparound."""
+    _validate_seat_order(seat_order)
+    if seat not in seat_order:
+        raise ValueError("seat must belong to seat_order")
+    start = seat_order.index(seat)
+    return tuple(
+        seat_order[(start + offset) % len(seat_order)] for offset in range(1, len(seat_order))
+    )
+
+
+def next_active_clockwise(
+    seat_order: tuple[Seat, ...],
+    active_seats: Iterable[Seat],
+    seat: Seat,
+) -> Seat:
+    """Return the next active seat clockwise, skipping finished positions."""
+    active = frozenset(active_seats)
+    if seat not in seat_order:
+        raise ValueError("seat must belong to seat_order")
+    if not active.issubset(seat_order):
+        raise ValueError("active seats must belong to seat_order")
+    for candidate in clockwise_after(seat_order, seat):
+        if candidate in active:
+            return candidate
+    raise ValueError("no other active seat exists")
+
+
+def _ordered_active_seats(
+    seat_order: tuple[Seat, ...], active_seats: Iterable[Seat]
+) -> tuple[Seat, ...]:
+    active = frozenset(active_seats)
+    if not active.issubset(seat_order):
+        raise ValueError("active seats must belong to seat_order")
+    return tuple(seat for seat in seat_order if seat in active)
+
+
+def _attacker_order(
+    seat_order: tuple[Seat, ...],
+    active_seats: tuple[Seat, ...],
+    lead_attacker: Seat,
+    defender: Seat,
+) -> tuple[Seat, ...]:
+    return (
+        lead_attacker,
+        *(
+            seat
+            for seat in clockwise_after(seat_order, lead_attacker)
+            if seat in active_seats and seat is not defender
+        ),
+    )
+
+
+def _refill_order(
+    seat_order: tuple[Seat, ...],
+    active_seats: tuple[Seat, ...],
+    bout_starter: Seat,
+    initial_defender: Seat,
+) -> tuple[Seat, ...]:
+    return (
+        bout_starter,
+        *(
+            seat
+            for seat in clockwise_after(seat_order, bout_starter)
+            if seat in active_seats and seat is not initial_defender
+        ),
+        initial_defender,
+    )
 
 
 class BoutPhase(StrEnum):
@@ -107,31 +199,154 @@ class AttackPacket:
         return self.defense_cards is not None
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class BoutState:
-    """A complete immutable snapshot of one two-participant bout."""
+    """A complete immutable snapshot of one 2–4 player bout."""
 
+    seat_order: tuple[Seat, ...]
+    active_seats: tuple[Seat, ...]
+    hand_counts: tuple[int, ...]
+    bout_starter: Seat
+    initial_defender: Seat
+    refill_order: tuple[Seat, ...]
+    lead_attacker: Seat
     attacker: Seat
     defender: Seat
-    seat_one_hand_count: int
-    seat_two_hand_count: int
+    attacker_order: tuple[Seat, ...]
+    closed_attackers: tuple[Seat, ...]
     trump_state: TrumpState
     phase: BoutPhase
     packets: tuple[AttackPacket, ...]
     transfer_open: bool
     attack_card_limit: int
     total_attack_card_count: int
-    outcome: BoutOutcome | None = None
-    next_attacker: Seat | None = None
-    taker: Seat | None = None
+    outcome: BoutOutcome | None
+    next_attacker: Seat | None
+    taker: Seat | None
+
+    def __init__(
+        self,
+        *,
+        attacker: Seat,
+        trump_state: TrumpState,
+        phase: BoutPhase,
+        packets: tuple[AttackPacket, ...],
+        transfer_open: bool,
+        attack_card_limit: int,
+        total_attack_card_count: int,
+        defender: Seat | None = None,
+        seat_one_hand_count: int | None = None,
+        seat_two_hand_count: int | None = None,
+        seat_order: tuple[Seat, ...] | None = None,
+        active_seats: tuple[Seat, ...] | None = None,
+        hand_counts: tuple[int, ...] | None = None,
+        bout_starter: Seat | None = None,
+        initial_defender: Seat | None = None,
+        refill_order: tuple[Seat, ...] | None = None,
+        lead_attacker: Seat | None = None,
+        attacker_order: tuple[Seat, ...] | None = None,
+        closed_attackers: tuple[Seat, ...] = (),
+        outcome: BoutOutcome | None = None,
+        next_attacker: Seat | None = None,
+        taker: Seat | None = None,
+    ) -> None:
+        if hand_counts is None:
+            if seat_one_hand_count is None or seat_two_hand_count is None:
+                raise TypeError("legacy construction requires both two-player hand counts")
+            seat_order = seats_for_player_count(2) if seat_order is None else seat_order
+            hand_counts = (seat_one_hand_count, seat_two_hand_count)
+        elif seat_one_hand_count is not None or seat_two_hand_count is not None:
+            raise TypeError("use hand_counts or legacy hand-count arguments, not both")
+
+        seat_order = seats_for_player_count(len(hand_counts)) if seat_order is None else seat_order
+        active_seats = seat_order if active_seats is None else active_seats
+        active_seats = _ordered_active_seats(seat_order, active_seats)
+        if defender is None:
+            defender = next_active_clockwise(seat_order, active_seats, attacker)
+        bout_starter = attacker if bout_starter is None else bout_starter
+        initial_defender = defender if initial_defender is None else initial_defender
+        lead_attacker = attacker if lead_attacker is None else lead_attacker
+        refill_order = (
+            _refill_order(seat_order, active_seats, bout_starter, initial_defender)
+            if refill_order is None
+            else refill_order
+        )
+        attacker_order = (
+            _attacker_order(seat_order, active_seats, lead_attacker, defender)
+            if attacker_order is None
+            else attacker_order
+        )
+
+        for name, value in (
+            ("seat_order", seat_order),
+            ("active_seats", active_seats),
+            ("hand_counts", hand_counts),
+            ("bout_starter", bout_starter),
+            ("initial_defender", initial_defender),
+            ("refill_order", refill_order),
+            ("lead_attacker", lead_attacker),
+            ("attacker", attacker),
+            ("defender", defender),
+            ("attacker_order", attacker_order),
+            ("closed_attackers", closed_attackers),
+            ("trump_state", trump_state),
+            ("phase", phase),
+            ("packets", packets),
+            ("transfer_open", transfer_open),
+            ("attack_card_limit", attack_card_limit),
+            ("total_attack_card_count", total_attack_card_count),
+            ("outcome", outcome),
+            ("next_attacker", next_attacker),
+            ("taker", taker),
+        ):
+            object.__setattr__(self, name, value)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
-        if not isinstance(self.attacker, Seat) or not isinstance(self.defender, Seat):
-            raise TypeError("attacker and defender must be Seat values")
-        if self.attacker is self.defender:
-            raise ValueError("attacker and defender must be different seats")
-        _validate_hand_count("seat_one_hand_count", self.seat_one_hand_count)
-        _validate_hand_count("seat_two_hand_count", self.seat_two_hand_count)
+        _validate_seat_order(self.seat_order)
+        if len(self.hand_counts) != len(self.seat_order):
+            raise ValueError("hand_counts must align with seat_order")
+        for count in self.hand_counts:
+            _validate_hand_count("hand_count", count)
+        if self.active_seats != _ordered_active_seats(self.seat_order, self.active_seats):
+            raise ValueError("active_seats must retain stable seat order")
+        if not 2 <= len(self.active_seats) <= len(self.seat_order):
+            raise ValueError("an active bout requires at least two active seats")
+
+        role_seats = (
+            self.bout_starter,
+            self.initial_defender,
+            self.lead_attacker,
+            self.attacker,
+            self.defender,
+        )
+        if not all(isinstance(seat, Seat) for seat in role_seats):
+            raise TypeError("bout roles must be Seat values")
+        if any(seat not in self.active_seats for seat in role_seats):
+            raise ValueError("bout roles must belong to active seats")
+        if self.lead_attacker is self.defender or self.attacker is self.defender:
+            raise ValueError("attacker roles and defender must be different seats")
+        expected_refill = _refill_order(
+            self.seat_order,
+            self.active_seats,
+            self.bout_starter,
+            self.initial_defender,
+        )
+        if self.refill_order != expected_refill:
+            raise ValueError("refill_order must be the immutable bout-start snapshot")
+        expected_attackers = _attacker_order(
+            self.seat_order,
+            self.active_seats,
+            self.lead_attacker,
+            self.defender,
+        )
+        if self.attacker_order != expected_attackers:
+            raise ValueError("attacker_order must follow the current lead and defender")
+        if len(set(self.closed_attackers)) != len(self.closed_attackers) or any(
+            seat not in self.attacker_order for seat in self.closed_attackers
+        ):
+            raise ValueError("closed_attackers must be unique members of attacker_order")
+
         if not isinstance(self.trump_state, TrumpState):
             raise TypeError("trump_state must be a TrumpState")
         if not isinstance(self.phase, BoutPhase):
@@ -158,6 +373,7 @@ class BoutState:
             raise ValueError("transfer cannot remain open after a successful defense")
 
         self._validate_packets()
+        self._validate_phase_roles()
         self._validate_terminal_metadata()
 
     @classmethod
@@ -165,25 +381,37 @@ class BoutState:
         cls,
         *,
         attacker: Seat,
-        seat_one_hand_count: int,
-        seat_two_hand_count: int,
         trump_state: TrumpState,
+        seat_one_hand_count: int | None = None,
+        seat_two_hand_count: int | None = None,
+        seat_order: tuple[Seat, ...] | None = None,
+        active_seats: tuple[Seat, ...] | None = None,
+        hand_counts: tuple[int, ...] | None = None,
     ) -> Self:
-        """Create an empty bout with a caller-selected initial attacker."""
-        if not isinstance(attacker, Seat):
-            raise TypeError("attacker must be a Seat")
-        _validate_hand_count("seat_one_hand_count", seat_one_hand_count)
-        _validate_hand_count("seat_two_hand_count", seat_two_hand_count)
-        if not isinstance(trump_state, TrumpState):
-            raise TypeError("trump_state must be a TrumpState")
-
-        defender = attacker.other
-        defender_count = seat_one_hand_count if defender is Seat.ONE else seat_two_hand_count
+        """Create an empty bout with fixed seats, roles, and refill order."""
+        if hand_counts is None:
+            if seat_one_hand_count is None or seat_two_hand_count is None:
+                raise TypeError("legacy construction requires both two-player hand counts")
+            hand_counts = (seat_one_hand_count, seat_two_hand_count)
+        elif seat_one_hand_count is not None or seat_two_hand_count is not None:
+            raise TypeError("use hand_counts or legacy hand-count arguments, not both")
+        seat_order = seats_for_player_count(len(hand_counts)) if seat_order is None else seat_order
+        active_seats = seat_order if active_seats is None else active_seats
+        active_seats = _ordered_active_seats(seat_order, active_seats)
+        defender = next_active_clockwise(seat_order, active_seats, attacker)
+        defender_count = hand_counts[seat_order.index(defender)]
         return cls(
+            seat_order=seat_order,
+            active_seats=active_seats,
+            hand_counts=hand_counts,
+            bout_starter=attacker,
+            initial_defender=defender,
+            refill_order=_refill_order(seat_order, active_seats, attacker, defender),
+            lead_attacker=attacker,
             attacker=attacker,
             defender=defender,
-            seat_one_hand_count=seat_one_hand_count,
-            seat_two_hand_count=seat_two_hand_count,
+            attacker_order=_attacker_order(seat_order, active_seats, attacker, defender),
+            closed_attackers=(),
             trump_state=trump_state,
             phase=BoutPhase.WAITING_FOR_INITIAL_ATTACK,
             packets=(),
@@ -192,11 +420,23 @@ class BoutState:
             total_attack_card_count=0,
         )
 
+    @property
+    def seat_one_hand_count(self) -> int:
+        """Legacy two-player view of Seat ONE's count."""
+        return self.hand_count(Seat.ONE)
+
+    @property
+    def seat_two_hand_count(self) -> int:
+        """Legacy two-player view of Seat TWO's count."""
+        return self.hand_count(Seat.TWO)
+
     def hand_count(self, seat: Seat) -> int:
-        """Return a seat's numeric remaining-card count."""
+        """Return a seated player's numeric remaining-card count."""
         if not isinstance(seat, Seat):
             raise TypeError("seat must be a Seat")
-        return self.seat_one_hand_count if seat is Seat.ONE else self.seat_two_hand_count
+        if seat not in self.seat_order:
+            raise ValueError("seat is not seated in this match")
+        return self.hand_counts[self.seat_order.index(seat)]
 
     @property
     def active_packet(self) -> AttackPacket | None:
@@ -247,11 +487,7 @@ class BoutState:
                 raise ValueError("packet attack value must match its effective card total")
             if (
                 packet.defense_cards is not None
-                and get_cards_value(
-                    packet.defense_cards,
-                    self.trump_state,
-                )
-                != packet.defense_value
+                and get_cards_value(packet.defense_cards, self.trump_state) != packet.defense_value
             ):
                 raise ValueError("packet defense value must match its effective card total")
             if packet.defense_cards is not None and not is_legal_defense(
@@ -278,6 +514,20 @@ class BoutState:
             if self.hand_count(self.defender) == 0:
                 raise ValueError("a zero-card defender must finish the bout as bito")
 
+    def _validate_phase_roles(self) -> None:
+        if self.phase is BoutPhase.WAITING_FOR_INITIAL_ATTACK:
+            if (
+                self.attacker is not self.bout_starter
+                or self.lead_attacker is not self.bout_starter
+            ):
+                raise ValueError("only the bout starter owns the initial attack")
+        elif self.phase is BoutPhase.WAITING_FOR_ATTACKER_DECISION:
+            remaining = tuple(
+                seat for seat in self.attacker_order if seat not in self.closed_attackers
+            )
+            if not remaining or self.attacker is not remaining[0]:
+                raise ValueError("current attacker must be the first open attacking phase")
+
     def _validate_terminal_metadata(self) -> None:
         if self.phase is not BoutPhase.COMPLETE:
             if any(value is not None for value in (self.outcome, self.next_attacker, self.taker)):
@@ -292,12 +542,13 @@ class BoutState:
             if not self.packets or self.active_packet is not None or self.taker is not None:
                 raise ValueError("bito requires a closed packet and no taker")
             if self.next_attacker is not self.defender:
-                raise ValueError("the defender must attack next after bito")
+                raise ValueError("the defender must lead next after bito")
         elif self.outcome is BoutOutcome.TAKE:
             if self.active_packet is None or self.taker is not self.defender:
                 raise ValueError("take requires the active defender as taker")
-            if self.next_attacker is not self.attacker:
-                raise ValueError("the attacker retains initiative after take")
+            expected = next_active_clockwise(self.seat_order, self.active_seats, self.defender)
+            if self.next_attacker is not expected:
+                raise ValueError("the next active seat after the defender must lead after take")
 
 
 def play_initial_attack(
@@ -305,7 +556,7 @@ def play_initial_attack(
     actor: Seat,
     cards: Iterable[Card],
 ) -> BoutState:
-    """Play the structurally valid first packet of a bout."""
+    """Play the lead attacker's atomic first packet of a bout."""
     _require_phase(state, BoutPhase.WAITING_FOR_INITIAL_ATTACK)
     _require_actor(actor, state.attacker)
     selected = tuple(cards)
@@ -318,10 +569,9 @@ def play_initial_attack(
         attack_cards=selected,
         attack_value=get_cards_value(selected, state.trump_state),
     )
-    return _spend_cards(
+    return replace(
         state,
-        actor,
-        len(selected),
+        hand_counts=_spend_hand_count(state, actor, len(selected)),
         packets=(packet,),
         phase=BoutPhase.WAITING_FOR_DEFENDER_RESPONSE,
         total_attack_card_count=len(selected),
@@ -333,7 +583,7 @@ def play_transfer(
     actor: Seat,
     cards: Iterable[Card],
 ) -> BoutState:
-    """Extend the unresolved packet and swap two-participant attack roles."""
+    """Extend the unresolved packet and move defense clockwise."""
     _require_not_complete(state)
     if not state.transfer_open:
         raise BoutActionError(BoutErrorCode.TRANSFER_CLOSED)
@@ -353,8 +603,8 @@ def play_transfer(
         raise BoutActionError(BoutErrorCode.ILLEGAL_TRANSFER)
 
     total_attack_card_count = state.total_attack_card_count + len(selected)
-    new_attacker = state.defender
-    new_defender = state.attacker
+    new_defender = next_active_clockwise(state.seat_order, state.active_seats, state.defender)
+    new_lead = actor if new_defender is state.lead_attacker else state.lead_attacker
     new_limit = state.hand_count(new_defender)
     if total_attack_card_count > new_limit:
         raise BoutActionError(BoutErrorCode.ATTACK_CARD_LIMIT_EXCEEDED)
@@ -364,13 +614,19 @@ def play_transfer(
         attack_cards=packet.attack_cards + selected,
         attack_value=analysis.next_target,
     )
-    return _spend_cards(
+    return replace(
         state,
-        actor,
-        len(selected),
+        hand_counts=_spend_hand_count(state, actor, len(selected)),
         packets=(*state.packets[:-1], extended_packet),
-        attacker=new_attacker,
+        lead_attacker=new_lead,
+        attacker=actor,
         defender=new_defender,
+        attacker_order=_attacker_order(
+            state.seat_order,
+            state.active_seats,
+            new_lead,
+            new_defender,
+        ),
         attack_card_limit=new_limit,
         total_attack_card_count=total_attack_card_count,
     )
@@ -381,7 +637,7 @@ def play_defense(
     actor: Seat,
     cards: Iterable[Card],
 ) -> BoutState:
-    """Close only the current active packet with a strictly higher total."""
+    """Close only the current packet with a strictly higher irredundant total."""
     _require_phase(state, BoutPhase.WAITING_FOR_DEFENDER_RESPONSE)
     _require_actor(actor, state.defender)
     selected = tuple(cards)
@@ -399,11 +655,25 @@ def play_defense(
         defense_value=analysis.selected_value,
     )
     defender_is_empty = state.hand_count(actor) == len(selected)
-    return _spend_cards(
+    first_successful_defense = state.transfer_open
+    phase_order = (
+        _attacker_order(
+            state.seat_order,
+            state.active_seats,
+            state.lead_attacker,
+            state.defender,
+        )
+        if first_successful_defense
+        else state.attacker_order
+    )
+    next_phase_attacker = phase_order[0] if first_successful_defense else state.attacker
+    return replace(
         state,
-        actor,
-        len(selected),
+        hand_counts=_spend_hand_count(state, actor, len(selected)),
         packets=(*state.packets[:-1], closed_packet),
+        attacker=(state.attacker if defender_is_empty else next_phase_attacker),
+        attacker_order=phase_order,
+        closed_attackers=(() if first_successful_defense else state.closed_attackers),
         phase=(
             BoutPhase.COMPLETE if defender_is_empty else BoutPhase.WAITING_FOR_ATTACKER_DECISION
         ),
@@ -418,7 +688,7 @@ def play_throw_in(
     actor: Seat,
     cards: Iterable[Card],
 ) -> BoutState:
-    """Create a new independent packet from a legal post-defense throw-in."""
+    """Create a new atomic post-defense packet in the current attacker's phase."""
     _require_phase(state, BoutPhase.WAITING_FOR_ATTACKER_DECISION)
     _require_actor(actor, state.attacker)
     selected = tuple(cards)
@@ -437,27 +707,36 @@ def play_throw_in(
         attack_cards=selected,
         attack_value=analysis.selected_value,
     )
-    return _spend_cards(
+    return replace(
         state,
-        actor,
-        len(selected),
+        hand_counts=_spend_hand_count(state, actor, len(selected)),
         packets=(*state.packets, packet),
         phase=BoutPhase.WAITING_FOR_DEFENDER_RESPONSE,
         total_attack_card_count=state.total_attack_card_count + len(selected),
     )
 
 
-def finish_bout(state: BoutState, actor: Seat) -> BoutState:
-    """Finish a fully covered bout as bito without starting the next bout."""
+def pass_attacker_phase(state: BoutState, actor: Seat) -> BoutState:
+    """Close one attacking phase, advancing once or completing ordinary bito."""
     _require_phase(state, BoutPhase.WAITING_FOR_ATTACKER_DECISION)
     _require_actor(actor, state.attacker)
+    closed = (*state.closed_attackers, actor)
+    remaining = tuple(seat for seat in state.attacker_order if seat not in closed)
+    if remaining:
+        return replace(state, attacker=remaining[0], closed_attackers=closed)
     return replace(
         state,
+        closed_attackers=closed,
         phase=BoutPhase.COMPLETE,
         transfer_open=False,
         outcome=BoutOutcome.BITO,
         next_attacker=state.defender,
     )
+
+
+def finish_bout(state: BoutState, actor: Seat) -> BoutState:
+    """Legacy name for passing the current non-cycling attacking phase."""
+    return pass_attacker_phase(state, actor)
 
 
 def take(state: BoutState, actor: Seat) -> BoutState:
@@ -469,22 +748,15 @@ def take(state: BoutState, actor: Seat) -> BoutState:
         phase=BoutPhase.COMPLETE,
         transfer_open=False,
         outcome=BoutOutcome.TAKE,
-        next_attacker=state.attacker,
+        next_attacker=next_active_clockwise(state.seat_order, state.active_seats, state.defender),
         taker=state.defender,
     )
 
 
-def _spend_cards(
-    state: BoutState,
-    actor: Seat,
-    card_count: int,
-    **changes: object,
-) -> BoutState:
-    if actor is Seat.ONE:
-        changes["seat_one_hand_count"] = state.seat_one_hand_count - card_count
-    else:
-        changes["seat_two_hand_count"] = state.seat_two_hand_count - card_count
-    return replace(state, **changes)
+def _spend_hand_count(state: BoutState, actor: Seat, card_count: int) -> tuple[int, ...]:
+    hand_counts = list(state.hand_counts)
+    hand_counts[state.seat_order.index(actor)] -= card_count
+    return tuple(hand_counts)
 
 
 def _require_not_complete(state: BoutState) -> None:
@@ -518,6 +790,13 @@ def _get_active_packet(state: BoutState) -> AttackPacket:
     if packet is None:
         raise BoutActionError(BoutErrorCode.WRONG_PHASE)
     return packet
+
+
+def _validate_seat_order(seat_order: tuple[Seat, ...]) -> None:
+    if not isinstance(seat_order, tuple) or not all(isinstance(seat, Seat) for seat in seat_order):
+        raise TypeError("seat_order must be a tuple of Seat values")
+    if seat_order != seats_for_player_count(len(seat_order)):
+        raise ValueError("seat_order must be the canonical stable ring for 2–4 players")
 
 
 def _validate_hand_count(name: str, value: int) -> None:

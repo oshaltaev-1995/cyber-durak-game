@@ -1095,6 +1095,22 @@ bout-start roles and never changes after transfer, preserving the existing two-p
 changes documentation only; the current engine, APIs, WebSocket protocol, private-room capacity,
 frontend, and production remain two-player until a separately authorized implementation phase.
 
+### 15.5 M2 generalized domain engine
+
+The immutable game domain stores two to four hands against a fixed clockwise `Seat` ring. Finished
+seats keep their identity and ordered finish-group history but are skipped by the shared active-seat
+traversal. Bout snapshots keep the original starter, initial defender, immutable bout-start refill
+order, mutable lead/defender roles, and a non-cycling attacker-phase order as separate facts. The
+insufficient-deck allocator balances all eligible hands and breaks ties with that immutable refill
+order.
+
+Legacy two-player hand/count properties and binary `WIN`/`DRAW` results remain compatibility views
+for the current bot, hints, REST, and PvP adapters. The existing two-player explicit BITO action is
+also retained, while three- and four-player domain turns automatically skip attacker phases with no
+legal addition. Executable traceability in `backend/tests/game/test_multiplayer.py` accounts for all
+48 frozen M1 scenarios. M2 does not change room capacity, public API or WebSocket payloads,
+persistence, frontend behavior, or production activation.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap
