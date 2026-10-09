@@ -29,6 +29,28 @@ describe('GameApiService', () => {
     request.flush(response);
   });
 
+  it('creates multiplayer games with the selected total while preserving the old two-player shape', () => {
+    service.createGame(4).subscribe();
+    const request = http.expectOne('/api/games');
+    expect(request.request.body).toEqual({ total_players: 4 });
+    request.flush(response);
+  });
+
+  it('reads the shared multiplayer capability', () => {
+    service
+      .getCapabilities()
+      .subscribe((value) => expect(value.multiplayer_3_4_enabled).toBe(true));
+    http.expectOne('/api/capabilities').flush({ multiplayer_3_4_enabled: true });
+  });
+
+  it('restarts a game in the same bot session', () => {
+    service.restartGame('game-1').subscribe((game) => expect(game).toBe(response));
+    const request = http.expectOne('/api/games/game-1/restart');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toBeNull();
+    request.flush(response);
+  });
+
   it('gets a game', () => {
     service.getGame('game-1').subscribe((game) => expect(game).toBe(response));
     const request = http.expectOne('/api/games/game-1');

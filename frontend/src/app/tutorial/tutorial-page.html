@@ -2,6 +2,24 @@
   @if (hasActiveGame) {
     <a class="back-to-game" routerLink="/play">← {{ i18n.t('nav.backToGame') }}</a>
   }
+  <nav class="tutorial-tracks" [attr.aria-label]="i18n.t('tutorial.chooseTrack')">
+    <button
+      type="button"
+      [class.active]="track() === 'core'"
+      [attr.aria-pressed]="track() === 'core'"
+      (click)="selectTrack('core')"
+    >
+      {{ i18n.t('tutorial.learnKiba') }}
+    </button>
+    <button
+      type="button"
+      [class.active]="track() === 'multiplayer'"
+      [attr.aria-pressed]="track() === 'multiplayer'"
+      (click)="selectTrack('multiplayer')"
+    >
+      {{ i18n.t('tutorial.multiplayer') }}
+    </button>
+  </nav>
   @if (complete()) {
     <section class="tutorial-complete" aria-labelledby="tutorial-complete-title">
       <span class="completion-mark" aria-hidden="true">✓</span>
@@ -48,6 +66,25 @@
         </div>
 
         <div class="lesson-example" [attr.aria-label]="i18n.t('tutorial.example')">
+          @if (current.seatDiagram) {
+            <div class="seat-diagram" [attr.aria-label]="i18n.t('tutorial.seatDiagramLabel')">
+              <div class="diagram-seat seat-b">
+                <strong>B</strong><span>{{ i18n.t('pvp.defender') }}</span>
+              </div>
+              <div class="diagram-seat seat-a">
+                <strong>A</strong><span>{{ i18n.t('pvp.currentAttacker') }}</span>
+              </div>
+              <div class="diagram-center">
+                <span>A → B</span><span>A {{ i18n.t('tutorial.passes') }} → C</span>
+              </div>
+              <div class="diagram-seat seat-c">
+                <strong>C</strong><span>{{ i18n.t('tutorial.waiting') }}</span>
+              </div>
+              <div class="diagram-seat seat-d">
+                <strong>D</strong><span>{{ i18n.t('tutorial.waiting') }}</span>
+              </div>
+            </div>
+          }
           @if (current.cards.length > 0) {
             <div class="tutorial-cards">
               @for (card of current.cards; track card.code) {

@@ -6,29 +6,89 @@
   [class.back-avalanche]="game()?.cosmetics?.card_back_code === 'AVALANCHE_BACK'"
   [class.table-night]="game()?.cosmetics?.table_theme_code === 'NIGHT_TABLE'"
   [class.table-mathematician]="game()?.cosmetics?.table_theme_code === 'MATHEMATICIAN_TABLE'"
+  [class.multiplayer]="isMultiplayer()"
 >
   @if (game() === null) {
     <main id="main-content" class="welcome" tabindex="-1">
-      <div class="welcome-copy" aria-live="polite">
-        <span class="loading-mark" aria-hidden="true">K</span>
-        <h1>{{ welcomeTitle() }}</h1>
-        <p>{{ welcomeDescription() }}</p>
-        @if (!pending()) {
-          <button class="play-button" type="button" (click)="retryInitialLoad()">
-            {{ welcomeActionLabel() }}
+      @if (showSetup()) {
+        <section class="bot-setup" aria-labelledby="bot-setup-title">
+          <span class="loading-mark" aria-hidden="true">K</span>
+          <p class="setup-eyebrow">{{ i18n.t('game.playVsBots') }}</p>
+          <h1 id="bot-setup-title">{{ i18n.t('game.playVsBots') }}</h1>
+          <p>{{ i18n.t('game.botModeIntro') }}</p>
+          <fieldset class="player-count-selector">
+            <legend>{{ i18n.t('pvp.players') }}</legend>
+            <div>
+              @for (count of playerCounts; track count) {
+                <label [class.selected]="selectedPlayers() === count">
+                  <input
+                    type="radio"
+                    name="botPlayerCount"
+                    [value]="count"
+                    [checked]="selectedPlayers() === count"
+                    (change)="selectPlayerCount(count)"
+                  />
+                  <span>{{ count }}</span>
+                </label>
+              }
+            </div>
+          </fieldset>
+          <p class="player-composition">
+            {{
+              i18n.t(
+                selectedPlayers() === 2
+                  ? 'game.playerCompositionOne'
+                  : 'game.playerCompositionMany',
+                {
+                  bots: selectedPlayers() - 1,
+                }
+              )
+            }}
+          </p>
+          @if (selectedPlayers() > 2) {
+            <p class="progression-note">{{ i18n.t('pvp.multiplayerNoProgress') }}</p>
+            <a
+              class="multiplayer-guide-link"
+              routerLink="/tutorial"
+              [queryParams]="{ track: 'multiplayer' }"
+              >{{ i18n.t('game.multiplayerGuideLink') }}</a
+            >
+          }
+          <button class="play-button" type="button" [disabled]="pending()" (click)="startNewGame()">
+            {{ i18n.t('game.play') }}
           </button>
-        }
-        @if (errorMessage(); as error) {
-          <div class="error-message" role="alert">{{ error }}</div>
-        }
-      </div>
+          @if (errorMessage(); as error) {
+            <div class="error-message" role="alert">{{ error }}</div>
+          }
+        </section>
+      } @else {
+        <div class="welcome-copy" aria-live="polite">
+          <span class="loading-mark" aria-hidden="true">K</span>
+          <h1>{{ welcomeTitle() }}</h1>
+          <p>{{ welcomeDescription() }}</p>
+          @if (!pending()) {
+            <button class="play-button" type="button" (click)="retryInitialLoad()">
+              {{ welcomeActionLabel() }}
+            </button>
+          }
+          @if (errorMessage(); as error) {
+            <div class="error-message" role="alert">{{ error }}</div>
+          }
+        </div>
+      }
     </main>
   } @else if (game(); as currentGame) {
     <main id="main-content" class="game-board" tabindex="-1">
       <app-card-motion-overlay [motions]="cardMotion.motions()" />
       <div class="game-utilities">
         <span>{{
-          i18n.t(currentGame.phase === 'complete' ? 'game.matchComplete' : 'game.vsBot')
+          i18n.t(
+            currentGame.phase === 'complete'
+              ? 'game.matchComplete'
+              : currentGame.total_players > 2
+                ? 'game.vsBots'
+                : 'game.vsBot'
+          )
         }}</span>
         <button
           #newGameTrigger
@@ -73,12 +133,33 @@
         <section class="result-panel" aria-live="polite">
           <span>{{ i18n.t('game.finished') }}</span>
           <h2>{{ resultTitle(currentGame) }}</h2>
+          @if (currentGame.total_players > 2 && placements().length > 0) {
+            <section class="finish-groups" [attr.aria-label]="i18n.t('pvp.finishOrder')">
+              <strong>{{ i18n.t('pvp.finishOrder') }}</strong>
+              <ol>
+                @for (placement of placements(); track placement.seat) {
+                  <li [class.local-placement]="placement.seat === currentGame.human_seat">
+                    <strong>{{ placeLabel(placement.rank) }}</strong>
+                    <span>{{ placement.participant?.display_name }}</span>
+                    @if (placement.participant?.is_bot) {
+                      <span
+                        class="result-bot-badge"
+                        [attr.aria-label]="i18n.t('game.botAccessible')"
+                        >🤖</span
+                      >
+                    }
+                  </li>
+                }
+              </ol>
+            </section>
+            <p class="result-history-note">{{ i18n.t('pvp.multiplayerNoProgress') }}</p>
+          }
           @if (lastBoutText(currentGame); as summary) {
             <p class="last-bout-result">
               <strong>{{ i18n.t('game.lastBout') }}:</strong> {{ summary }}
             </p>
           }
-          @if (currentGame.result_saved) {
+          @if (currentGame.total_players === 2 && currentGame.result_saved) {
             <p class="result-history-note">{{ i18n.t('game.saved') }}</p>
             @if (currentGame.progression_award; as award) {
               <section
@@ -145,7 +226,7 @@
                 i18n.t('profile.cosmetics')
               }}</a>
             </div>
-          } @else if (!currentGame.account_associated) {
+          } @else if (currentGame.total_players === 2 && !currentGame.account_associated) {
             @if (auth.currentUser()) {
               <p class="result-history-note">
                 {{ i18n.t('game.guestStarted') }}
@@ -155,10 +236,19 @@
             }
           }
           <div class="result-actions" [class.guest-actions]="!currentGame.account_associated">
-            <button type="button" [disabled]="pending()" (click)="startNewGame()">
+            <button type="button" [disabled]="pending()" (click)="playAgain()">
               {{ i18n.t('game.playAgain') }}
             </button>
-            @if (!currentGame.account_associated && !auth.currentUser()) {
+            @if (currentGame.total_players > 2) {
+              <button
+                type="button"
+                class="secondary"
+                [disabled]="pending()"
+                (click)="changePlayers()"
+              >
+                {{ i18n.t('game.changePlayers') }}
+              </button>
+            } @else if (!currentGame.account_associated && !auth.currentUser()) {
               <a class="result-register" routerLink="/register">{{
                 i18n.t('game.createAccount')
               }}</a>
@@ -172,7 +262,9 @@
           }
           <span class="status-dot" aria-hidden="true"></span>
           <span class="status-copy">
-            <strong>{{ statusText() }}</strong>
+            <strong>{{
+              localFinishedWatching() ? i18n.t('pvp.youFinishedWatching') : statusText()
+            }}</strong>
             <small>
               {{
                 i18n.t('game.attackLimit', {
@@ -201,25 +293,28 @@
         [cards]="currentGame.human_hand"
         [selectedCodes]="selectedCodes()"
         [suggestedCodes]="suggestedCodes()"
-        [disabled]="pending() || currentGame.phase === 'complete'"
+        [disabled]="pending() || currentGame.phase === 'complete' || localFinishedWatching()"
         (cardSelected)="toggleCard($event)"
       />
 
-      @if (currentGame.phase !== 'complete') {
+      @if (currentGame.phase !== 'complete' && !localFinishedWatching()) {
         <div class="action-dock">
-          <app-hint-panel
-            [enabled]="hintPreference.enabled()"
-            [loading]="hintsLoading()"
-            [cards]="currentGame.human_hand"
-            [combinations]="hints()?.combinations ?? []"
-            (enabledChange)="setHintsEnabled($event)"
-          />
+          @if (currentGame.total_players === 2) {
+            <app-hint-panel
+              [enabled]="hintPreference.enabled()"
+              [loading]="hintsLoading()"
+              [cards]="currentGame.human_hand"
+              [combinations]="hints()?.combinations ?? []"
+              (enabledChange)="setHintsEnabled($event)"
+            />
+          }
           <app-action-bar
             [actions]="currentGame.available_actions"
             [selectedCards]="selectedCards()"
             [activeAttackValue]="currentGame.active_attack_value"
             [maxAttackCardAddition]="currentGame.max_attack_card_addition"
             [pending]="pending()"
+            [bitoMeansPass]="currentGame.total_players > 2"
             (actionSelected)="submitAction($event)"
           />
         </div>
@@ -243,7 +338,30 @@
           <button #restartCancel type="button" class="cancel" (click)="cancelNewGame()">
             {{ i18n.t('common.cancel') }}
           </button>
-          <button type="button" (click)="startNewGame()">{{ i18n.t('game.start') }}</button>
+          <button type="button" (click)="confirmNewGame()">{{ i18n.t('game.start') }}</button>
+        </section>
+      </div>
+    }
+    @if (onboardingVisible()) {
+      <div class="restart-backdrop onboarding-backdrop">
+        <section
+          class="multiplayer-onboarding"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="multiplayer-onboarding-title"
+        >
+          <span aria-hidden="true">↻</span>
+          <h2 id="multiplayer-onboarding-title">{{ i18n.t('game.multiplayerOnboardingTitle') }}</h2>
+          <p>{{ i18n.t('game.multiplayerOnboardingText') }}</p>
+          <div>
+            <a
+              routerLink="/tutorial"
+              [queryParams]="{ track: 'multiplayer' }"
+              (click)="dismissOnboarding()"
+              >{{ i18n.t('game.multiplayerGuide') }}</a
+            >
+            <button type="button" (click)="dismissOnboarding()">{{ i18n.t('game.gotIt') }}</button>
+          </div>
         </section>
       </div>
     }

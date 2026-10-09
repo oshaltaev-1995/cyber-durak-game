@@ -32,6 +32,7 @@ export interface TutorialLesson {
   readonly note: string | null;
   readonly exercise: TutorialExercise | null;
   readonly practical?: TutorialPractical;
+  readonly seatDiagram?: boolean;
 }
 
 const card = (
@@ -554,4 +555,141 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
     note: 'The result is checked only after bout resolution, table movement and refill.',
     exercise: null,
   },
+];
+
+const multiplayerLesson = (
+  id: string,
+  title: string,
+  lead: string,
+  points: readonly string[],
+  note: string | null = null,
+  seatDiagram = false,
+): TutorialLesson => ({
+  id,
+  title,
+  lead,
+  points,
+  cards: [],
+  cardCaption: null,
+  equations: [],
+  note,
+  exercise: null,
+  seatDiagram,
+});
+
+export const MULTIPLAYER_LESSONS_EN: readonly TutorialLesson[] = [
+  multiplayerLesson(
+    'multiplayer-clockwise',
+    'Around the table',
+    'Players keep fixed seats and play moves clockwise through active players.',
+    [
+      'Finished players stay visible but are skipped.',
+      'Against bots, every named 🤖 opponent follows the same KIBA rules as you.',
+    ],
+    'A attacks B. B is the single defender; C and D wait for their attacking phases.',
+    true,
+  ),
+  multiplayerLesson(
+    'multiplayer-defender',
+    'One defender',
+    'Each bout always has one current defender.',
+    [
+      'The lead attacker starts against the next active player clockwise.',
+      'Transfers can move the defender role without rotating anyone’s seat.',
+    ],
+  ),
+  multiplayerLesson(
+    'multiplayer-phases',
+    'Attacker phases and Pass',
+    'Attackers act one at a time in clockwise order — never simultaneously.',
+    [
+      'The current attacker may continue after successful defenses during their phase.',
+      'Pass ends your attacking phase permanently for this bout, even if a later table change would make another card legal.',
+    ],
+  ),
+  multiplayerLesson(
+    'multiplayer-transfer',
+    'Transfer moves the roles',
+    'Before a successful defense, a legal transfer sends the attack to the next active player clockwise.',
+    [
+      'The previous defender becomes an attacker.',
+      'The new defender responds to the whole active attack.',
+    ],
+  ),
+  multiplayerLesson(
+    'multiplayer-limit',
+    'One shared attack limit',
+    'All attackers share the current defender’s attack-card limit.',
+    [
+      'Each attacker does not receive a separate limit.',
+      'The table always shows the shared total and how many cards may still be added.',
+    ],
+  ),
+  multiplayerLesson(
+    'multiplayer-finishing',
+    'Finish order',
+    'A player can finish before the match ends and watch the remaining players continue.',
+    [
+      'The active table may reduce 4 → 3 → 2.',
+      'Players who finish together share a place, so the final group may have no unique loser.',
+    ],
+    'In 3–4 player matches, placements come from the authoritative finish groups.',
+  ),
+];
+
+export const MULTIPLAYER_LESSONS_RU: readonly TutorialLesson[] = [
+  multiplayerLesson(
+    'multiplayer-clockwise',
+    'Игроки за столом',
+    'Места игроков не меняются, а ход переходит по часовой стрелке между активными участниками.',
+    [
+      'Финишировавшие остаются видны, но пропускаются.',
+      'В игре с ботами каждый именной соперник 🤖 следует тем же правилам KIBA, что и вы.',
+    ],
+    'A атакует B. B — единственный защитник; C и D ждут своих фаз атаки.',
+    true,
+  ),
+  multiplayerLesson(
+    'multiplayer-defender',
+    'Один защитник',
+    'В каждом коне всегда есть один текущий защитник.',
+    [
+      'Ведущий атакующий начинает против следующего активного игрока по часовой стрелке.',
+      'Перевод перемещает роль защитника, но не поворачивает места за столом.',
+    ],
+  ),
+  multiplayerLesson(
+    'multiplayer-phases',
+    'Фазы атаки и Пас',
+    'Атакующие действуют по очереди по часовой стрелке, а не одновременно.',
+    [
+      'Текущий атакующий может продолжать после успешной защиты в своей фазе.',
+      'Пас окончательно завершает вашу фазу атаки в этом коне, даже если позднее изменение стола снова сделает карту допустимой.',
+    ],
+  ),
+  multiplayerLesson(
+    'multiplayer-transfer',
+    'Перевод меняет роли',
+    'До успешной защиты допустимый перевод передаёт атаку следующему активному игроку по часовой стрелке.',
+    ['Прежний защитник становится атакующим.', 'Новый защитник отвечает на всю активную атаку.'],
+  ),
+  multiplayerLesson(
+    'multiplayer-limit',
+    'Один общий лимит',
+    'Все атакующие делят общий лимит карт текущего защитника.',
+    [
+      'У каждого атакующего нет отдельного лимита.',
+      'На столе всегда показаны общий итог и число карт, которые ещё можно добавить.',
+    ],
+  ),
+  multiplayerLesson(
+    'multiplayer-finishing',
+    'Порядок финиша',
+    'Игрок может финишировать раньше конца матча и наблюдать, как остальные продолжают.',
+    [
+      'Активный стол может сокращаться 4 → 3 → 2.',
+      'Одновременно финишировавшие делят место, поэтому в последней группе может не быть единственного проигравшего.',
+    ],
+    'В матчах на 3–4 игроков места определяются серверными группами финиша.',
+  ),
 ];

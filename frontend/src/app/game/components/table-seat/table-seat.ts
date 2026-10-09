@@ -40,6 +40,7 @@ export class TableSeatComponent {
     const seat = this.seat();
     return [
       this.i18n.t('game.hiddenHandLabel', { name: seat.displayName, count: seat.cardCount }),
+      ...(seat.isBot ? [this.i18n.t('game.botAccessible')] : []),
       ...this.roleLabels(),
     ].join('. ');
   });

@@ -28,6 +28,11 @@ export interface MotionContext {
   readonly remoteCardCount?: number;
   readonly remotePlayedCards?: readonly GameCard[];
   readonly remoteFrom?: RemoteTableSeatPosition;
+  readonly remotePlays?: readonly {
+    readonly from: RemoteTableSeatPosition;
+    readonly count: number;
+    readonly cards: readonly GameCard[];
+  }[];
   readonly resolvedTo?: TableSeatPosition | 'discard';
 }
 
@@ -69,9 +74,18 @@ export function planCardMotions(
   }
 
   const remoteCards = context.remotePlayedCards ?? [];
-  const remoteCount = Math.max(context.remoteCardCount ?? remoteCards.length, remoteCards.length);
-  for (let index = 0; index < remoteCount; index += 1) {
-    push(context.remoteFrom ?? 'top', 'table', remoteCards[index] ?? null, true, false, 0, index);
+  const remoteBatches = context.remotePlays ?? [
+    {
+      from: context.remoteFrom ?? 'top',
+      count: Math.max(context.remoteCardCount ?? remoteCards.length, remoteCards.length),
+      cards: remoteCards,
+    },
+  ];
+  let remoteIndex = 0;
+  for (const batch of remoteBatches) {
+    for (let index = 0; index < batch.count; index += 1) {
+      push(batch.from, 'table', batch.cards[index] ?? null, true, false, 0, remoteIndex++);
+    }
   }
 
   if (previous.tableCards.length > 0 && context.resolvedTo) {

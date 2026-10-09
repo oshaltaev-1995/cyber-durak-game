@@ -8,6 +8,7 @@ import {
   HintResponse,
   HumanActionRequest,
   HumanActionType,
+  KibaCapabilities,
 } from './game-api.models';
 
 @Injectable({ providedIn: 'root' })
@@ -15,12 +16,23 @@ export class GameApiService {
   private readonly http = inject(HttpClient);
   private readonly gamesUrl = '/api/games';
 
-  createGame(): Observable<GameResponse> {
-    return this.http.post<GameResponse>(this.gamesUrl, null);
+  getCapabilities(): Observable<KibaCapabilities> {
+    return this.http.get<KibaCapabilities>('/api/capabilities');
+  }
+
+  createGame(totalPlayers: 2 | 3 | 4 = 2): Observable<GameResponse> {
+    return this.http.post<GameResponse>(
+      this.gamesUrl,
+      totalPlayers === 2 ? null : { total_players: totalPlayers },
+    );
   }
 
   getGame(gameId: string): Observable<GameResponse> {
     return this.http.get<GameResponse>(`${this.gamesUrl}/${gameId}`);
+  }
+
+  restartGame(gameId: string): Observable<GameResponse> {
+    return this.http.post<GameResponse>(`${this.gamesUrl}/${gameId}/restart`, null);
   }
 
   getHints(gameId: string, selectedCardIds: readonly string[]): Observable<HintResponse> {

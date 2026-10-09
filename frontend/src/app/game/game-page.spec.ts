@@ -45,6 +45,30 @@ const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
   result: null,
   human_seat: 'one',
   bot_seat: 'two',
+  total_players: 2,
+  participants: [
+    {
+      participant_id: 'human',
+      seat: 'one',
+      display_name: 'Player',
+      is_bot: false,
+      active: true,
+      finished: false,
+      hand_count: 3,
+    },
+    {
+      participant_id: 'bot',
+      seat: 'two',
+      display_name: 'БОТ',
+      is_bot: true,
+      active: true,
+      finished: false,
+      hand_count: 6,
+    },
+  ],
+  active_seats: ['one', 'two'],
+  finished_seats: [],
+  finish_groups: [],
   human_hand: [sixClubs, queenDiamonds, sevenHearts],
   bot_hand_count: 6,
   draw_pile_count: 21,
@@ -64,6 +88,7 @@ const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
   },
   bout_starting_attacker: 'one',
   attacker: 'one',
+  lead_attacker: 'one',
   defender: 'two',
   bout_phase: 'waiting_for_initial_attack',
   packets: [],
@@ -80,9 +105,36 @@ const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
   ...overrides,
 });
 
+const makeMultiplayerGame = (
+  totalPlayers: 3 | 4,
+  overrides: Partial<GameResponse> = {},
+): GameResponse => {
+  const seats = ['one', 'two', 'three', 'four'] as const;
+  const names = ['You', 'Milo', 'Nika', 'Otto'];
+  return makeGame({
+    total_players: totalPlayers,
+    participants: seats.slice(0, totalPlayers).map((seat, index) => ({
+      participant_id: index === 0 ? 'human' : `bot-${index}`,
+      seat,
+      display_name: names[index],
+      is_bot: index > 0,
+      active: true,
+      finished: false,
+      hand_count: index === 0 ? 3 : 7,
+    })),
+    active_seats: seats.slice(0, totalPlayers),
+    finished_seats: [],
+    finish_groups: [],
+    bot_hand_count: 7,
+    ...overrides,
+  });
+};
+
 interface ApiStub {
-  createGame: ReturnType<typeof vi.fn<() => Observable<GameResponse>>>;
+  getCapabilities: ReturnType<typeof vi.fn<() => Observable<{ multiplayer_3_4_enabled: boolean }>>>;
+  createGame: ReturnType<typeof vi.fn<(totalPlayers?: 2 | 3 | 4) => Observable<GameResponse>>>;
   getGame: ReturnType<typeof vi.fn<(id: string) => Observable<GameResponse>>>;
+  restartGame: ReturnType<typeof vi.fn<(id: string) => Observable<GameResponse>>>;
   getHints: ReturnType<
     typeof vi.fn<(id: string, cards: readonly string[]) => Observable<HintResponse>>
   >;
@@ -100,9 +152,12 @@ describe('GamePageComponent', () => {
   beforeEach(async () => {
     sessionStorage.clear();
     localStorage.removeItem('kiba.hintsEnabled');
+    localStorage.removeItem('kiba.multiplayerOnboarding.v1');
     api = {
+      getCapabilities: vi.fn().mockReturnValue(of({ multiplayer_3_4_enabled: false })),
       createGame: vi.fn(),
       getGame: vi.fn(),
+      restartGame: vi.fn(),
       getHints: vi.fn().mockReturnValue(
         of({
           selected_card_ids: [],
@@ -149,6 +204,159 @@ describe('GamePageComponent', () => {
     expect(element.textContent).toContain('Партия против бота');
     expect(element.textContent).toContain('Ваш ход');
   }, 15_000);
+
+  it('shows a native total-player selector only when the shared capability is enabled', () => {
+    api.getCapabilities.mockReturnValue(of({ multiplayer_3_4_enabled: true }));
+    api.createGame.mockReturnValue(of(makeMultiplayerGame(4)));
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(api.createGame).not.toHaveBeenCalled();
+    expect(element.textContent).toContain('Игра с ботами');
+    expect(element.querySelectorAll('input[name="botPlayerCount"]')).toHaveLength(3);
+    expect(element.querySelector<HTMLInputElement>('input[value="2"]')?.checked).toBe(true);
+
+    element.querySelector<HTMLInputElement>('input[value="4"]')?.click();
+    fixture.detectChanges();
+    clickButton('Играть');
+
+    expect(api.createGame).toHaveBeenCalledWith(4);
+    expect(element.querySelectorAll('app-table-seat')).toHaveLength(3);
+    expect(element.textContent).toContain('Milo');
+    expect(element.textContent).toContain('Nika');
+    expect(element.textContent).toContain('Otto');
+    expect(element.querySelectorAll('.seat-badge')).toHaveLength(3);
+  });
+
+  it('maps three named bots to stable left, top and right seats with accessible bot identity', () => {
+    create(makeMultiplayerGame(4));
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.seat-left .seat-name')?.textContent).toBe('Milo');
+    expect(element.querySelector('.seat-top .seat-name')?.textContent).toBe('Nika');
+    expect(element.querySelector('.seat-right .seat-name')?.textContent).toBe('Otto');
+    expect(element.querySelector('.seat-left section')?.getAttribute('aria-label')).toContain(
+      'Компьютерный соперник',
+    );
+    expect(element.querySelector('app-hint-panel')).toBeNull();
+  });
+
+  it('replays a multiplayer bot game in the same session and preserves names', () => {
+    localStorage.setItem('kiba.multiplayerOnboarding.v1', 'true');
+    const completed = makeMultiplayerGame(3, {
+      phase: 'complete',
+      result: { outcome: 'WIN', winner: 'HUMAN', winner_seat: 'one' },
+      finish_groups: [['one'], ['two'], ['three']],
+      active_seats: [],
+      finished_seats: ['one', 'two', 'three'],
+    });
+    const restarted = makeMultiplayerGame(3, { game_id: completed.game_id });
+    api.restartGame.mockReturnValue(of(restarted));
+    create(completed);
+
+    clickButton('Сыграть ещё');
+
+    expect(api.restartGame).toHaveBeenCalledWith('game-1');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milo');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Nika');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Порядок финиша');
+  });
+
+  it('keeps a completed multiplayer result when replay is feature-gated off', () => {
+    localStorage.setItem('kiba.multiplayerOnboarding.v1', 'true');
+    const completed = makeMultiplayerGame(3, {
+      phase: 'complete',
+      result: { outcome: 'WIN', winner: 'HUMAN', winner_seat: 'one' },
+      finish_groups: [['one'], ['two'], ['three']],
+    });
+    api.restartGame.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            error: { detail: { code: 'FEATURE_NOT_AVAILABLE' } },
+            status: 409,
+          }),
+      ),
+    );
+    create(completed);
+    api.createGame.mockClear();
+
+    clickButton('Сыграть ещё');
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Игра на 3–4 игроков сейчас недоступна');
+    expect(text).toContain('Порядок финиша');
+    expect(api.createGame).not.toHaveBeenCalledWith(2);
+  });
+
+  it('renders authoritative tied multiplayer placements without progression controls', () => {
+    localStorage.setItem('kiba.multiplayerOnboarding.v1', 'true');
+    create(
+      makeMultiplayerGame(4, {
+        phase: 'complete',
+        result: { outcome: 'DRAW', winner: null, winner_seat: null },
+        finish_groups: [
+          ['one', 'two'],
+          ['three', 'four'],
+        ],
+        active_seats: [],
+        finished_seats: ['one', 'two', 'three', 'four'],
+      }),
+    );
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('1-е место');
+    expect(text).toContain('3-е место');
+    expect(text).toContain('Матчи на 3–4 игроков пока не влияют');
+    expect(text).not.toContain('XP');
+    expect(text).toContain('Изменить число игроков');
+  });
+
+  it('keeps the table visible and removes controls while the finished human observes bots', () => {
+    localStorage.setItem('kiba.multiplayerOnboarding.v1', 'true');
+    const observing = makeMultiplayerGame(4);
+    create({
+      ...observing,
+      human_hand: [],
+      participants: observing.participants.map((participant) =>
+        participant.seat === 'one'
+          ? { ...participant, active: false, finished: true, hand_count: 0 }
+          : participant,
+      ),
+      active_seats: ['two', 'three', 'four'],
+      finished_seats: ['one'],
+      finish_groups: [['one']],
+      required_actor: 'BOT',
+      required_seat: 'two',
+      available_actions: [],
+    });
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Вы финишировали — партия продолжается');
+    expect(element.querySelector('app-game-table')).not.toBeNull();
+    expect(element.querySelector('app-action-bar')).toBeNull();
+  });
+
+  it('shows versioned onboarding once for a newly created multiplayer bot match', () => {
+    api.getCapabilities.mockReturnValue(of({ multiplayer_3_4_enabled: true }));
+    api.createGame.mockReturnValue(of(makeMultiplayerGame(3)));
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLInputElement>('input[value="3"]')
+      ?.click();
+    fixture.detectChanges();
+    clickButton('Играть');
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Больше игроков — та же KIBA',
+    );
+    clickButton('Понятно');
+    expect(localStorage.getItem('kiba.multiplayerOnboarding.v1')).toBe('true');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.multiplayer-onboarding'),
+    ).toBeNull();
+  });
 
   it('requests hints after selection and highlights only server-suggested cards', () => {
     api.getHints.mockReturnValue(
@@ -1183,6 +1391,62 @@ describe('GamePageComponent', () => {
       expect(element.querySelector('app-game-table')?.textContent).toContain('Стол пуст');
       expect(element.textContent).not.toContain('Бот берёт 4 карты…');
       expect(element.querySelector('.motion-card')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('presents consecutive named bot actions in order while accepting the newest state immediately', () => {
+    vi.useFakeTimers();
+    try {
+      localStorage.setItem('kiba.multiplayerOnboarding.v1', 'true');
+      create(makeMultiplayerGame(4));
+      const updated = makeMultiplayerGame(4, {
+        required_actor: 'HUMAN',
+        required_seat: 'one',
+        recent_events: [
+          {
+            type: 'BOT_INITIAL_ATTACK',
+            actor: 'BOT',
+            actor_seat: 'two',
+            card_count: 1,
+            value: 6,
+            target: null,
+          },
+          {
+            type: 'BOT_TRANSFER',
+            actor: 'BOT',
+            actor_seat: 'three',
+            card_count: 1,
+            value: 6,
+            target: 6,
+          },
+          {
+            type: 'BOT_BITO',
+            actor: 'BOT',
+            actor_seat: 'four',
+            card_count: 0,
+            value: null,
+            target: null,
+          },
+        ],
+      });
+      api.submitAction.mockReturnValue(of(updated));
+      const firstCard = (fixture.nativeElement as HTMLElement).querySelector(
+        'app-hand .playing-card',
+      ) as HTMLButtonElement;
+      firstCard.click();
+      fixture.detectChanges();
+      clickButton('Ходить');
+
+      expect(TestBed.inject(GameSessionState).game()).toBe(updated);
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milo атакует');
+      vi.advanceTimersByTime(520);
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Nika переводит');
+      vi.advanceTimersByTime(520);
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Otto: пас');
     } finally {
       vi.useRealTimers();
     }

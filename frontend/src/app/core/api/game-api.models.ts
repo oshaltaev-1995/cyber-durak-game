@@ -113,6 +113,21 @@ export interface BotPresentationEvent {
   readonly card_count: number;
   readonly value: number | null;
   readonly target: number | null;
+  readonly actor_seat?: Seat | null;
+}
+
+export interface BotSessionParticipant {
+  readonly participant_id: string;
+  readonly seat: Seat;
+  readonly display_name: string;
+  readonly is_bot: boolean;
+  readonly active: boolean;
+  readonly finished: boolean;
+  readonly hand_count: number;
+}
+
+export interface KibaCapabilities {
+  readonly multiplayer_3_4_enabled: boolean;
 }
 
 export interface GameResponse {
@@ -127,6 +142,11 @@ export interface GameResponse {
   readonly result: GameResult | null;
   readonly human_seat: Seat;
   readonly bot_seat: Seat;
+  readonly total_players: 2 | 3 | 4;
+  readonly participants: readonly BotSessionParticipant[];
+  readonly active_seats: readonly Seat[];
+  readonly finished_seats: readonly Seat[];
+  readonly finish_groups: readonly (readonly Seat[])[];
   readonly human_hand: readonly GameCard[];
   readonly bot_hand_count: number;
   readonly draw_pile_count: number;
@@ -137,6 +157,7 @@ export interface GameResponse {
   readonly table_arithmetic: TableArithmetic;
   readonly bout_starting_attacker: Seat | null;
   readonly attacker: Seat | null;
+  readonly lead_attacker: Seat | null;
   readonly defender: Seat | null;
   readonly bout_phase: BoutPhase | null;
   readonly packets: readonly AttackPacket[];

@@ -172,6 +172,7 @@ def serialize_game_session(session: GameSession, locale: Locale = Locale.RU) -> 
             state.bout_starting_attacker.value if state.bout_starting_attacker is not None else None
         ),
         attacker=(bout.attacker.value if bout is not None else None),
+        lead_attacker=(bout.lead_attacker.value if bout is not None else None),
         defender=(bout.defender.value if bout is not None else None),
         bout_phase=bout_phase,
         packets=packet_responses,

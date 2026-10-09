@@ -20,6 +20,10 @@ class CreateGameRequest(_StrictRequest):
     human_display_name: str | None = Field(default=None, min_length=1, max_length=40)
 
 
+class RestartGameRequest(_StrictRequest):
+    """Intentionally empty: the opaque game ID identifies the human-owned session."""
+
+
 class HintCombinationResponse(BaseModel):
     action: HumanActionType
     card_ids: list[str]
@@ -236,6 +240,7 @@ class GameResponse(BaseModel):
     table_arithmetic: TableArithmeticResponse
     bout_starting_attacker: str | None
     attacker: str | None
+    lead_attacker: str | None
     defender: str | None
     bout_phase: str | None
     packets: list[PacketResponse]

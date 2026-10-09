@@ -1,10 +1,22 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslationService } from '../core/i18n/translation.service';
 import { BotGameSessionStore } from '../core/game/bot-game-session.store';
 import { formatCardShort } from '../game/card-presentation';
 import { PlayingCardComponent } from '../game/components/playing-card/playing-card';
-import { TUTORIAL_LESSONS_EN, TUTORIAL_LESSONS_RU } from './tutorial-data';
+import {
+  MULTIPLAYER_LESSONS_EN,
+  MULTIPLAYER_LESSONS_RU,
+  TUTORIAL_LESSONS_EN,
+  TUTORIAL_LESSONS_RU,
+} from './tutorial-data';
 
 @Component({
   selector: 'app-tutorial-page',
@@ -13,13 +25,18 @@ import { TUTORIAL_LESSONS_EN, TUTORIAL_LESSONS_RU } from './tutorial-data';
   styleUrl: './tutorial-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class TutorialPageComponent {
+export class TutorialPageComponent implements OnInit {
   protected readonly i18n = inject(TranslationService);
+  private readonly route = inject(ActivatedRoute);
   private readonly botGameSession = inject(BotGameSessionStore);
   protected readonly hasActiveGame = this.botGameSession.get() !== null;
-  protected readonly lessons = computed(() =>
-    this.i18n.locale() === 'ru' ? TUTORIAL_LESSONS_RU : TUTORIAL_LESSONS_EN,
-  );
+  protected readonly track = signal<'core' | 'multiplayer'>('core');
+  protected readonly lessons = computed(() => {
+    if (this.track() === 'multiplayer') {
+      return this.i18n.locale() === 'ru' ? MULTIPLAYER_LESSONS_RU : MULTIPLAYER_LESSONS_EN;
+    }
+    return this.i18n.locale() === 'ru' ? TUTORIAL_LESSONS_RU : TUTORIAL_LESSONS_EN;
+  });
   protected readonly stepIndex = signal(0);
   protected readonly selectedChoice = signal<string | null>(null);
   protected readonly selectedPracticalCodes = signal<ReadonlySet<string>>(new Set());
@@ -55,6 +72,19 @@ export class TutorialPageComponent {
       lesson.practical === undefined || (this.practicalAttempted() && this.practicalIsCorrect());
     return quizReady && practicalReady;
   });
+
+  ngOnInit(): void {
+    if (this.route.snapshot.queryParamMap.get('track') === 'multiplayer') {
+      this.track.set('multiplayer');
+    }
+  }
+
+  protected selectTrack(track: 'core' | 'multiplayer'): void {
+    this.track.set(track);
+    this.stepIndex.set(0);
+    this.complete.set(false);
+    this.resetResponse();
+  }
 
   protected choose(choiceId: string): void {
     this.selectedChoice.set(choiceId);

@@ -14,6 +14,7 @@ from kiba_api.api.schemas import (
     HintRequest,
     HintResponse,
     HumanActionRequest,
+    RestartGameRequest,
 )
 from kiba_api.api.serialization import serialize_game_session, serialize_move_hints
 from kiba_api.sessions import (
@@ -77,6 +78,26 @@ def get_game(
 ) -> GameResponse:
     """Return public state without bot cards or hidden draw-pile order."""
     return serialize_game_session(service.get_game(game_id), locale)
+
+
+@router.post(
+    "/{game_id}/restart",
+    response_model=GameResponse,
+    summary="Restart a bot game in the same session",
+)
+def restart_game(
+    game_id: str,
+    request: Request,
+    service: GameServiceDependency,
+    locale: RequestLocale,
+    payload: RestartGameRequest | None = None,
+) -> GameResponse:
+    """Create a fresh authoritative deal while retaining the human-owned roster."""
+    del payload
+    session = service.get_game(game_id)
+    if session.total_players > 2 and not request.app.state.settings.multiplayer_3_4_enabled:
+        raise SessionActionError(SessionErrorCode.FEATURE_NOT_AVAILABLE)
+    return serialize_game_session(service.restart_game(game_id), locale)
 
 
 @router.post("/{game_id}/hints", response_model=HintResponse, summary="Get canonical move hints")

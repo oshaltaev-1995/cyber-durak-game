@@ -1213,6 +1213,42 @@ and rating, matching the initial multiplayer policy. Hints also remain unavailab
 players. No schema migration, human-PvP behavior, frontend implementation, or production setting
 changes are part of M5.5A.
 
+### 15.10 M5.5B Play vs Bots product integration
+
+The existing `/play` route remains the single bot entry. When the server-owned
+`KIBA_MULTIPLAYER_3_4_ENABLED` capability is off, it keeps the legacy behavior: it creates a
+two-player game with the bodyless request shape and exposes no selector. When enabled, the route
+first presents an accessible **Players** selector for two, three, or four total participants and
+sends `total_players` only for three/four. This always means one human plus one to three bots;
+mixed human/bot rooms remain out of scope.
+
+The Angular game page consumes the authoritative bot participant roster. Backend-assigned names
+are rendered unchanged with a restrained robot marker and explicit accessible computer-opponent
+text. The M4 relative-seat map and hidden-hand components place the human at bottom and opponents
+at left/top/right as applicable. Stable seats carry current-attacker, lead-attacker, defender,
+required-turn and finished state without exposing bot cards or the draw order. Response-scoped bot
+events are presented as a bounded ordered queue of named public summaries; authoritative state is
+accepted immediately, so presentation never replays obsolete snapshots or blocks an all-bot
+remainder.
+
+Three-/four-player results reuse canonical finish groups and standard-competition ranks, including
+ties. They do not write history or grant XP, statistics, achievements or rating. Two-player result,
+hint and progression behavior is unchanged; multiplayer bot games do not mount the Hint control.
+`POST /api/games/{game_id}/restart` is the narrow same-session replay boundary. The opaque game ID
+is the process-local human session capability, and the strict empty request accepts no actor or bot
+identity. The endpoint preserves participant IDs, names, seats and player count while creating a
+fresh authoritative `GameState`; it rechecks the live feature flag before restarting a three/four
+player game. Choosing **Change players** deliberately leaves that session and returns to a new-game
+selection, where a new roster may receive new names.
+
+Tutorial navigation now retains the nine-step core KIBA course and adds a separate six-step
+three/four-player guide. The guide covers clockwise active-player order, one defender, ordered
+attacker phases, permanent per-bout Pass, transfer, the shared attack limit, active-player
+reduction and tied finish groups, with a semantic HTML/CSS seat diagram. A concise bot-mode intro
+and the versioned local-only `kiba.multiplayerOnboarding.v1` first-match overlay point to that guide;
+restored sessions never trigger it. M5.5B is a local release candidate only: the capability remains
+default off, no database migration is introduced, and no production deployment is performed.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

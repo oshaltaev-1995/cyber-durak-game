@@ -542,6 +542,44 @@ def test_multi_bot_api_feature_gate_contract_and_security() -> None:
     assert impersonation.status_code == 422
 
 
+def test_multi_bot_same_session_replay_preserves_roster_and_respects_live_gate() -> None:
+    application = create_app(settings=Settings(multiplayer_3_4_enabled=True))
+    client = TestClient(application)
+    created = client.post("/api/games", json={"total_players": 4}).json()
+
+    replay = client.post(f"/api/games/{created['game_id']}/restart")
+
+    assert replay.status_code == 200
+    body = replay.json()
+    assert body["game_id"] == created["game_id"]
+    assert body["total_players"] == 4
+    identity_fields = ("participant_id", "seat", "display_name", "is_bot")
+    assert [
+        tuple(participant[field] for field in identity_fields)
+        for participant in body["participants"]
+    ] == [
+        tuple(participant[field] for field in identity_fields)
+        for participant in created["participants"]
+    ]
+    assert all(
+        participant["active"] and not participant["finished"]
+        for participant in body["participants"]
+    )
+    assert body["finish_groups"] == []
+    assert (
+        client.post(
+            f"/api/games/{created['game_id']}/restart",
+            json={"actor_seat": "two"},
+        ).status_code
+        == 422
+    )
+
+    application.state.settings = Settings(multiplayer_3_4_enabled=False)
+    disabled_replay = client.post(f"/api/games/{created['game_id']}/restart")
+    assert disabled_replay.status_code == 409
+    assert disabled_replay.json() == {"detail": {"code": "FEATURE_NOT_AVAILABLE"}}
+
+
 def test_multiplayer_api_projection_hides_every_bot_hand_and_future_deck_card() -> None:
     captured: list[GameSession] = []
 

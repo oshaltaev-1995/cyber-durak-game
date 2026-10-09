@@ -2,7 +2,12 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslationService } from '../core/i18n/translation.service';
 import { TutorialPageComponent } from './tutorial-page';
-import { TUTORIAL_LESSONS_EN, TUTORIAL_LESSONS_RU } from './tutorial-data';
+import {
+  MULTIPLAYER_LESSONS_EN,
+  MULTIPLAYER_LESSONS_RU,
+  TUTORIAL_LESSONS_EN,
+  TUTORIAL_LESSONS_RU,
+} from './tutorial-data';
 
 describe('TutorialPageComponent', () => {
   let fixture: ComponentFixture<TutorialPageComponent>;
@@ -60,6 +65,27 @@ describe('TutorialPageComponent', () => {
     expect(element.querySelector('[role="progressbar"]')?.textContent).toContain('1 / 9');
     expect(button('Назад').disabled).toBe(true);
     expect(element.querySelector('a[href="/play"]')?.textContent).toContain('Пропустить');
+  });
+
+  it('offers a concise six-step multiplayer track with the canonical seat guide', () => {
+    button('Игра втроём и вчетвером').click();
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(MULTIPLAYER_LESSONS_RU).toHaveLength(6);
+    expect(MULTIPLAYER_LESSONS_EN).toHaveLength(6);
+    expect(text).toContain('Игроки за столом');
+    expect(text).toContain('1 / 6');
+    expect(text).toContain('A → B');
+    expect(text).toContain('A пасует → C');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.seat-diagram')).not.toBeNull();
+
+    const allCopy = [...MULTIPLAYER_LESSONS_RU, ...MULTIPLAYER_LESSONS_EN]
+      .flatMap((lesson) => [lesson.lead, ...lesson.points, lesson.note ?? ''])
+      .join(' ');
+    expect(allCopy).toContain('4 → 3 → 2');
+    expect(allCopy).toContain('Pass ends your attacking phase permanently');
+    expect(allCopy).toContain('All attackers share');
   });
 
   it('offers an explicit return only when a recoverable bot game exists', () => {

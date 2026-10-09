@@ -122,6 +122,12 @@ spectators, persistent active rooms, and distributed room infrastructure remain 
 R10 closes the post-v1 two-player polish cycle. Its hint-explanation, card-notation, and rematch
 transition corrections do not change move legality or introduce any 3–4-player behavior.
 
+The pre-rollout multiplayer release candidate extends the same product surfaces to private rooms
+and to **Play vs Bots** with two, three, or four total players. Bot mode always means exactly one
+human plus the remaining computer opponents; mixed human/bot rooms are not part of this release.
+The server capability is default-off, two-player play and progression remain unchanged, and initial
+three/four-player matches do not affect profile history, XP, statistics, achievements, or rating.
+
 ---
 
 ## 5. Later product layers

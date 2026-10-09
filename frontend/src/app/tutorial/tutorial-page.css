@@ -22,6 +22,24 @@
   text-decoration: none;
 }
 
+.tutorial-tracks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 34rem);
+  gap: 0.5rem;
+  margin: 0 auto 0.8rem;
+}
+
+.tutorial-tracks button {
+  padding: 0.55rem 0.8rem;
+}
+
+.tutorial-tracks button.active {
+  color: #06241d;
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
 .tutorial-card,
 .tutorial-complete {
   padding: clamp(1rem, 3vw, 2rem);
@@ -121,6 +139,58 @@ li::marker {
   border: 1px solid rgb(255 255 255 / 9%);
   border-radius: 1rem;
   background: rgb(0 0 0 / 14%);
+}
+
+.seat-diagram {
+  display: grid;
+  grid-template:
+    '. b .' auto
+    'a center c' minmax(6rem, auto)
+    '. d .' auto
+    / minmax(4.5rem, 1fr) minmax(7rem, 1.4fr) minmax(4.5rem, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.diagram-seat {
+  display: grid;
+  min-height: 4rem;
+  place-items: center;
+  padding: 0.4rem;
+  border: 1px solid rgb(73 229 190 / 28%);
+  border-radius: 50%;
+  background: rgb(73 229 190 / 8%);
+  text-align: center;
+}
+
+.diagram-seat strong {
+  color: var(--accent);
+}
+
+.diagram-seat span,
+.diagram-center span {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.seat-a {
+  grid-area: a;
+}
+.seat-b {
+  grid-area: b;
+}
+.seat-c {
+  grid-area: c;
+}
+.seat-d {
+  grid-area: d;
+}
+
+.diagram-center {
+  display: grid;
+  grid-area: center;
+  gap: 0.45rem;
+  text-align: center;
 }
 
 .tutorial-cards {

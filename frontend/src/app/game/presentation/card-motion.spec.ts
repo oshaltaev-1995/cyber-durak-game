@@ -61,6 +61,19 @@ describe('card motion presentation planning', () => {
     },
   );
 
+  it('orders consecutive remote plays from their distinct stable seats', () => {
+    const motions = planCardMotions(snapshot(), snapshot({ tableCards: [seven, eight] }), {
+      remotePlays: [
+        { from: 'left', count: 1, cards: [seven] },
+        { from: 'right', count: 1, cards: [eight] },
+      ],
+    });
+
+    expect(motions.map((motion) => motion.from)).toEqual(['left', 'right']);
+    expect(motions.map((motion) => motion.card)).toEqual([seven, eight]);
+    expect(motions[1].delayMs).toBeGreaterThan(motions[0].delayMs);
+  });
+
   it.each(['left', 'top', 'right', 'bottom'] as const)(
     'moves TAKE cards toward a %s defender',
     (resolvedTo) => {

@@ -10,6 +10,7 @@ export interface HiddenTableSeat {
   readonly displayName: string;
   readonly cardCount: number;
   readonly badge: string;
+  readonly isBot?: boolean;
   readonly connected?: boolean;
   readonly active?: boolean;
   readonly finished?: boolean;
