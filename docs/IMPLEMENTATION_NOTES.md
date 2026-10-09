@@ -1173,6 +1173,46 @@ continue to skip history, XP, profile statistics and achievements; two-player ex
 persistence, hints and rematch remain unchanged. No database migration is introduced. M5 is a
 local release candidate only and does not deploy or enable the feature in production.
 
+### 15.9 M5.5A multiplayer bot engine
+
+The process-local bot session supports exactly one human in Seat ONE plus one to three bots in the
+remaining stable canonical seats. `POST /api/games` accepts an optional `total_players` value of
+`2`, `3`, or `4`; omission retains the existing two-player request and response behavior. Creating
+a three- or four-player bot session is protected by the same default-off
+`KIBA_MULTIPLAYER_3_4_ENABLED` server capability as private human multiplayer. No Angular surface
+activates the new mode in M5.5A.
+
+Each session owns an immutable public participant roster with opaque session-local identity,
+canonical seat, display name, and explicit bot kind. Bot names are sampled without replacement
+from a reviewed 40-name static pool using injectable RNG, exclude the normalized human display
+name, and remain stable for a same-session fresh match. Bots are never account rows and do not
+receive profile data. The service has an internal same-session restart boundary that preserves the
+roster and names; no new public replay endpoint is introduced before M5.5B defines that UX.
+
+Strategy consumes a `BotDecisionContext` containing only the bot's exact hand and public facts:
+table cards, exposed trump, seat/role/finish state, public hand counts, draw-pile count, and the one
+exposed top card. Other exact hands and future draw order are absent. Candidate generation and
+heuristic scoring operate on that sanitized context; every proposed action is still accepted or
+rejected by the authoritative immutable `GameState` transitions. The policy uses bounded initial
+combinations, value-indexed defense/transfer/throw-in candidates, rank-run supplements, economical
+defense, legal multiplayer transfer preference, TAKE as fallback, and a conservative permanent
+Pass for costly single-card/trump additions. It is deterministic and credible, not optimal, and
+adds no difficulty modes or game-tree search.
+
+The iterative bot driver follows the engine's required canonical actor across consecutive bot
+seats until human input is required or the match completes. It therefore handles bot-started
+matches, transfer chains, non-cycling attacker phases, finished-seat skipping, `4 → 3 → 2`, and an
+all-bot remainder after the human finishes. A 5,000-action per-cycle guard fails loudly rather than
+hanging. Response-scoped bot events identify the acting seat in multiplayer while preserving the
+legacy two-player event shape. Additive public fields expose participants, public hand counts,
+active/finished seats, and canonical finish groups without hidden cards or strategy state.
+
+Authenticated two-player bot completion retains its existing history/progression path exactly.
+Three- and four-player bot completion deliberately bypasses history, XP, statistics, achievements,
+and rating, matching the initial multiplayer policy. Hints also remain unavailable above two
+players. No schema migration, human-PvP behavior, frontend implementation, or production setting
+changes are part of M5.5A.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

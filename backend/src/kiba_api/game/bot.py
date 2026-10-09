@@ -1,4 +1,4 @@
-"""Deterministic baseline bot policy composed from authoritative game transitions."""
+"""Seat-aware baseline bot policy composed from authoritative game transitions."""
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -81,32 +81,138 @@ class BotActionError(ValueError):
         super().__init__(code.value)
 
 
-def choose_bot_action(state: GameState, bot_seat: Seat) -> BotAction:
-    """Choose exactly one deterministic baseline action for the acting bot seat."""
+@dataclass(frozen=True, slots=True)
+class BotBoutContext:
+    """Public bout facts visible to any participant at the table."""
+
+    phase: BoutPhase
+    attacker: Seat
+    defender: Seat
+    lead_attacker: Seat
+    active_seats: tuple[Seat, ...]
+    closed_attackers: tuple[Seat, ...]
+    trump_state: TrumpState
+    table_cards: tuple[Card, ...]
+    direct_anchor_cards: tuple[Card, ...]
+    active_attack_cards: tuple[Card, ...]
+    active_attack_value: int | None
+    transfer_target: int | None
+    transfer_open: bool
+    attack_card_limit: int
+    total_attack_card_count: int
+    max_attack_card_addition: int
+
+
+@dataclass(frozen=True, slots=True)
+class BotDecisionContext:
+    """Participant-safe observation consumed by strategy code.
+
+    It deliberately contains no other exact hand, future draw order, account identity,
+    reconnect credential, or random-generator state.
+    """
+
+    bot_seat: Seat
+    phase: GamePhase
+    seat_order: tuple[Seat, ...]
+    active_seats: tuple[Seat, ...]
+    finished_seats: tuple[Seat, ...]
+    current_attacker: Seat | None
+    own_hand: tuple[Card, ...]
+    public_hand_counts: tuple[tuple[Seat, int], ...]
+    draw_pile_count: int
+    exposed_top_card: Card | None
+    trump_state: TrumpState
+    bout: BotBoutContext | None
+
+
+def build_bot_context(state: GameState, bot_seat: Seat) -> BotDecisionContext:
+    """Project an authoritative state into one bot's legitimate observation."""
     if not isinstance(state, GameState):
         raise TypeError("state must be a GameState")
     if not isinstance(bot_seat, Seat):
         raise TypeError("bot_seat must be a Seat")
-    if state.phase is GamePhase.COMPLETE:
-        raise BotActionError(BotErrorCode.GAME_COMPLETE)
-
-    if state.phase is GamePhase.READY_FOR_BOUT:
-        _require_bot_turn(bot_seat, state.current_attacker)
-        return BotAction(BotActionType.START_BOUT)
+    if bot_seat not in state.seat_order:
+        raise ValueError("bot_seat must be seated")
 
     bout = state.active_bout
+    bout_context = None
+    if bout is not None:
+        packet = bout.active_packet
+        bout_context = BotBoutContext(
+            phase=bout.phase,
+            attacker=bout.attacker,
+            defender=bout.defender,
+            lead_attacker=bout.lead_attacker,
+            active_seats=bout.active_seats,
+            closed_attackers=bout.closed_attackers,
+            trump_state=bout.trump_state,
+            table_cards=bout.table_cards,
+            direct_anchor_cards=bout.direct_anchor_cards,
+            active_attack_cards=packet.attack_cards if packet is not None else (),
+            active_attack_value=packet.attack_value if packet is not None else None,
+            transfer_target=bout.transfer_target,
+            transfer_open=bout.transfer_open,
+            attack_card_limit=bout.attack_card_limit,
+            total_attack_card_count=bout.total_attack_card_count,
+            max_attack_card_addition=bout.max_attack_card_addition,
+        )
+    return BotDecisionContext(
+        bot_seat=bot_seat,
+        phase=state.phase,
+        seat_order=state.seat_order,
+        active_seats=state.active_seats,
+        finished_seats=state.finished_seats,
+        current_attacker=state.current_attacker,
+        own_hand=state.hand(bot_seat),
+        public_hand_counts=tuple((seat, len(state.hand(seat))) for seat in state.seat_order),
+        draw_pile_count=len(state.draw_pile),
+        exposed_top_card=state.draw_pile[0] if state.draw_pile else None,
+        trump_state=state.current_trump_state,
+        bout=bout_context,
+    )
+
+
+def choose_bot_action(state: GameState, bot_seat: Seat) -> BotAction:
+    """Choose one action; strategy sees context while the engine validates it."""
+    context = build_bot_context(state, bot_seat)
+
+    def is_legal(action: BotAction) -> bool:
+        try:
+            _apply_bot_action(state, bot_seat, action)
+        except (BoutActionError, GameActionError):
+            return False
+        return True
+
+    return choose_bot_action_from_context(context, is_legal)
+
+
+def choose_bot_action_from_context(
+    context: BotDecisionContext,
+    is_legal: Callable[[BotAction], bool],
+) -> BotAction:
+    """Run deterministic strategy against a sanitized observation and legality oracle."""
+    if not isinstance(context, BotDecisionContext):
+        raise TypeError("context must be a BotDecisionContext")
+    if context.phase is GamePhase.COMPLETE:
+        raise BotActionError(BotErrorCode.GAME_COMPLETE)
+
+    if context.phase is GamePhase.READY_FOR_BOUT:
+        _require_bot_turn(context.bot_seat, context.current_attacker)
+        return BotAction(BotActionType.START_BOUT)
+
+    bout = context.bout
     if bout is None:
         raise ValueError("an active game requires an active bout")
 
     if bout.phase is BoutPhase.WAITING_FOR_INITIAL_ATTACK:
-        _require_bot_turn(bot_seat, bout.attacker)
-        return _choose_initial_attack(state, bot_seat)
+        _require_bot_turn(context.bot_seat, bout.attacker)
+        return _choose_initial_attack(context, is_legal)
     if bout.phase is BoutPhase.WAITING_FOR_DEFENDER_RESPONSE:
-        _require_bot_turn(bot_seat, bout.defender)
-        return _choose_defender_response(state, bot_seat)
+        _require_bot_turn(context.bot_seat, bout.defender)
+        return _choose_defender_response(context, is_legal)
     if bout.phase is BoutPhase.WAITING_FOR_ATTACKER_DECISION:
-        _require_bot_turn(bot_seat, bout.attacker)
-        return _choose_throw_in_or_bito(state, bot_seat)
+        _require_bot_turn(context.bot_seat, bout.attacker)
+        return _choose_throw_in_or_bito(context, is_legal)
 
     raise BotActionError(BotErrorCode.GAME_COMPLETE)
 
@@ -115,6 +221,11 @@ def play_bot_turn(state: GameState, bot_seat: Seat) -> GameState:
     """Choose and apply exactly one action through the authoritative game API."""
     action = choose_bot_action(state, bot_seat)
 
+    return _apply_bot_action(state, bot_seat, action)
+
+
+def _apply_bot_action(state: GameState, bot_seat: Seat, action: BotAction) -> GameState:
+    """Submit a chosen intent to the authoritative immutable game API."""
     if action.action_type is BotActionType.START_BOUT:
         return start_game_bout(state)
     if action.action_type is BotActionType.INITIAL_ATTACK:
@@ -130,70 +241,114 @@ def play_bot_turn(state: GameState, bot_seat: Seat) -> GameState:
     return finish_game_bout(state, bot_seat)
 
 
-def _choose_initial_attack(state: GameState, bot_seat: Seat) -> BotAction:
-    trump_state = state.current_trump_state
-    candidates = ((card,) for card in state.hand(bot_seat))
-    for candidate in sorted(candidates, key=lambda cards: _selection_key(cards, trump_state)):
-        if _is_legal_card_action(play_game_initial_attack, state, bot_seat, candidate):
-            return BotAction(BotActionType.INITIAL_ATTACK, candidate)
+def _choose_initial_attack(
+    context: BotDecisionContext,
+    is_legal: Callable[[BotAction], bool],
+) -> BotAction:
+    candidates = _bounded_initial_candidates(context.own_hand)
+    ordered = sorted(
+        candidates,
+        key=lambda cards: _selection_key(cards, context.trump_state),
+    )
+    if len(context.seat_order) > 2:
+        for candidate in ordered:
+            if len(candidate) == 1:
+                continue
+            if any(is_trump(card, context.trump_state) for card in candidate):
+                continue
+            if get_cards_value(candidate, context.trump_state) > 36:
+                continue
+            action = BotAction(BotActionType.INITIAL_ATTACK, candidate)
+            if is_legal(action):
+                return action
+    for candidate in ordered:
+        action = BotAction(BotActionType.INITIAL_ATTACK, candidate)
+        if is_legal(action):
+            return action
     raise BotActionError(BotErrorCode.NO_LEGAL_ACTION)
 
 
-def _choose_defender_response(state: GameState, bot_seat: Seat) -> BotAction:
-    bout = state.active_bout
-    if bout is None or bout.active_packet is None:
+def _choose_defender_response(
+    context: BotDecisionContext,
+    is_legal: Callable[[BotAction], bool],
+) -> BotAction:
+    bout = context.bout
+    if bout is None or bout.active_attack_value is None:
         raise ValueError("a defender response requires an active packet")
 
     trump_state = bout.trump_state
     subsets = _best_subsets_by_total(
-        state.hand(bot_seat),
+        context.own_hand,
         trump_state,
         prefer_non_trumps=True,
     )
+    transfer_target = bout.transfer_target
+    if len(context.seat_order) > 2 and transfer_target is not None:
+        for candidate in _packet_transfer_candidates(context, subsets):
+            action = BotAction(BotActionType.TRANSFER, candidate)
+            if is_legal(action):
+                return action
+
     defense_candidates = (
-        cards for total, cards in subsets.items() if total > bout.active_packet.attack_value
+        cards for total, cards in subsets.items() if total > bout.active_attack_value
     )
     for candidate in sorted(
         defense_candidates,
-        key=lambda cards: _selection_key(cards, trump_state, prefer_non_trumps=True),
+        key=lambda cards: (
+            get_cards_value(cards, trump_state) - bout.active_attack_value,
+            sum(is_trump(card, trump_state) for card in cards),
+            len(cards),
+            tuple(_card_order_key(card) for card in cards),
+        ),
     ):
-        if _is_legal_card_action(play_game_defense, state, bot_seat, candidate):
-            return BotAction(BotActionType.DEFEND, candidate)
+        action = BotAction(BotActionType.DEFEND, candidate)
+        if is_legal(action):
+            return action
 
-    transfer_target = bout.transfer_target
     if transfer_target is not None:
-        for candidate in _packet_transfer_candidates(state, bot_seat, subsets):
-            if _is_legal_card_action(play_game_transfer, state, bot_seat, candidate):
-                return BotAction(BotActionType.TRANSFER, candidate)
+        for candidate in _packet_transfer_candidates(context, subsets):
+            action = BotAction(BotActionType.TRANSFER, candidate)
+            if is_legal(action):
+                return action
 
     return BotAction(BotActionType.TAKE)
 
 
-def _choose_throw_in_or_bito(state: GameState, bot_seat: Seat) -> BotAction:
-    bout = state.active_bout
+def _choose_throw_in_or_bito(
+    context: BotDecisionContext,
+    is_legal: Callable[[BotAction], bool],
+) -> BotAction:
+    bout = context.bout
     if bout is None:
         raise ValueError("a throw-in decision requires an active bout")
 
     trump_state = bout.trump_state
-    subsets = _best_subsets_by_total(state.hand(bot_seat), trump_state)
-    candidates = {*subsets.values(), *_rank_run_candidates(state, bot_seat)}
+    subsets = _best_subsets_by_total(context.own_hand, trump_state)
+    candidates = {*subsets.values(), *_rank_run_candidates(context)}
     for candidate in sorted(candidates, key=lambda cards: _selection_key(cards, trump_state)):
         if not candidate:
             continue
-        if _is_legal_card_action(play_game_throw_in, state, bot_seat, candidate):
-            return BotAction(BotActionType.THROW_IN, candidate)
+        action = BotAction(BotActionType.THROW_IN, candidate)
+        if is_legal(action):
+            # Preserve scarce high cards and trumps instead of mechanically exhausting
+            # every legal addition. Passing permanently closes this bot's phase.
+            if len(context.seat_order) > 2 and (
+                any(is_trump(card, trump_state) for card in candidate)
+                or (len(candidate) == 1 and get_cards_value(candidate, trump_state) >= 18)
+            ):
+                break
+            return action
 
     return BotAction(BotActionType.BITO)
 
 
 def _packet_transfer_candidates(
-    state: GameState,
-    bot_seat: Seat,
+    context: BotDecisionContext,
     subsets: dict[int, tuple[Card, ...]],
 ) -> tuple[tuple[Card, ...], ...]:
     """Return deterministic exact and possible same-rank-extension selections."""
-    bout = state.active_bout
-    if bout is None or bout.active_packet is None or bout.transfer_target is None:
+    bout = context.bout
+    if bout is None or not bout.active_attack_cards or bout.transfer_target is None:
         return ()
 
     candidates: set[tuple[Card, ...]] = set()
@@ -201,11 +356,11 @@ def _packet_transfer_candidates(
     if exact:
         candidates.add(exact)
 
-    attack_cards = bout.active_packet.attack_cards
+    attack_cards = bout.active_attack_cards
     if attack_cards and all(card.rank is attack_cards[0].rank for card in attack_cards):
         matching = tuple(
             sorted(
-                (card for card in state.hand(bot_seat) if card.rank is attack_cards[0].rank),
+                (card for card in context.own_hand if card.rank is attack_cards[0].rank),
                 key=_card_order_key,
             )
         )
@@ -215,14 +370,14 @@ def _packet_transfer_candidates(
     return tuple(sorted(candidates, key=lambda cards: _selection_key(cards, bout.trump_state)))
 
 
-def _rank_run_candidates(state: GameState, bot_seat: Seat) -> tuple[tuple[Card, ...], ...]:
+def _rank_run_candidates(context: BotDecisionContext) -> tuple[tuple[Card, ...], ...]:
     """Build a bounded rank-focused set for authoritative throw-in validation."""
-    bout = state.active_bout
+    bout = context.bout
     if bout is None:
         return ()
 
     cards_by_rank: dict[Rank, list[Card]] = {}
-    for card in state.hand(bot_seat):
+    for card in context.own_hand:
         if card.rank is not Rank.JOKER:
             cards_by_rank.setdefault(card.rank, []).append(card)
     cheapest_by_rank = {
@@ -236,27 +391,21 @@ def _rank_run_candidates(state: GameState, bot_seat: Seat) -> tuple[tuple[Card, 
         for rank, cards in cards_by_rank.items()
     }
     distinct_cards = tuple(cheapest_by_rank.values())
-    max_size = min(len(distinct_cards), bout.attack_card_limit - bout.total_attack_card_count)
+    max_size = min(len(distinct_cards), bout.max_attack_card_addition)
     candidates: list[tuple[Card, ...]] = []
     for size in range(1, max_size + 1):
         candidates.extend(combinations(distinct_cards, size))
     return tuple(candidates)
 
 
-_GameCardAction = Callable[[GameState, Seat, Iterable[Card]], GameState]
-
-
-def _is_legal_card_action(
-    action: _GameCardAction,
-    state: GameState,
-    actor: Seat,
-    cards: tuple[Card, ...],
-) -> bool:
-    try:
-        action(state, actor, cards)
-    except (BoutActionError, GameActionError):
-        return False
-    return True
+def _bounded_initial_candidates(cards: tuple[Card, ...]) -> tuple[tuple[Card, ...], ...]:
+    """Enumerate representative initial structures without power-set growth."""
+    ordered = tuple(sorted(cards, key=_card_order_key))
+    candidates: set[tuple[Card, ...]] = {(card,) for card in ordered}
+    max_size = min(4, len(ordered))
+    for size in range(2, max_size + 1):
+        candidates.update(combinations(ordered, size))
+    return tuple(candidates)
 
 
 def _best_subsets_by_total(

@@ -15,6 +15,11 @@ class HintRequest(_StrictRequest):
     selected_card_ids: list[str] = Field(default_factory=list)
 
 
+class CreateGameRequest(_StrictRequest):
+    total_players: Literal[2, 3, 4] = 2
+    human_display_name: str | None = Field(default=None, min_length=1, max_length=40)
+
+
 class HintCombinationResponse(BaseModel):
     action: HumanActionType
     card_ids: list[str]
@@ -185,6 +190,17 @@ class BotPresentationEventResponse(BaseModel):
     card_count: int
     value: int | None
     target: int | None
+    actor_seat: str | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+class BotSessionParticipantResponse(BaseModel):
+    participant_id: str
+    seat: str
+    display_name: str
+    is_bot: bool
+    active: bool
+    finished: bool
+    hand_count: int
 
 
 class LastBoutSummaryResponse(BaseModel):
@@ -205,6 +221,11 @@ class GameResponse(BaseModel):
     result: ResultResponse | None
     human_seat: str
     bot_seat: str
+    total_players: int
+    participants: list[BotSessionParticipantResponse]
+    active_seats: list[str]
+    finished_seats: list[str]
+    finish_groups: list[list[str]]
     human_hand: list[CardResponse]
     bot_hand_count: int
     draw_pile_count: int

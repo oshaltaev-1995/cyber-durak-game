@@ -9,6 +9,7 @@ from kiba_api.sessions.actions import (
     record_accepted_action,
     remember_resolved_bout,
 )
+from kiba_api.sessions.bot_names import BOT_NAME_POOL, assign_bot_names
 from kiba_api.sessions.hints import (
     HintCombination,
     HintError,
@@ -27,12 +28,14 @@ from kiba_api.sessions.service import (
     SessionActionError,
     SessionErrorCode,
     SessionNotFoundError,
+    SessionParticipant,
 )
 
 __all__ = [
     "ActionCounters",
     "BotPresentationEvent",
     "BotPresentationEventType",
+    "BOT_NAME_POOL",
     "GameSession",
     "GameAppearance",
     "GameSessionService",
@@ -45,6 +48,7 @@ __all__ = [
     "SessionActionError",
     "SessionErrorCode",
     "SessionNotFoundError",
+    "SessionParticipant",
     "MoveHints",
     "acting_seat",
     "apply_game_action",
@@ -52,4 +56,5 @@ __all__ = [
     "get_move_hints",
     "remember_resolved_bout",
     "record_accepted_action",
+    "assign_bot_names",
 ]

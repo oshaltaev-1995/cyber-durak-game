@@ -12,6 +12,7 @@ from kiba_api.api.cards import card_to_code
 from kiba_api.api.schemas import (
     AchievementAwardResponse,
     BotPresentationEventResponse,
+    BotSessionParticipantResponse,
     CardResponse,
     CosmeticAwardResponse,
     CosmeticLoadoutResponse,
@@ -118,6 +119,7 @@ def serialize_game_session(session: GameSession, locale: Locale = Locale.RU) -> 
                 card_count=event.card_count,
                 value=event.value,
                 target=event.target,
+                actor_seat=(event.actor_seat.value if session.total_players > 2 else None),
             )
             for event in session.recent_events
         ],
@@ -126,6 +128,22 @@ def serialize_game_session(session: GameSession, locale: Locale = Locale.RU) -> 
         result=_serialize_result(session),
         human_seat=session.human_seat.value,
         bot_seat=session.bot_seat.value,
+        total_players=session.total_players,
+        participants=[
+            BotSessionParticipantResponse(
+                participant_id=participant.participant_id,
+                seat=participant.seat.value,
+                display_name=participant.display_name,
+                is_bot=participant.is_bot,
+                active=participant.seat in state.active_seats,
+                finished=participant.seat in state.finished_seats,
+                hand_count=len(state.hand(participant.seat)),
+            )
+            for participant in session.participants
+        ],
+        active_seats=[seat.value for seat in state.active_seats],
+        finished_seats=[seat.value for seat in state.finished_seats],
+        finish_groups=[[seat.value for seat in group] for group in state.finish_groups],
         human_hand=[
             _serialize_card(card, trump_state)
             for card in sorted(state.hand(session.human_seat), key=_presentation_card_key)

@@ -8,9 +8,20 @@ from kiba_api.api.auth import OptionalCurrentUser
 from kiba_api.api.cards import parse_card_codes
 from kiba_api.api.cosmetics import CosmeticDependency
 from kiba_api.api.locale import RequestLocale
-from kiba_api.api.schemas import GameResponse, HintRequest, HintResponse, HumanActionRequest
+from kiba_api.api.schemas import (
+    CreateGameRequest,
+    GameResponse,
+    HintRequest,
+    HintResponse,
+    HumanActionRequest,
+)
 from kiba_api.api.serialization import serialize_game_session, serialize_move_hints
-from kiba_api.sessions import GameAppearance, GameSessionService
+from kiba_api.sessions import (
+    GameAppearance,
+    GameSessionService,
+    SessionActionError,
+    SessionErrorCode,
+)
 
 router = APIRouter(prefix="/api/games", tags=["games"])
 
@@ -25,12 +36,17 @@ GameServiceDependency = Annotated[GameSessionService, Depends(get_game_service)]
 
 @router.post("", response_model=GameResponse, status_code=201, summary="Create a new game")
 def create_game(
+    request: Request,
     service: GameServiceDependency,
     cosmetics: CosmeticDependency,
     user: OptionalCurrentUser,
     locale: RequestLocale,
+    payload: CreateGameRequest | None = None,
 ) -> GameResponse:
-    """Create a fresh human Seat.ONE versus bot Seat.TWO session."""
+    """Create one human plus one-to-three bots; omitted payload remains legacy two-player."""
+    options = payload or CreateGameRequest()
+    if options.total_players > 2 and not request.app.state.settings.multiplayer_3_4_enabled:
+        raise SessionActionError(SessionErrorCode.FEATURE_NOT_AVAILABLE)
     user_id = user.id if user is not None else None
     appearance = GameAppearance()
     if user_id is not None:
@@ -41,7 +57,14 @@ def create_game(
             profile_frame_code=loadout.profile_frame_code,
         )
     return serialize_game_session(
-        service.create_game(user_id=user_id, appearance=appearance),
+        service.create_game(
+            user_id=user_id,
+            appearance=appearance,
+            total_players=options.total_players,
+            human_display_name=(
+                user.display_name if user is not None else options.human_display_name
+            ),
+        ),
         locale,
     )
 

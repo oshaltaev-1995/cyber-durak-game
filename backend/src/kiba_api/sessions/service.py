@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
@@ -37,6 +38,7 @@ from kiba_api.sessions.actions import (
     record_accepted_action,
     remember_resolved_bout,
 )
+from kiba_api.sessions.bot_names import BOT_NAME_POOL, assign_bot_names
 from kiba_api.sessions.hints import MoveHints, get_move_hints
 
 
@@ -46,6 +48,7 @@ class SessionErrorCode(StrEnum):
     GAME_COMPLETE = "game_complete"
     NOT_HUMAN_TURN = "not_human_turn"
     BOT_AUTO_ADVANCE_LIMIT = "bot_auto_advance_limit"
+    FEATURE_NOT_AVAILABLE = "FEATURE_NOT_AVAILABLE"
 
 
 class SessionNotFoundError(LookupError):
@@ -85,6 +88,27 @@ class BotPresentationEvent:
     card_count: int
     value: int | None = None
     target: int | None = None
+    actor_seat: Seat = Seat.TWO
+
+
+@dataclass(frozen=True, slots=True)
+class SessionParticipant:
+    """Stable synthetic/public identity for one canonical bot-session seat."""
+
+    participant_id: str
+    seat: Seat
+    display_name: str
+    is_bot: bool
+
+    def __post_init__(self) -> None:
+        if not self.participant_id:
+            raise ValueError("participant_id must not be empty")
+        if not isinstance(self.seat, Seat):
+            raise TypeError("seat must be a Seat")
+        if not self.display_name.strip():
+            raise ValueError("display_name must not be empty")
+        if not isinstance(self.is_bot, bool):
+            raise TypeError("is_bot must be a bool")
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +131,7 @@ class GameSession:
     state: GameState
     human_seat: Seat = Seat.ONE
     bot_seat: Seat = Seat.TWO
+    participants: tuple[SessionParticipant, ...] = ()
     appearance: GameAppearance = DEFAULT_GAME_APPEARANCE
     last_bout: BoutState | None = None
     user_id: UUID | None = None
@@ -131,6 +156,27 @@ class GameSession:
             raise TypeError("human_seat and bot_seat must be Seat values")
         if self.human_seat is self.bot_seat:
             raise ValueError("human and bot seats must differ")
+        if not self.participants:
+            object.__setattr__(
+                self,
+                "participants",
+                (
+                    SessionParticipant("human", self.human_seat, "Player", False),
+                    SessionParticipant("bot", self.bot_seat, "Bot", True),
+                ),
+            )
+        if tuple(participant.seat for participant in self.participants) != self.state.seat_order:
+            raise ValueError("participants must align with the canonical seat order")
+        if len({participant.participant_id for participant in self.participants}) != len(
+            self.participants
+        ):
+            raise ValueError("participant IDs must be unique")
+        humans = tuple(participant for participant in self.participants if not participant.is_bot)
+        if len(humans) != 1 or humans[0].seat is not self.human_seat:
+            raise ValueError("a bot session requires exactly one human participant")
+        bots = tuple(participant for participant in self.participants if participant.is_bot)
+        if not bots or bots[0].seat is not self.bot_seat:
+            raise ValueError("bot_seat must identify the first bot participant")
         if not isinstance(self.appearance, GameAppearance):
             raise TypeError("appearance must be a GameAppearance")
         if self.last_bout is not None and not isinstance(self.last_bout, BoutState):
@@ -160,6 +206,14 @@ class GameSession:
             isinstance(event, BotPresentationEvent) for event in self.recent_events
         ):
             raise TypeError("recent_events must be a tuple of BotPresentationEvent values")
+
+    @property
+    def bot_seats(self) -> tuple[Seat, ...]:
+        return tuple(participant.seat for participant in self.participants if participant.is_bot)
+
+    @property
+    def total_players(self) -> int:
+        return len(self.participants)
 
 
 @dataclass(slots=True)
@@ -198,6 +252,7 @@ class InMemoryGameSessionStore:
         started_at: datetime | None = None,
         initial_attacker: Seat | None = None,
         appearance: GameAppearance = DEFAULT_GAME_APPEARANCE,
+        participants: tuple[SessionParticipant, ...] | None = None,
     ) -> GameSession:
         """Store a new human Seat.ONE versus bot Seat.TWO session."""
         self.cleanup()
@@ -213,6 +268,7 @@ class InMemoryGameSessionStore:
                 started_at=started_at or datetime.now(UTC),
                 initial_attacker=initial_attacker,
                 appearance=appearance,
+                participants=participants or (),
             )
             self._records[game_id] = _SessionRecord(session=session, updated_at=self._clock())
             return session
@@ -287,6 +343,7 @@ _GameFactory = Callable[[], GameState]
 _BotTurn = Callable[[GameState, Seat], GameState]
 _CompletionRecorder = Callable[[GameSession], "ProgressionAward | None"]
 _Clock = Callable[[], datetime]
+_MultiplayerGameFactory = Callable[[int], GameState]
 
 
 class GameSessionService:
@@ -297,10 +354,14 @@ class GameSessionService:
         *,
         store: InMemoryGameSessionStore | None = None,
         game_factory: _GameFactory = create_new_game,
+        multiplayer_game_factory: _MultiplayerGameFactory | None = None,
         bot_turn: _BotTurn = play_bot_turn,
-        bot_action_limit: int = 100,
+        bot_action_limit: int = 5_000,
         completion_recorder: _CompletionRecorder | None = None,
         clock: _Clock = lambda: datetime.now(UTC),
+        name_rng: random.Random | None = None,
+        bot_name_pool: tuple[str, ...] = BOT_NAME_POOL,
+        participant_id_factory: Callable[[], str] | None = None,
     ) -> None:
         if isinstance(bot_action_limit, bool) or not isinstance(bot_action_limit, int):
             raise TypeError("bot_action_limit must be an int")
@@ -308,21 +369,42 @@ class GameSessionService:
             raise ValueError("bot_action_limit must be positive")
         self._store = store or InMemoryGameSessionStore()
         self._game_factory = game_factory
+        self._multiplayer_game_factory = multiplayer_game_factory or (
+            lambda player_count: create_new_game(player_count=player_count)
+        )
         self._bot_turn = bot_turn
         self._bot_action_limit = bot_action_limit
         self._completion_recorder = completion_recorder
         self._clock = clock
+        self._name_rng = name_rng or random.Random()
+        self._bot_name_pool = bot_name_pool
+        self._participant_id_factory = participant_id_factory or (lambda: uuid4().hex)
+        self._identity_lock = RLock()
 
     def create_game(
         self,
         *,
         user_id: UUID | None = None,
         appearance: GameAppearance = DEFAULT_GAME_APPEARANCE,
+        total_players: int = 2,
+        human_display_name: str | None = None,
     ) -> GameSession:
-        """Create, normalize, and store a fresh human-versus-bot game."""
-        initial_state = self._game_factory()
+        """Create one human plus one-to-three canonical bot participants."""
+        if isinstance(total_players, bool) or not isinstance(total_players, int):
+            raise TypeError("total_players must be an int")
+        if not 2 <= total_players <= 4:
+            raise ValueError("total_players must be between 2 and 4")
+        initial_state = self._create_game_state(total_players)
+        participants = self._create_participants(
+            initial_state.seat_order,
+            human_display_name=human_display_name,
+        )
+        bot_seats = tuple(p.seat for p in participants if p.is_bot)
         initial_attacker = initial_state.current_attacker
-        state, last_bout, recent_events = self._advance_to_human_or_complete(initial_state)
+        state, last_bout, recent_events = self._advance_to_human_or_complete(
+            initial_state,
+            bot_seats=bot_seats,
+        )
         session = self._store.create(
             state,
             last_bout=last_bout,
@@ -330,6 +412,7 @@ class GameSessionService:
             started_at=self._clock(),
             initial_attacker=initial_attacker,
             appearance=appearance,
+            participants=participants,
         )
         if state.phase is GamePhase.COMPLETE:
             with self._store.locked_record(session.game_id) as record:
@@ -348,7 +431,34 @@ class GameSessionService:
         selected = tuple(selected_cards)
         with self._store.locked_record(game_id) as record:
             session = record.session
+            if session.total_players > 2:
+                raise SessionActionError(SessionErrorCode.FEATURE_NOT_AVAILABLE)
             return get_move_hints(session.state, session.human_seat, selected)
+
+    def restart_game(self, game_id: str) -> GameSession:
+        """Start a fresh same-session match while retaining participant identities."""
+        with self._store.locked_record(game_id) as record:
+            previous = record.session
+            initial_state = self._create_game_state(previous.total_players)
+            initial_attacker = initial_state.current_attacker
+            state, last_bout, recent_events = self._advance_to_human_or_complete(
+                initial_state,
+                bot_seats=previous.bot_seats,
+            )
+            record.session = GameSession(
+                game_id=previous.game_id,
+                state=state,
+                human_seat=previous.human_seat,
+                bot_seat=previous.bot_seat,
+                participants=previous.participants,
+                appearance=previous.appearance,
+                last_bout=last_bout,
+                user_id=previous.user_id,
+                started_at=self._clock(),
+                initial_attacker=initial_attacker,
+            )
+            self._persist_completed_match(record)
+            return replace(record.session, recent_events=recent_events)
 
     def detach_user(self, user_id: UUID) -> int:
         """Prevent deleted accounts from receiving later session persistence."""
@@ -386,6 +496,7 @@ class GameSessionService:
             advanced_state, last_bout, recent_events = self._advance_to_human_or_complete(
                 updated_state,
                 last_bout,
+                bot_seats=session.bot_seats,
             )
             record.session = replace(
                 session,
@@ -402,6 +513,7 @@ class GameSessionService:
             or session.user_id is None
             or session.completion_persisted
             or self._completion_recorder is None
+            or session.total_players != 2
         ):
             return
         progression_award = self._completion_recorder(session)
@@ -415,6 +527,8 @@ class GameSessionService:
         self,
         state: GameState,
         last_bout: BoutState | None = None,
+        *,
+        bot_seats: tuple[Seat, ...] = (Seat.TWO,),
     ) -> tuple[GameState, BoutState | None, tuple[BotPresentationEvent, ...]]:
         bot_action_count = 0
         recent_events: list[BotPresentationEvent] = []
@@ -426,21 +540,55 @@ class GameSessionService:
             actor = acting_seat(state)
             if actor is Seat.ONE:
                 return state, last_bout, tuple(recent_events)
-            if actor is not Seat.TWO:
-                raise ValueError("an active two-seat game must have a current actor")
+            if actor not in bot_seats:
+                raise ValueError("the current actor is not owned by this bot session")
             if bot_action_count >= self._bot_action_limit:
                 raise SessionActionError(SessionErrorCode.BOT_AUTO_ADVANCE_LIMIT)
             try:
                 previous_state = state
-                action = choose_bot_action(previous_state, Seat.TWO)
-                state = self._bot_turn(state, Seat.TWO)
+                action = choose_bot_action(previous_state, actor)
+                state = self._bot_turn(state, actor)
             except BotActionError as error:
                 raise RuntimeError("baseline bot could not advance an owned decision") from error
             last_bout = remember_resolved_bout(previous_state, state, last_bout)
-            recent_events.append(_bot_presentation_event(previous_state, action))
+            recent_events.append(_bot_presentation_event(previous_state, action, actor))
             bot_action_count += 1
 
         return state, last_bout, tuple(recent_events)
+
+    def _create_game_state(self, total_players: int) -> GameState:
+        if total_players == 2:
+            state = self._game_factory()
+        else:
+            state = self._multiplayer_game_factory(total_players)
+        if len(state.seat_order) != total_players:
+            raise ValueError("game factory returned the wrong player count")
+        return state
+
+    def _create_participants(
+        self,
+        seat_order: tuple[Seat, ...],
+        *,
+        human_display_name: str | None,
+    ) -> tuple[SessionParticipant, ...]:
+        display_name = (human_display_name or "Player").strip() or "Player"
+        with self._identity_lock:
+            bot_names = assign_bot_names(
+                len(seat_order) - 1,
+                human_display_name=display_name,
+                rng=self._name_rng,
+                pool=self._bot_name_pool,
+            )
+            ids = tuple(self._participant_id_factory() for _ in seat_order)
+        return (
+            SessionParticipant(ids[0], seat_order[0], display_name, False),
+            *(
+                SessionParticipant(participant_id, seat, bot_name, True)
+                for participant_id, seat, bot_name in zip(
+                    ids[1:], seat_order[1:], bot_names, strict=True
+                )
+            ),
+        )
 
 
 _BOT_EVENT_TYPES = {
@@ -456,6 +604,7 @@ _BOT_EVENT_TYPES = {
 def _bot_presentation_event(
     previous_state: GameState,
     action: BotAction,
+    actor: Seat,
 ) -> BotPresentationEvent:
     event_type = _BOT_EVENT_TYPES.get(action.action_type)
     if event_type is None:
@@ -483,6 +632,7 @@ def _bot_presentation_event(
         card_count=card_count,
         value=value,
         target=target,
+        actor_seat=actor,
     )
 
 
