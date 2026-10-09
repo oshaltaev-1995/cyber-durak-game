@@ -198,6 +198,11 @@ def create_app(
         """Report whether the API process is healthy."""
         return {"status": "ok"}
 
+    @application.get("/api/capabilities", tags=["system"])
+    def capabilities() -> dict[str, bool]:
+        """Expose only safe public product capabilities needed by the client."""
+        return {"multiplayer_3_4_enabled": resolved_settings.multiplayer_3_4_enabled}
+
     @application.get("/ready", tags=["system"])
     def ready() -> JSONResponse:
         """Report whether PostgreSQL can serve application requests."""

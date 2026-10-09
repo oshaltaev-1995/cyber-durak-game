@@ -649,7 +649,7 @@ class PvPRoomService:
         match_id: str,
         expected_version: int,
     ) -> PvPRoom:
-        """Record one participant's consent and start exactly one fresh match when mutual."""
+        """Record consent and start one fresh match after every participant accepts."""
         now = self._now()
         self._store.cleanup(now, self._ttl, exclude=invite_code)
         with self._store.locked_record(invite_code) as record:
@@ -659,17 +659,21 @@ class PvPRoomService:
             if participant.participant_id in room.rematch_acceptances:
                 return room
             simultaneous = (
-                expected_version + 1 == room.version
+                expected_version <= room.version
                 and room.rematch_declined_by is None
-                and len(room.rematch_acceptances) == 1
-                and room.rematch_acceptances[0] != participant.participant_id
+                and bool(room.rematch_acceptances)
+                and participant.participant_id not in room.rematch_acceptances
             )
             if expected_version != room.version and not simultaneous:
                 raise PvPActionError(PvPErrorCode.STALE_VERSION)
 
             self._persist_completed_room(record)
             room = record.room
-            if self._completion_recorder is not None and not room.completion_results:
+            if (
+                room.capacity == 2
+                and self._completion_recorder is not None
+                and not room.completion_results
+            ):
                 raise PvPActionError(
                     PvPErrorCode.REMATCH_NOT_AVAILABLE,
                     "completion_pending",
@@ -707,9 +711,8 @@ class PvPRoomService:
                 return room
             if expected_version != room.version:
                 raise PvPActionError(PvPErrorCode.STALE_VERSION)
-            if (
-                not room.rematch_acceptances
-                or participant.participant_id in room.rematch_acceptances
+            if not room.rematch_acceptances or (
+                room.capacity == 2 and participant.participant_id in room.rematch_acceptances
             ):
                 raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
             record.room = replace(
@@ -735,17 +738,15 @@ class PvPRoomService:
             room = record.room
             participant = room.participant_by_token(reconnect_token)
             self._require_rematch_room(room, match_id)
-            if participant.participant_id not in room.rematch_acceptances:
+            if not room.rematch_acceptances:
                 return room
+            if room.rematch_acceptances[0] != participant.participant_id:
+                raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
             if expected_version != room.version:
                 raise PvPActionError(PvPErrorCode.STALE_VERSION)
             record.room = replace(
                 room,
-                rematch_acceptances=tuple(
-                    value
-                    for value in room.rematch_acceptances
-                    if value != participant.participant_id
-                ),
+                rematch_acceptances=(),
                 rematch_declined_by=None,
                 version=room.version + 1,
                 updated_at=now,
@@ -870,8 +871,6 @@ class PvPRoomService:
     def _require_rematch_room(self, room: PvPRoom, match_id: str) -> None:
         if room.phase is PvPRoomPhase.CLOSED:
             raise PvPActionError(PvPErrorCode.ROOM_CLOSED)
-        if room.capacity != 2:
-            raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
         if (
             room.phase is not PvPRoomPhase.COMPLETE
             or room.state is None

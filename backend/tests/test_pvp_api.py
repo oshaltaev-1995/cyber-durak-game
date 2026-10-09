@@ -131,6 +131,41 @@ def test_rest_rejects_invalid_room_capacity(client: TestClient, capacity: int) -
     assert response.json()["detail"]["code"] == "invalid_request"
 
 
+def test_public_capability_defaults_off_and_server_rejects_multiplayer_creation(
+    client: TestClient,
+) -> None:
+    capability = client.get("/api/capabilities")
+    two_player = client.post("/api/pvp/rooms", json={"nickname": "Creator"})
+    three_player = client.post("/api/pvp/rooms", json={"nickname": "Creator", "capacity": 3})
+    four_player = client.post("/api/pvp/rooms", json={"nickname": "Creator", "capacity": 4})
+
+    assert capability.status_code == 200
+    assert capability.json() == {"multiplayer_3_4_enabled": False}
+    assert two_player.status_code == 201
+    assert two_player.json()["state"]["capacity"] == 2
+    assert three_player.status_code == 409
+    assert three_player.json() == {"detail": {"code": "FEATURE_NOT_AVAILABLE"}}
+    assert four_player.status_code == 409
+    assert four_player.json() == {"detail": {"code": "FEATURE_NOT_AVAILABLE"}}
+
+
+def test_public_capability_and_multiplayer_creation_when_enabled(database: Database) -> None:
+    settings = Settings(
+        database_url="sqlite://",
+        csrf_trusted_origins=(ORIGIN,),
+        multiplayer_3_4_enabled=True,
+    )
+    with TestClient(create_app(database=database, settings=settings)) as enabled_client:
+        assert enabled_client.get("/api/capabilities").json() == {"multiplayer_3_4_enabled": True}
+        for capacity in (2, 3, 4):
+            response = enabled_client.post(
+                "/api/pvp/rooms",
+                json={"nickname": "Creator", "capacity": capacity},
+            )
+            assert response.status_code == 201
+            assert response.json()["state"]["capacity"] == capacity
+
+
 def test_waiting_creator_can_recover_state_ping_and_get_game_not_ready(client: TestClient) -> None:
     creator = client.post("/api/pvp/rooms", json={"nickname": "Creator"}).json()
 

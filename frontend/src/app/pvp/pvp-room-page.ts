@@ -38,6 +38,7 @@ import {
   relativeSeatPosition,
 } from '../game/presentation/table-seat.models';
 import { PvPPlayerState, PvPState } from '../core/pvp/pvp.models';
+import { deriveMultiplayerPlacements } from './multiplayer-placement';
 
 const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   WRONG_TURN: 'error.wrong_turn',
@@ -157,6 +158,23 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     const state = this.state();
     return state === null ? 0 : Math.max(0, state.capacity - state.joined_count);
   });
+  protected readonly placements = computed(() => {
+    const state = this.state();
+    if (state === null) return [];
+    return deriveMultiplayerPlacements(state.finish_groups).map((placement) => ({
+      ...placement,
+      participant: state.players.find((player) => player.seat === placement.seat),
+    }));
+  });
+  protected readonly localFinishedWatching = computed(() => {
+    const state = this.state();
+    return state?.game_phase !== 'complete' && this.localPlayer()?.finished === true;
+  });
+
+  protected placeLabel(rank: number): string {
+    const safeRank = Math.min(4, Math.max(1, rank)) as 1 | 2 | 3 | 4;
+    return this.i18n.t(`pvp.place${safeRank}`);
+  }
   protected inviteCode = '';
   private lastVersion = -1;
   private previousState: PvPState | null = null;
@@ -282,7 +300,11 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   protected async shareInvite(): Promise<void> {
     if (navigator.share === undefined) return;
     try {
-      await navigator.share({ title: this.i18n.t('pvp.shareTitle'), url: this.inviteUrl() });
+      await navigator.share({
+        title: this.i18n.t('pvp.shareTitle'),
+        text: this.i18n.t('pvp.roomSize', { count: this.state()?.capacity ?? 2 }),
+        url: this.inviteUrl(),
+      });
     } catch {
       // Dismissed or unavailable native sharing leaves the copy fallback usable.
     }

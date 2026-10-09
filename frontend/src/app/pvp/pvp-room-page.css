@@ -229,6 +229,30 @@
   gap: 0.3rem;
   text-align: left;
 }
+.finish-groups li {
+  display: grid;
+  grid-template-columns: minmax(5rem, auto) minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.55rem;
+}
+.finish-groups li::marker {
+  content: '';
+}
+.finish-groups li.local-placement {
+  color: var(--text-strong);
+  background: rgb(73 229 190 / 10%);
+}
+.finished-observer {
+  justify-self: center;
+  margin: 0;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid rgb(73 229 190 / 28%);
+  border-radius: 999px;
+  color: var(--text-strong);
+  background: rgb(73 229 190 / 9%);
+  text-align: center;
+}
 .multiplayer .rematch-actions {
   grid-template-columns: minmax(10rem, 16rem);
   justify-content: center;
@@ -271,6 +295,19 @@
 }
 .rematch-incoming h3 {
   font-size: 1rem;
+}
+.rematch-participants {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 0.25rem;
+  list-style: none;
+}
+.rematch-participants li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--text-muted);
 }
 .rematch-incoming > div {
   display: grid;

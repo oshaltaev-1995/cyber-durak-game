@@ -15,6 +15,10 @@ import {
 export type PvPRoomPhase = 'WAITING_FOR_OPPONENT' | 'GAME_ACTIVE' | 'COMPLETE' | 'CLOSED';
 export type PvPRematchStatus = 'NONE' | 'WAITING' | 'INCOMING' | 'DECLINED';
 
+export interface KibaCapabilities {
+  readonly multiplayer_3_4_enabled: boolean;
+}
+
 export interface PvPParticipant {
   readonly participant_id: string;
   readonly seat: Seat;
@@ -56,6 +60,10 @@ export interface PvPState {
   readonly finished_seats: readonly Seat[];
   readonly finish_groups: readonly (readonly Seat[])[];
   readonly rematch_status: PvPRematchStatus;
+  readonly rematch_ready_count?: number;
+  readonly rematch_total_count?: number;
+  readonly rematch_requester_participant_id?: string | null;
+  readonly rematch_ready_participant_ids?: readonly string[];
   readonly you: PvPParticipant;
   readonly opponent: PvPParticipant | null;
   readonly game_phase: GamePhase | null;

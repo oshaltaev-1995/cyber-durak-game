@@ -44,6 +44,7 @@ describe('RulesPageComponent', () => {
     expect(headings).toContain('Как подкидывать');
     expect(headings).toContain('Среднее арифметическое');
     expect(headings).toContain('Победа и ничья');
+    expect(headings).toContain('Приватная игра на 3–4 игроков');
   }, 15_000);
 
   it('includes canonical first-attacker, mean, transfer, refill, and draw rules', () => {
@@ -90,6 +91,9 @@ describe('RulesPageComponent', () => {
     expect(text).toContain('лимит пересчитывается');
     expect(text).toContain('добавить можно не более 4');
     expect(text).toContain('одна из шестёрок лишняя');
+    expect(text).toContain('«Пас» окончательно завершает его фазу');
+    expect(text).toContain('начавший кон');
+    expect(text).toContain('Одновременный финиш даёт общее место');
   });
 
   it('renders the complete canonical English rules at runtime', () => {
@@ -110,6 +114,9 @@ describe('RulesPageComponent', () => {
     expect(text).toContain('Add max 4');
     expect(text).toContain('one Six is unnecessary');
     expect(text).toContain('final cards');
+    expect(text).toContain("Pass permanently ends that attacker's phase");
+    expect(text).toContain('original bout starter draws first');
+    expect(text).toContain('Simultaneous finishers share a placement');
     expect(text).toContain('Public Beta');
     expect(text).not.toContain('Alpha uses');
   });

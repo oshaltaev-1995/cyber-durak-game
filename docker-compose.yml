@@ -23,6 +23,7 @@ services:
     environment:
       KIBA_DATABASE_URL: postgresql+psycopg://${KIBA_POSTGRES_USER:-kiba}:${KIBA_POSTGRES_PASSWORD:-kiba-local-only}@database:5432/${KIBA_POSTGRES_DB:-kiba}
       KIBA_AUTH_COOKIE_SECURE: ${KIBA_AUTH_COOKIE_SECURE:-false}
+      KIBA_MULTIPLAYER_3_4_ENABLED: ${KIBA_MULTIPLAYER_3_4_ENABLED:-false}
       KIBA_CSRF_TRUSTED_ORIGINS: ${KIBA_CSRF_TRUSTED_ORIGINS:-http://localhost:14200,http://127.0.0.1:14200}
     ports:
       - "127.0.0.1:18000:8000"

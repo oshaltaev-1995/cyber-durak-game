@@ -111,6 +111,8 @@ async def create_room(
     user: OptionalCurrentUser,
 ) -> RoomJoinResponse:
     """Create a guest-friendly invitation and assign its creator to Seat.ONE."""
+    if payload.capacity > 2 and not request.app.state.settings.multiplayer_3_4_enabled:
+        raise PvPError(PvPErrorCode.FEATURE_NOT_AVAILABLE)
     display_name = user.display_name if user is not None else _guest_name(payload.nickname)
     room, participant = service.create_room(
         display_name,
@@ -273,6 +275,12 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
             }:
                 try:
                     message = WebSocketRematchMessage.model_validate(payload)
+                    current_room = service.get_room(invite_code)
+                    if (
+                        current_room.capacity > 2
+                        and not websocket.app.state.settings.multiplayer_3_4_enabled
+                    ):
+                        raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
                     try:
                         websocket.app.state.pvp_action_rate_limiter.check(
                             f"{invite_code}:{participant_id}"

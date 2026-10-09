@@ -114,6 +114,7 @@ describe('PvPJoinPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'В комнате 2 из 4 игроков',
     );
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Комната на 4 игроков');
     expect((fixture.nativeElement as HTMLElement).querySelector('button.primary')).not.toBeNull();
   });
 

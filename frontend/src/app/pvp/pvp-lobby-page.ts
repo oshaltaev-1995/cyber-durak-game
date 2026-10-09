@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -15,7 +15,7 @@ import { TranslationService } from '../core/i18n/translation.service';
   styleUrl: './pvp-lobby-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PvPLobbyPageComponent {
+export class PvPLobbyPageComponent implements OnInit {
   private readonly api = inject(PvPApiService);
   private readonly credentials = inject(PvPCredentialStore);
   private readonly router = inject(Router);
@@ -24,15 +24,28 @@ export class PvPLobbyPageComponent {
   protected readonly nickname = signal('');
   protected readonly inviteCode = signal('');
   protected readonly pending = signal(false);
+  protected readonly multiplayerEnabled = signal(false);
+  protected readonly selectedPlayers = signal<2 | 3 | 4>(2);
+  protected readonly playerCounts = [2, 3, 4] as const;
   protected readonly error = signal<string | null>(null);
   protected readonly roomCodeTouched = signal(false);
+
+  ngOnInit(): void {
+    this.api.getCapabilities().subscribe({
+      next: (capabilities) => this.multiplayerEnabled.set(capabilities.multiplayer_3_4_enabled),
+      error: () => this.multiplayerEnabled.set(false),
+    });
+  }
 
   protected createRoom(): void {
     if (this.pending()) return;
     this.pending.set(true);
     this.error.set(null);
     this.api
-      .createRoom(this.auth.currentUser() === null ? this.nickname().trim() : null)
+      .createRoom(
+        this.auth.currentUser() === null ? this.nickname().trim() : null,
+        this.selectedPlayers(),
+      )
       .pipe(finalize(() => this.pending.set(false)))
       .subscribe({
         next: (response) => {
@@ -54,8 +67,10 @@ export class PvPLobbyPageComponent {
   }
 
   private errorMessage(error: unknown): string {
-    if (error instanceof HttpErrorResponse && error.status === 422) {
-      return this.i18n.t('pvp.invalidNickname');
+    if (error instanceof HttpErrorResponse) {
+      const code = (error.error as { detail?: { code?: string } })?.detail?.code;
+      if (code === 'FEATURE_NOT_AVAILABLE') return this.i18n.t('pvp.multiplayerUnavailable');
+      if (error.status === 422) return this.i18n.t('pvp.invalidNickname');
     }
     return this.i18n.t('pvp.createFailed');
   }

@@ -1,7 +1,8 @@
 import { signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
 import { PvPApiService } from '../core/pvp/pvp-api.service';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
@@ -11,12 +12,13 @@ import { PvPLobbyPageComponent } from './pvp-lobby-page';
 
 describe('PvPLobbyPageComponent', () => {
   let fixture: ComponentFixture<PvPLobbyPageComponent>;
-  const api = { createRoom: vi.fn() };
+  const api = { createRoom: vi.fn(), getCapabilities: vi.fn() };
   const credentials = { save: vi.fn() };
   const currentUser = signal<{ display_name: string } | null>(null);
 
   beforeEach(async () => {
     api.createRoom.mockReset();
+    api.getCapabilities.mockReset().mockReturnValue(of({ multiplayer_3_4_enabled: false }));
     credentials.save.mockReset();
     currentUser.set(null);
     await TestBed.configureTestingModule({
@@ -107,7 +109,7 @@ describe('PvPLobbyPageComponent', () => {
     button.click();
     fixture.detectChanges();
 
-    expect(api.createRoom).toHaveBeenCalledWith('Alice');
+    expect(api.createRoom).toHaveBeenCalledWith('Alice', 2);
     expect(credentials.save).toHaveBeenCalledWith('ABC123', response.credential);
     expect(navigate).toHaveBeenCalledWith(['/pvp/room', 'ABC123']);
     expect(JSON.stringify(navigate.mock.calls)).not.toContain('top-secret');
@@ -130,6 +132,64 @@ describe('PvPLobbyPageComponent', () => {
     button.click();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Account Alice');
-    expect(api.createRoom).toHaveBeenCalledWith(null);
+    expect(api.createRoom).toHaveBeenCalledWith(null, 2);
+  });
+
+  it('keeps room-size selection hidden while the server feature is off', () => {
+    expect((fixture.nativeElement as HTMLElement).querySelector('fieldset')).toBeNull();
+  });
+
+  it('offers accessible 2/3/4 selection when enabled and submits the selected count', () => {
+    fixture.destroy();
+    api.getCapabilities.mockReturnValue(of({ multiplayer_3_4_enabled: true }));
+    fixture = TestBed.createComponent(PvPLobbyPageComponent);
+    fixture.detectChanges();
+    api.createRoom.mockReturnValue(
+      of({
+        invite_code: 'ROOM4',
+        credential: { participant_id: 'p1', seat: 'one', reconnect_token: 'secret' },
+      } as PvPRoomJoin),
+    );
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+    const element = fixture.nativeElement as HTMLElement;
+    const radios = element.querySelectorAll<HTMLInputElement>('input[name="playerCount"]');
+    expect([...radios].map((radio) => radio.value)).toEqual(['2', '3', '4']);
+    expect(radios[0].checked).toBe(true);
+    radios[2].click();
+    fixture.detectChanges();
+    expect(radios[2].checked).toBe(true);
+    expect(element.textContent).toContain('Матчи на 3–4 игроков');
+
+    [...element.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('Создать комнату'))
+      ?.click();
+    expect(api.createRoom).toHaveBeenCalledWith('', 4);
+  });
+
+  it('handles a server-side flag change without silently downgrading the room', () => {
+    fixture.destroy();
+    api.getCapabilities.mockReturnValue(of({ multiplayer_3_4_enabled: true }));
+    api.createRoom.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 409,
+            error: { detail: { code: 'FEATURE_NOT_AVAILABLE' } },
+          }),
+      ),
+    );
+    fixture = TestBed.createComponent(PvPLobbyPageComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    element.querySelectorAll<HTMLInputElement>('input[name="playerCount"]')[2].click();
+    fixture.detectChanges();
+    [...element.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('Создать комнату'))
+      ?.click();
+    fixture.detectChanges();
+
+    expect(api.createRoom).toHaveBeenCalledWith('', 4);
+    expect(element.textContent).toContain('Комнаты на 3–4 игроков сейчас недоступны');
   });
 });

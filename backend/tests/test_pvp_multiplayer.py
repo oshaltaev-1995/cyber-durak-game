@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 
 from kiba_api.api.pvp_serialization import serialize_pvp_state
 from kiba_api.config import Settings
@@ -25,11 +26,13 @@ from kiba_api.game import (
     create_new_game,
 )
 from kiba_api.main import create_app
-from kiba_api.persistence import Base, Database
+from kiba_api.persistence import Base, CompletedMatch, Database, UserAchievement, XPLedgerEntry
 from kiba_api.pvp import (
     PvPActionError,
     PvPError,
     PvPErrorCode,
+    PvPParticipant,
+    PvPRoom,
     PvPRoomPhase,
     PvPRoomService,
     RoomTTLPolicy,
@@ -206,7 +209,7 @@ def test_four_seats_disconnect_and_reconnect_independently() -> None:
         )
 
 
-def test_multiplayer_hints_and_rematch_are_explicitly_unsupported() -> None:
+def test_multiplayer_hints_remain_explicitly_unsupported() -> None:
     service = multiplayer_service()
     room, participants = fill_room(service, 3)
 
@@ -218,15 +221,6 @@ def test_multiplayer_hints_and_rematch_are_explicitly_unsupported() -> None:
             expected_version=room.version,
         )
     assert hints.value.code is PvPErrorCode.FEATURE_NOT_AVAILABLE
-
-    with pytest.raises(PvPActionError) as rematch:
-        service.request_rematch(
-            room.invite_code,
-            participants[0].reconnect_token,
-            match_id=room.match_id or "missing",
-            expected_version=room.version,
-        )
-    assert rematch.value.code is PvPErrorCode.REMATCH_NOT_AVAILABLE
 
 
 def test_three_player_transfer_routes_roles_and_rejects_waiting_attacker() -> None:
@@ -593,6 +587,344 @@ def test_simultaneous_finish_groups_are_projected_without_binary_result() -> Non
         ]
 
 
+def complete_multiplayer_room(
+    service: PvPRoomService, capacity: int
+) -> tuple[PvPRoom, list[PvPParticipant]]:
+    room, participants = fill_room(service, capacity)
+    for _action_count in range(5_000):
+        if room.phase is PvPRoomPhase.COMPLETE:
+            return room, participants
+        assert room.state is not None
+        actor = acting_seat(room.state)
+        assert actor is not None
+        action = choose_bot_action(room.state, actor)
+        participant = room.participant(actor)
+        room = service.play_action(
+            room.invite_code,
+            participant.reconnect_token,
+            HumanActionType(action.action_type.name),
+            action.cards,
+            expected_version=room.version,
+        )
+    pytest.fail("multiplayer completion exceeded the action bound")
+
+
+@pytest.mark.parametrize("capacity", [3, 4])
+def test_multiplayer_rematch_requires_every_original_participant_and_starts_fresh(
+    capacity: int,
+) -> None:
+    service = multiplayer_service()
+    completed, participants = complete_multiplayer_room(service, capacity)
+    old_match_id = completed.match_id
+    old_seats = tuple(participant.seat for participant in completed.participants)
+    old_tokens = tuple(participant.reconnect_token for participant in completed.participants)
+
+    for index, participant in enumerate(participants):
+        before = completed
+        completed = service.request_rematch(
+            completed.invite_code,
+            participant.reconnect_token,
+            match_id=old_match_id or "",
+            expected_version=before.version if index == 0 else before.version - 1,
+        )
+        if index < capacity - 1:
+            assert completed.phase is PvPRoomPhase.COMPLETE
+            projection = serialize_pvp_state(completed, participant)
+            assert projection.rematch_ready_count == index + 1
+            assert projection.rematch_total_count == capacity
+            assert projection.rematch_requester_participant_id == participants[0].participant_id
+            assert len(projection.rematch_ready_participant_ids) == index + 1
+
+            duplicate = service.request_rematch(
+                completed.invite_code,
+                participant.reconnect_token,
+                match_id=old_match_id or "",
+                expected_version=completed.version,
+            )
+            assert duplicate.version == completed.version
+
+    assert completed.phase is PvPRoomPhase.GAME_ACTIVE
+    assert completed.match_id != old_match_id
+    assert completed.capacity == capacity
+    assert tuple(participant.seat for participant in completed.participants) == old_seats
+    assert (
+        tuple(participant.reconnect_token for participant in completed.participants) == old_tokens
+    )
+    assert completed.state is not None
+    assert completed.state.finish_groups == ()
+    assert completed.rematch_acceptances == ()
+
+
+@pytest.mark.parametrize("capacity", [3, 4])
+def test_multiplayer_rematch_decline_cancel_recovery_and_reconnect(capacity: int) -> None:
+    service = multiplayer_service()
+    completed, participants = complete_multiplayer_room(service, capacity)
+    match_id = completed.match_id or ""
+    result_groups = completed.state.finish_groups if completed.state is not None else ()
+
+    requested = service.request_rematch(
+        completed.invite_code,
+        participants[0].reconnect_token,
+        match_id=match_id,
+        expected_version=completed.version,
+    )
+    cancelled = service.cancel_rematch(
+        completed.invite_code,
+        participants[0].reconnect_token,
+        match_id=match_id,
+        expected_version=requested.version,
+    )
+    assert cancelled.rematch_acceptances == ()
+
+    requested = service.request_rematch(
+        completed.invite_code,
+        participants[0].reconnect_token,
+        match_id=match_id,
+        expected_version=cancelled.version,
+    )
+    accepted = service.request_rematch(
+        completed.invite_code,
+        participants[1].reconnect_token,
+        match_id=match_id,
+        expected_version=requested.version,
+    )
+    with pytest.raises(PvPActionError) as non_requester_cancel:
+        service.cancel_rematch(
+            completed.invite_code,
+            participants[1].reconnect_token,
+            match_id=match_id,
+            expected_version=accepted.version,
+        )
+    assert non_requester_cancel.value.code is PvPErrorCode.REMATCH_NOT_AVAILABLE
+    declined = service.decline_rematch(
+        completed.invite_code,
+        participants[1].reconnect_token,
+        match_id=match_id,
+        expected_version=accepted.version,
+    )
+    assert declined.phase is PvPRoomPhase.COMPLETE
+    assert declined.rematch_acceptances == ()
+    assert declined.state is not None and declined.state.finish_groups == result_groups
+
+    fresh = service.request_rematch(
+        completed.invite_code,
+        participants[-1].reconnect_token,
+        match_id=match_id,
+        expected_version=declined.version,
+    )
+    assert fresh.rematch_declined_by is None
+    assert fresh.rematch_acceptances == (participants[-1].participant_id,)
+
+    service.connect(completed.invite_code, participants[0].reconnect_token, "first")
+    service.disconnect(completed.invite_code, participants[0].participant_id, "first")
+    reconnected = service.connect(
+        completed.invite_code, participants[0].reconnect_token, "replacement"
+    )
+    assert reconnected.room.rematch_acceptances == fresh.rematch_acceptances
+
+    with pytest.raises(PvPError) as outsider:
+        service.request_rematch(
+            completed.invite_code,
+            "not-a-participant-token",
+            match_id=match_id,
+            expected_version=fresh.version,
+        )
+    assert outsider.value.code is PvPErrorCode.INVALID_CREDENTIAL
+
+
+@pytest.mark.parametrize("capacity", [3, 4])
+def test_neutrally_closed_multiplayer_room_cannot_rematch(capacity: int) -> None:
+    service = multiplayer_service()
+    room, participants = fill_room(service, capacity)
+    service.connect(room.invite_code, participants[0].reconnect_token, "leaving")
+    closed = service.leave_room(room.invite_code, participants[0].reconnect_token, "leaving")
+
+    with pytest.raises(PvPActionError) as rejected:
+        service.request_rematch(
+            closed.invite_code,
+            participants[1].reconnect_token,
+            match_id=closed.match_id or "",
+            expected_version=closed.version,
+        )
+    assert rejected.value.code is PvPErrorCode.ROOM_CLOSED
+
+
+@pytest.mark.parametrize("capacity", [3, 4])
+def test_websocket_multiplayer_rematch_broadcasts_unanimity_and_fresh_match(
+    capacity: int,
+) -> None:
+    service = multiplayer_service()
+    completed, participants = complete_multiplayer_room(service, capacity)
+    old_match_id = completed.match_id
+    database = Database("sqlite://")
+    Base.metadata.create_all(database.engine)
+    settings = Settings(
+        database_url="sqlite://",
+        csrf_trusted_origins=(ORIGIN,),
+        multiplayer_3_4_enabled=True,
+    )
+    try:
+        with TestClient(
+            create_app(database=database, settings=settings, pvp_service=service)
+        ) as client:
+            path = f"/api/pvp/rooms/{completed.invite_code}/ws"
+            with ExitStack() as stack:
+                sockets = []
+                for participant in participants:
+                    socket = stack.enter_context(
+                        client.websocket_connect(path, headers={"Origin": ORIGIN})
+                    )
+                    socket.send_json({"type": "AUTH", "credential": participant.reconnect_token})
+                    assert socket.receive_json()["type"] == "STATE"
+                    for previous in sockets:
+                        assert previous.receive_json()["type"] == "OPPONENT_CONNECTED"
+                        assert previous.receive_json()["type"] == "STATE"
+                    sockets.append(socket)
+
+                version = service.get_room(completed.invite_code).version
+                for index, socket in enumerate(sockets):
+                    socket.send_json(
+                        {
+                            "type": "REMATCH_REQUEST" if index == 0 else "REMATCH_ACCEPT",
+                            "version": version,
+                            "match_id": old_match_id,
+                        }
+                    )
+                    updates = [candidate.receive_json() for candidate in sockets]
+                    assert all(update["type"] == "STATE" for update in updates)
+                    version = updates[0]["state"]["version"]
+                    if index < capacity - 1:
+                        assert updates[0]["state"]["room_phase"] == "COMPLETE"
+                        assert updates[0]["state"]["rematch_ready_count"] == index + 1
+                    else:
+                        assert updates[0]["state"]["room_phase"] == "GAME_ACTIVE"
+                        assert updates[0]["state"]["match_id"] != old_match_id
+                        assert all(
+                            update["state"]["match_id"] == updates[0]["state"]["match_id"]
+                            for update in updates
+                        )
+    finally:
+        database.dispose()
+
+
+def test_disabled_capability_rejects_new_multiplayer_rematch_over_websocket() -> None:
+    service = multiplayer_service()
+    completed, participants = complete_multiplayer_room(service, 3)
+    database = Database("sqlite://")
+    Base.metadata.create_all(database.engine)
+    settings = Settings(database_url="sqlite://", csrf_trusted_origins=(ORIGIN,))
+    try:
+        with TestClient(
+            create_app(database=database, settings=settings, pvp_service=service)
+        ) as client:
+            path = f"/api/pvp/rooms/{completed.invite_code}/ws"
+            with client.websocket_connect(path, headers={"Origin": ORIGIN}) as socket:
+                socket.send_json({"type": "AUTH", "credential": participants[0].reconnect_token})
+                state = socket.receive_json()["state"]
+                socket.send_json(
+                    {
+                        "type": "REMATCH_REQUEST",
+                        "version": state["version"],
+                        "match_id": state["match_id"],
+                    }
+                )
+                rejected = socket.receive_json()
+                assert rejected["type"] == "REMATCH_REJECTED"
+                assert rejected["error"]["code"] == "REMATCH_NOT_AVAILABLE"
+    finally:
+        database.dispose()
+
+
+def test_authenticated_multiplayer_and_rematch_do_not_write_profile_progression() -> None:
+    database = Database("sqlite://")
+    Base.metadata.create_all(database.engine)
+    settings = Settings(
+        database_url="sqlite://",
+        csrf_trusted_origins=(ORIGIN,),
+        multiplayer_3_4_enabled=True,
+    )
+    try:
+        application = create_app(database=database, settings=settings)
+        with TestClient(application) as client:
+            payloads = []
+            for index, name in enumerate(("Alice", "Bob", "Cara")):
+                response = client.post(
+                    "/api/auth/register",
+                    headers={"Origin": ORIGIN},
+                    json={
+                        "email": f"m5-{index}@example.com",
+                        "display_name": name,
+                        "password": "correct horse battery staple",
+                    },
+                )
+                assert response.status_code == 201
+                if index == 0:
+                    room_response = client.post("/api/pvp/rooms", json={"capacity": 3})
+                else:
+                    room_response = client.post(
+                        f"/api/pvp/rooms/{payloads[0]['invite_code']}/join", json={}
+                    )
+                assert room_response.status_code in {200, 201}
+                payloads.append(room_response.json())
+                assert (
+                    client.post("/api/auth/logout", headers={"Origin": ORIGIN}).status_code == 204
+                )
+
+            service = application.state.pvp_service
+            room = service.get_room(payloads[0]["invite_code"])
+            for _action_count in range(5_000):
+                if room.phase is PvPRoomPhase.COMPLETE:
+                    break
+                assert room.state is not None
+                actor = acting_seat(room.state)
+                assert actor is not None
+                action = choose_bot_action(room.state, actor)
+                room = service.play_action(
+                    room.invite_code,
+                    room.participant(actor).reconnect_token,
+                    HumanActionType(action.action_type.name),
+                    action.cards,
+                    expected_version=room.version,
+                )
+            else:
+                pytest.fail("authenticated multiplayer completion exceeded the action bound")
+
+            old_match_id = room.match_id or ""
+            for participant in room.participants:
+                room = service.request_rematch(
+                    room.invite_code,
+                    participant.reconnect_token,
+                    match_id=old_match_id,
+                    expected_version=room.version,
+                )
+            assert room.phase is PvPRoomPhase.GAME_ACTIVE
+            assert room.match_id != old_match_id
+
+            for _action_count in range(5_000):
+                if room.phase is PvPRoomPhase.COMPLETE:
+                    break
+                assert room.state is not None
+                actor = acting_seat(room.state)
+                assert actor is not None
+                action = choose_bot_action(room.state, actor)
+                room = service.play_action(
+                    room.invite_code,
+                    room.participant(actor).reconnect_token,
+                    HumanActionType(action.action_type.name),
+                    action.cards,
+                    expected_version=room.version,
+                )
+            else:
+                pytest.fail("authenticated multiplayer rematch exceeded the action bound")
+
+            with database.session() as session:
+                assert session.scalar(select(func.count()).select_from(CompletedMatch)) == 0
+                assert session.scalar(select(func.count()).select_from(XPLedgerEntry)) == 0
+                assert session.scalar(select(func.count()).select_from(UserAchievement)) == 0
+    finally:
+        database.dispose()
+
+
 @pytest.mark.parametrize("capacity", [3, 4])
 def test_rest_and_websocket_flow_starts_at_capacity_and_broadcasts_private_state(
     capacity: int,
@@ -600,7 +932,11 @@ def test_rest_and_websocket_flow_starts_at_capacity_and_broadcasts_private_state
     service = multiplayer_service()
     database = Database("sqlite://")
     Base.metadata.create_all(database.engine)
-    settings = Settings(database_url="sqlite://", csrf_trusted_origins=(ORIGIN,))
+    settings = Settings(
+        database_url="sqlite://",
+        csrf_trusted_origins=(ORIGIN,),
+        multiplayer_3_4_enabled=True,
+    )
     try:
         with TestClient(
             create_app(database=database, settings=settings, pvp_service=service)
@@ -703,7 +1039,11 @@ def test_prestart_websocket_exit_releases_seat_with_distinct_left_event() -> Non
     service = multiplayer_service()
     database = Database("sqlite://")
     Base.metadata.create_all(database.engine)
-    settings = Settings(database_url="sqlite://", csrf_trusted_origins=(ORIGIN,))
+    settings = Settings(
+        database_url="sqlite://",
+        csrf_trusted_origins=(ORIGIN,),
+        multiplayer_3_4_enabled=True,
+    )
     try:
         with TestClient(
             create_app(database=database, settings=settings, pvp_service=service)

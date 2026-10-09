@@ -1147,6 +1147,32 @@ capacity above two hides unsupported hint/rematch controls. Public room creation
 capacity and therefore creates two-player rooms. M4 does not activate a capacity selector and is
 not deployed.
 
+### 15.8 M5 multiplayer product integration release candidate
+
+The server-owned `KIBA_MULTIPLAYER_3_4_ENABLED` capability defaults off and is exposed through the
+minimal read-only `/api/capabilities` response. The REST create boundary rejects capacity three or
+four while disabled; capacity two and omitted capacity remain unchanged. When enabled, the Angular
+private-room flow presents an accessible 2/3/4 selector, sends the selected immutable capacity, and
+shows joined/required counts, occupied participants, open places, invite identity, and the initial
+no-profile-progression policy. Invitees see the fixed room size and never choose capacity.
+
+The M4 table remains the active-game surface. Additive product polish keeps Pass distinct from bout
+resolution, provides contextual attacker/defender/current-turn/finished state, leaves multiplayer
+hints unavailable, and derives standard-competition placements from canonical finish groups in a
+pure frontend helper. Ties share a rank and no unique loser is fabricated. Early finishers retain a
+watching state. Concise EN/RU player guidance explains clockwise phases, permanent per-bout Pass,
+transfer, shared attack limit, TAKE, immutable original-starter refill order, active-player
+reduction, and tied placements.
+
+The existing rematch messages now record consent for all original room participants. A request is
+the requester's acceptance; a new match starts only after unanimous consent, while decline and
+cancel preserve the terminal result. Consent survives reconnect and duplicate acceptance is
+idempotent. A successful rematch keeps the room, stable seats, participants and credentials but
+uses a fresh `GameState`, shuffle and `match_id`. Three-/four-player original matches and rematches
+continue to skip history, XP, profile statistics and achievements; two-player exactly-once
+persistence, hints and rematch remain unchanged. No database migration is introduced. M5 is a
+local release candidate only and does not deploy or enable the feature in production.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

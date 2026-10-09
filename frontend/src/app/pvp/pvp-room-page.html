@@ -46,7 +46,9 @@
           >
             <div>
               <strong id="leave-title">{{ i18n.t('pvp.exitTitle') }}</strong
-              ><span id="leave-description">{{ i18n.t('pvp.exitHint') }}</span>
+              ><span id="leave-description">{{
+                i18n.t(game.capacity === 2 ? 'pvp.exitHint' : 'pvp.exitHintMultiplayer')
+              }}</span>
             </div>
             <button #leaveCancel class="cancel" type="button" (click)="cancelLeave()">
               {{ i18n.t('pvp.stay') }}
@@ -125,7 +127,10 @@
             }
           </ul>
           @if (emptySeatCount() > 0) {
-            <small>{{ i18n.t('pvp.emptySeats', { count: emptySeatCount() }) }}</small>
+            <small>{{ i18n.t('pvp.waitingRemaining', { count: emptySeatCount() }) }}</small>
+          }
+          @if (game.capacity > 2) {
+            <small>{{ i18n.t('pvp.multiplayerNoProgress') }}</small>
           }
           <label
             ><span>{{ i18n.t('pvp.inviteLink') }}</span
@@ -180,12 +185,15 @@
           <section class="result-panel" aria-live="polite">
             <span>{{ i18n.t('game.finished') }}</span>
             <h2>{{ resultTitle() }}</h2>
-            @if (game.capacity > 2 && finishGroupLabels().length > 0) {
+            @if (game.capacity > 2 && placements().length > 0) {
               <section class="finish-groups" [attr.aria-label]="i18n.t('pvp.finishOrder')">
                 <strong>{{ i18n.t('pvp.finishOrder') }}</strong>
                 <ol>
-                  @for (group of finishGroupLabels(); track $index) {
-                    <li>{{ group }}</li>
+                  @for (placement of placements(); track placement.seat) {
+                    <li [class.local-placement]="placement.participant?.is_self">
+                      <strong>{{ placeLabel(placement.rank) }}</strong>
+                      <span>{{ placement.participant?.display_name }}</span>
+                    </li>
                   }
                 </ol>
               </section>
@@ -267,13 +275,55 @@
               <p class="result-history-note">
                 {{ i18n.t('pvp.savePending') }}
               </p>
+            } @else {
+              <p class="result-history-note">{{ i18n.t('pvp.multiplayerNoProgress') }}</p>
             }
             <div class="rematch-actions">
-              @if (game.capacity === 2) {
-                <div class="rematch-primary">
-                  @switch (game.rematch_status) {
-                    @case ('WAITING') {
-                      <p class="rematch-status" role="status">{{ i18n.t('pvp.rematchWaiting') }}</p>
+              <div class="rematch-primary">
+                @if (game.capacity > 2 && (game.rematch_ready_count ?? 0) > 0) {
+                  <p class="rematch-status" role="status">
+                    {{
+                      i18n.t('pvp.rematchReady', {
+                        ready: game.rematch_ready_count ?? 0,
+                        total: game.rematch_total_count ?? game.capacity,
+                      })
+                    }}
+                  </p>
+                  <ul
+                    class="rematch-participants"
+                    [attr.aria-label]="
+                      i18n.t('pvp.rematchReady', {
+                        ready: game.rematch_ready_count ?? 0,
+                        total: game.rematch_total_count ?? game.capacity,
+                      })
+                    "
+                  >
+                    @for (player of game.players; track player.participant_id) {
+                      <li>
+                        <span>{{ player.display_name }}</span>
+                        <small>
+                          {{
+                            i18n.t(
+                              (game.rematch_ready_participant_ids ?? []).includes(
+                                player.participant_id
+                              )
+                                ? 'pvp.rematchParticipantReady'
+                                : 'pvp.rematchParticipantWaiting'
+                            )
+                          }}
+                        </small>
+                      </li>
+                    }
+                  </ul>
+                }
+                @switch (game.rematch_status) {
+                  @case ('WAITING') {
+                    <p class="rematch-status">
+                      {{
+                        i18n.t(game.capacity === 2 ? 'pvp.rematchWaiting' : 'pvp.rematchWaitingAll')
+                      }}
+                    </p>
+                    @if (game.rematch_requester_participant_id === game.you.participant_id) {
                       <button
                         class="rematch-button secondary"
                         type="button"
@@ -282,63 +332,91 @@
                       >
                         {{ i18n.t('pvp.rematchCancel') }}
                       </button>
-                    }
-                    @case ('INCOMING') {
-                      <section class="rematch-incoming" aria-labelledby="rematch-incoming-title">
-                        <h3 id="rematch-incoming-title">
-                          {{ i18n.t('pvp.rematchIncomingTitle') }}
-                        </h3>
-                        <p>{{ i18n.t('pvp.rematchIncomingHint') }}</p>
-                        <div>
-                          <button
-                            class="rematch-button"
-                            type="button"
-                            [disabled]="socket.rematchPending()"
-                            (click)="acceptRematch()"
-                          >
-                            {{ i18n.t('pvp.rematchAccept') }}
-                          </button>
-                          <button
-                            class="rematch-button secondary"
-                            type="button"
-                            [disabled]="socket.rematchPending()"
-                            (click)="declineRematch()"
-                          >
-                            {{ i18n.t('pvp.rematchDecline') }}
-                          </button>
-                        </div>
-                      </section>
-                    }
-                    @case ('DECLINED') {
-                      <p class="rematch-status" role="status">
-                        {{ i18n.t('pvp.rematchDeclined') }}
-                      </p>
+                    } @else {
                       <button
-                        class="rematch-button"
+                        class="rematch-button secondary"
                         type="button"
                         [disabled]="socket.rematchPending()"
-                        (click)="requestRematch()"
+                        (click)="declineRematch()"
                       >
-                        {{ i18n.t('pvp.rematch') }}
-                      </button>
-                    }
-                    @default {
-                      <button
-                        class="rematch-button"
-                        type="button"
-                        [disabled]="socket.rematchPending()"
-                        (click)="requestRematch()"
-                      >
-                        {{ i18n.t('pvp.rematch') }}
+                        {{ i18n.t('pvp.rematchDecline') }}
                       </button>
                     }
                   }
-                </div>
-              }
+                  @case ('INCOMING') {
+                    <section class="rematch-incoming" aria-labelledby="rematch-incoming-title">
+                      <h3 id="rematch-incoming-title">
+                        {{
+                          i18n.t(game.capacity === 2 ? 'pvp.rematchIncomingTitle' : 'pvp.rematch')
+                        }}
+                      </h3>
+                      <p>
+                        {{
+                          i18n.t(
+                            game.capacity === 2
+                              ? 'pvp.rematchIncomingHint'
+                              : 'pvp.rematchIncomingPlayers'
+                          )
+                        }}
+                      </p>
+                      <div>
+                        <button
+                          class="rematch-button"
+                          type="button"
+                          [disabled]="socket.rematchPending()"
+                          (click)="acceptRematch()"
+                        >
+                          {{ i18n.t('pvp.rematchAccept') }}
+                        </button>
+                        <button
+                          class="rematch-button secondary"
+                          type="button"
+                          [disabled]="socket.rematchPending()"
+                          (click)="declineRematch()"
+                        >
+                          {{ i18n.t('pvp.rematchDecline') }}
+                        </button>
+                      </div>
+                    </section>
+                  }
+                  @case ('DECLINED') {
+                    <p class="rematch-status" role="status">
+                      {{
+                        i18n.t(
+                          game.capacity === 2 ? 'pvp.rematchDeclined' : 'pvp.rematchDeclinedPlayers'
+                        )
+                      }}
+                    </p>
+                    <button
+                      class="rematch-button"
+                      type="button"
+                      [disabled]="socket.rematchPending()"
+                      (click)="requestRematch()"
+                    >
+                      {{ i18n.t('pvp.rematch') }}
+                    </button>
+                  }
+                  @default {
+                    <button
+                      class="rematch-button"
+                      type="button"
+                      [disabled]="socket.rematchPending()"
+                      (click)="requestRematch()"
+                    >
+                      {{ i18n.t('pvp.rematch') }}
+                    </button>
+                  }
+                }
+              </div>
               <a class="room-again secondary" routerLink="/pvp">{{ i18n.t('pvp.newRoom') }}</a>
             </div>
           </section>
         } @else {
+          @if (localFinishedWatching()) {
+            <p class="finished-observer" role="status">
+              {{ i18n.t('pvp.youFinishedWatching') }}
+            </p>
+          }
           <div class="status-banner" aria-live="polite">
             @if (localDecisionContext(); as context) {
               <app-turn-reminder [contextKey]="context" />

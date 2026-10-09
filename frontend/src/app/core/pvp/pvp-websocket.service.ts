@@ -385,7 +385,6 @@ export class PvPWebSocketService {
       this.status() !== 'connected' ||
       this.socket?.readyState !== WebSocket.OPEN ||
       state?.room_phase !== 'COMPLETE' ||
-      state.capacity !== 2 ||
       state.match_id === null ||
       this.rematchPending()
     ) {

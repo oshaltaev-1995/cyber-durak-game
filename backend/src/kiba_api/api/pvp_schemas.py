@@ -68,6 +68,10 @@ class PvPStateResponse(BaseModel):
     finished_seats: list[str]
     finish_groups: list[list[str]]
     rematch_status: Literal["NONE", "WAITING", "INCOMING", "DECLINED"]
+    rematch_ready_count: int
+    rematch_total_count: int
+    rematch_requester_participant_id: str | None
+    rematch_ready_participant_ids: list[str]
     you: ParticipantResponse
     opponent: ParticipantResponse | None
     game_phase: str | None

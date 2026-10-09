@@ -81,6 +81,12 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             finished_seats=[],
             finish_groups=[],
             rematch_status=_rematch_status(room, viewer),
+            rematch_ready_count=len(room.rematch_acceptances),
+            rematch_total_count=len(room.participants),
+            rematch_requester_participant_id=(
+                room.rematch_acceptances[0] if room.rematch_acceptances else None
+            ),
+            rematch_ready_participant_ids=_rematch_ready_participant_ids(room),
             you=_serialize_participant(viewer),
             opponent=_serialize_participant(opponent) if opponent else None,
             game_phase=None,
@@ -149,6 +155,12 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
         finished_seats=[seat.value for seat in state.finished_seats],
         finish_groups=[[seat.value for seat in group] for group in state.finish_groups],
         rematch_status=_rematch_status(room, viewer),
+        rematch_ready_count=len(room.rematch_acceptances),
+        rematch_total_count=len(room.participants),
+        rematch_requester_participant_id=(
+            room.rematch_acceptances[0] if room.rematch_acceptances else None
+        ),
+        rematch_ready_participant_ids=_rematch_ready_participant_ids(room),
         you=_serialize_participant(viewer),
         opponent=_serialize_participant(opponent) if opponent else None,
         game_phase=state.phase.value,
@@ -254,6 +266,15 @@ def _rematch_status(room: PvPRoom, viewer: PvPParticipant) -> str:
     if room.rematch_acceptances:
         return "INCOMING"
     return "NONE"
+
+
+def _rematch_ready_participant_ids(room: PvPRoom) -> list[str]:
+    accepted = set(room.rematch_acceptances)
+    return [
+        participant.participant_id
+        for participant in room.participants
+        if participant.participant_id in accepted
+    ]
 
 
 def _serialize_result(room: PvPRoom) -> PvPResultResponse | None:

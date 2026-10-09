@@ -21,6 +21,28 @@
         />
       </label>
     }
+    @if (multiplayerEnabled()) {
+      <fieldset class="player-count-selector">
+        <legend>{{ i18n.t('pvp.players') }}</legend>
+        <div>
+          @for (count of playerCounts; track count) {
+            <label [class.selected]="selectedPlayers() === count">
+              <input
+                type="radio"
+                name="playerCount"
+                [value]="count"
+                [checked]="selectedPlayers() === count"
+                (change)="selectedPlayers.set(count)"
+              />
+              <span>{{ count }}</span>
+            </label>
+          }
+        </div>
+      </fieldset>
+      @if (selectedPlayers() > 2) {
+        <p class="progression-note">{{ i18n.t('pvp.multiplayerNoProgress') }}</p>
+      }
+    }
     <button class="primary" type="button" [disabled]="pending()" (click)="createRoom()">
       {{ i18n.t(pending() ? 'pvp.creating' : 'pvp.create') }}
     </button>

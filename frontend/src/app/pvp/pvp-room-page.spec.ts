@@ -359,10 +359,11 @@ describe('PvPRoomPageComponent', () => {
     expect(element.querySelector('.position-left')?.classList).toContain('is-finished');
     expect(element.querySelector('.local-player-row')?.classList).toContain('is-finished');
     expect(element.querySelector('.local-player-name')?.textContent).toContain('Alice');
+    expect(element.textContent).toContain('Вы финишировали — партия продолжается');
     expect(element.querySelector('app-action-bar button')).toBeNull();
   });
 
-  it('renders multiplayer finish groups neutrally without hints or rematch', () => {
+  it('renders multiplayer competition placements, no fake loser, and rematch', () => {
     socket.state.set(
       makeMultiplayerState(4, 'one', {
         room_phase: 'COMPLETE',
@@ -378,11 +379,48 @@ describe('PvPRoomPageComponent', () => {
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelector('.finish-groups')?.textContent).toContain('Alice, Bob');
+    expect(element.querySelector('.finish-groups')?.textContent).toContain('1-е место');
+    expect(element.querySelectorAll('.finish-groups li')[0].textContent).toContain('Alice');
+    expect(element.querySelectorAll('.finish-groups li')[1].textContent).toContain('Bob');
+    expect(element.querySelector('.finish-groups')?.textContent).toContain('3-е место');
+    expect(element.querySelector('.finish-groups')?.textContent).toContain('4-е место');
     expect(element.querySelector('.finish-groups')?.textContent).toContain('Cara');
     expect(element.querySelector('.finish-groups')?.textContent).toContain('Dmitri');
-    expect(element.querySelector('.rematch-button')).toBeNull();
+    expect(element.querySelector('.rematch-button')).not.toBeNull();
+    expect(element.textContent).not.toContain('проиграл');
+    expect(element.textContent).toContain('Матчи на 3–4 игроков пока не влияют');
     expect(element.querySelector('app-hint-panel')).toBeNull();
+  });
+
+  it('shows multiplayer unanimous rematch progress and participant responses', () => {
+    socket.state.set(
+      makeMultiplayerState(4, 'one', {
+        room_phase: 'COMPLETE',
+        game_phase: 'complete',
+        finish_groups: [['one'], ['two', 'three'], ['four']],
+        active_seats: [],
+        finished_seats: ['one', 'two', 'three', 'four'],
+        available_actions: [],
+        required_participant_id: null,
+        required_seat: null,
+        rematch_status: 'WAITING',
+        rematch_ready_count: 2,
+        rematch_total_count: 4,
+        rematch_requester_participant_id: 'p1',
+        rematch_ready_participant_ids: ['p1', 'p3'],
+      }),
+    );
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Готовы: 2 / 4');
+    expect(element.textContent).toContain('Ждём согласия всех игроков');
+    expect(element.querySelector('.rematch-participants')?.textContent).toContain('Alice');
+    expect(element.querySelector('.rematch-participants')?.textContent).toContain('готов');
+    expect(element.querySelector('.rematch-participants')?.textContent).toContain('Bob');
+    expect(element.querySelector('.rematch-participants')?.textContent).toContain('ожидает');
+    element.querySelector<HTMLButtonElement>('.rematch-button')?.click();
+    expect(socket.cancelRematch).toHaveBeenCalledOnce();
   });
 
   it('renders a pre-start multiplayer room and releases a departed participant slot', () => {
@@ -399,7 +437,8 @@ describe('PvPRoomPageComponent', () => {
     fixture.detectChanges();
     let element = fixture.nativeElement as HTMLElement;
     expect(element.textContent).toContain('2 / 4 игроков');
-    expect(element.textContent).toContain('Свободных мест: 2');
+    expect(element.textContent).toContain('Ждём ещё игроков: 2');
+    expect(element.textContent).toContain('Матчи на 3–4 игроков пока не влияют');
     expect(element.querySelectorAll('.waiting-participants li')).toHaveLength(2);
 
     socket.state.set({ ...waiting, version: 2, joined_count: 1, players: [waiting.players[0]] });
@@ -831,7 +870,13 @@ describe('PvPRoomPageComponent', () => {
         winner_display_name: null,
       },
     };
-    socket.state.set(makeState({ ...completed, rematch_status: 'WAITING' }));
+    socket.state.set(
+      makeState({
+        ...completed,
+        rematch_status: 'WAITING',
+        rematch_requester_participant_id: 'p1',
+      }),
+    );
     fixture.detectChanges();
     let element = fixture.nativeElement as HTMLElement;
     expect(element.textContent).toContain('Ждём ответа соперника');

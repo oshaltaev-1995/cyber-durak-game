@@ -23,8 +23,21 @@ describe('PvPApiService', () => {
     service.createRoom('Alice').subscribe((value) => expect(value).toBe(response));
     const request = http.expectOne('/api/pvp/rooms');
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ nickname: 'Alice' });
+    expect(request.request.body).toEqual({ nickname: 'Alice', capacity: 2 });
     request.flush(response);
+  });
+
+  it('loads the server-owned public capability and sends selected room size', () => {
+    service
+      .getCapabilities()
+      .subscribe((value) => expect(value.multiplayer_3_4_enabled).toBe(true));
+    const capability = http.expectOne('/api/capabilities');
+    capability.flush({ multiplayer_3_4_enabled: true });
+
+    service.createRoom('Alice', 4).subscribe();
+    const creation = http.expectOne('/api/pvp/rooms');
+    expect(creation.request.body).toEqual({ nickname: 'Alice', capacity: 4 });
+    creation.flush({});
   });
 
   it('loads public room status', () => {

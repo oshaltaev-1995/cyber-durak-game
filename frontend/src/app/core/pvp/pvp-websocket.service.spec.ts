@@ -223,7 +223,7 @@ describe('PvPWebSocketService', () => {
     expect(service.hints()).toBeNull();
   });
 
-  it('sends ordinary gameplay actions but suppresses hints and rematch for multiplayer rooms', () => {
+  it('sends gameplay but suppresses multiplayer hints and premature rematch', () => {
     service.connect('ABC123', 'secret');
     const socket = FakeWebSocket.instances[0];
     authenticate(socket, multiplayerState(4));
@@ -240,7 +240,7 @@ describe('PvPWebSocketService', () => {
     });
   });
 
-  it('does not send multiplayer rematch consent even from a completed room', () => {
+  it('sends multiplayer rematch consent from a completed room', () => {
     service.connect('ABC123', 'secret');
     const socket = FakeWebSocket.instances[0];
     authenticate(socket, {
@@ -251,8 +251,13 @@ describe('PvPWebSocketService', () => {
 
     service.requestRematch();
 
-    expect(socket.sent.map((value) => JSON.parse(value).type)).toEqual(['AUTH']);
-    expect(service.rematchPending()).toBe(false);
+    expect(socket.sent.map((value) => JSON.parse(value).type)).toEqual(['AUTH', 'REMATCH_REQUEST']);
+    expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({
+      type: 'REMATCH_REQUEST',
+      match_id: 'match-one',
+      version: 9,
+    });
+    expect(service.rematchPending()).toBe(true);
   });
 
   it('tracks simultaneous participant disconnects by identity and ignores stale events', () => {
