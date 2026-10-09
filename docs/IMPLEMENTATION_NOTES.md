@@ -1086,6 +1086,15 @@ local presentation pause as an opponent disconnect. Authoritative participant co
 WebSocket events still surface a real disconnect immediately; there is no timeout-based suppression
 and no change to room, consent, reconnect, or gameplay state.
 
+### 15.4 M1 multiplayer canon freeze
+
+The definitive two-to-four-player rules are specified in
+[`MULTIPLAYER_RULES.md`](MULTIPLAYER_RULES.md), with deterministic acceptance examples in
+[`MULTIPLAYER_SCENARIOS.md`](MULTIPLAYER_SCENARIOS.md). Refill order is captured immutably from the
+bout-start roles and never changes after transfer, preserving the existing two-player behavior. M1
+changes documentation only; the current engine, APIs, WebSocket protocol, private-room capacity,
+frontend, and production remain two-player until a separately authorized implementation phase.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap
