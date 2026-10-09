@@ -160,3 +160,24 @@ remained active.
 Rollback remains available from the retained old backend/frontend image digests, the preserved
 old source checkout, production revision `0ca70c8613f24ea8e1acde5397d9a6617185f1f2`, and the protected
 pre-Stage-B environment copy. No old usable image was pruned and no database rollback is required.
+
+## Russian TAKE grammar patch (2026-10-09)
+
+Frontend-only application commit `a8f9230bca58a74e395f6e33b85bb0be3e697c94` corrected the
+Russian TAKE result from nominative singular `1 карта` to contextual accusative singular `1 карту`
+while retaining the existing Russian plural categories and unchanged English output. Production
+now runs frontend image
+`sha256:e8164581cc621cc391e41893517814ea45f67d323a542936cf4311f976332166`.
+
+Only `kiba-production-kiba-frontend-1` was recreated. The Kiba backend remained on
+`sha256:6fcafd173eae8e2edfc7ef984a95c1126d076d8d235b1fddde6ca13edcc09661`; its container identity
+and start time, the PostgreSQL container, Caddy, Husky Tracking, Kennel Operations, Amnezia and the
+Docker runtime were unchanged. No migration or backup was required for this static frontend patch,
+and `KIBA_MULTIPLAYER_3_4_ENABLED` remained `true`.
+
+Live acceptance rendered `Вы взяли 1 карту` in a two-player bot match and `You took 1 card` after
+the runtime locale switch. The 2/3/4-player selector, bot play and private-PvP entry loaded without
+browser-console warnings or errors. Kiba, Husky Tracking and Kennel Operations returned HTTP 200;
+the built and live social metadata remained intact. Final host health showed approximately 2.0 GiB
+available RAM, 134.6 MiB swap with idle swap I/O, zero current memory PSI, no OOM evidence, and no
+failed systemd units.
