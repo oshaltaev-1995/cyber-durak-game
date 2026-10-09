@@ -7,7 +7,7 @@ export type BoutPhase =
   | 'waiting_for_defender_response'
   | 'waiting_for_attacker_decision'
   | 'complete';
-export type Seat = 'one' | 'two';
+export type Seat = 'one' | 'two' | 'three' | 'four';
 export type Suit = 'clubs' | 'diamonds' | 'hearts' | 'spades';
 
 export interface GameCard {

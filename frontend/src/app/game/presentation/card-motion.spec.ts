@@ -16,7 +16,7 @@ const eight = card('8C');
 
 const snapshot = (overrides: Partial<MotionSnapshot> = {}): MotionSnapshot => ({
   localHand: [six, seven],
-  opponentHandCount: 7,
+  remoteHands: { top: 7 },
   drawPileCount: 20,
   discardCount: 0,
   tableCards: [],
@@ -40,48 +40,63 @@ describe('card motion presentation planning', () => {
     },
   );
 
-  it('moves a hidden opponent card toward the table and reveals only its public face', () => {
-    const motions = planCardMotions(snapshot(), snapshot({ tableCards: [eight] }), {
-      remoteCardCount: 1,
-      remotePlayedCards: [eight],
-    });
+  it.each(['left', 'top', 'right'] as const)(
+    'moves a hidden %s opponent card toward the table and reveals only its public face',
+    (remoteFrom) => {
+      const motions = planCardMotions(snapshot(), snapshot({ tableCards: [eight] }), {
+        remoteCardCount: 1,
+        remotePlayedCards: [eight],
+        remoteFrom,
+      });
 
-    expect(motions[0]).toEqual(
-      expect.objectContaining({
-        from: 'top',
-        to: 'table',
-        card: eight,
-        startsHidden: true,
-        endsHidden: false,
-      }),
-    );
-  });
+      expect(motions[0]).toEqual(
+        expect.objectContaining({
+          from: remoteFrom,
+          to: 'table',
+          card: eight,
+          startsHidden: true,
+          endsHidden: false,
+        }),
+      );
+    },
+  );
 
-  it('moves TAKE cards toward the defender and BITO cards toward discard', () => {
+  it.each(['left', 'top', 'right', 'bottom'] as const)(
+    'moves TAKE cards toward a %s defender',
+    (resolvedTo) => {
+      const previous = snapshot({ tableCards: [six, seven] });
+      const take = planCardMotions(previous, snapshot({ tableCards: [] }), { resolvedTo });
+
+      expect(
+        take.filter((motion) => motion.from === 'table' && motion.to === resolvedTo),
+      ).toHaveLength(2);
+      expect(take.every((motion) => motion.card !== null)).toBe(true);
+      expect(take.every((motion) => motion.endsHidden)).toBe(resolvedTo !== 'bottom');
+    },
+  );
+
+  it('moves BITO cards toward discard', () => {
     const previous = snapshot({ tableCards: [six, seven] });
-    const take = planCardMotions(previous, snapshot({ tableCards: [] }), {
-      resolvedTo: 'opponent',
-    });
     const bito = planCardMotions(previous, snapshot({ tableCards: [], discardCount: 2 }), {
       resolvedTo: 'discard',
     });
 
-    expect(take.filter((motion) => motion.from === 'table' && motion.to === 'top')).toHaveLength(2);
-    expect(take.every((motion) => motion.card !== null && motion.endsHidden)).toBe(true);
     expect(bito.filter((motion) => motion.to === 'discard')).toHaveLength(2);
   });
 
-  it('stages authoritative refill in the supplied engine order', () => {
+  it('stages authoritative refill deltas toward every participant position', () => {
     const previous = snapshot({ localHand: [six], drawPileCount: 4 });
-    const next = snapshot({ localHand: [six, seven], opponentHandCount: 8, drawPileCount: 2 });
-    const motions = planCardMotions(previous, next, { refillOrder: 'opponent-first' });
+    const next = snapshot({
+      localHand: [six, seven],
+      remoteHands: { left: 1, top: 7, right: 1 },
+      drawPileCount: 1,
+    });
+    const motions = planCardMotions(previous, next, {});
     const refill = motions
       .filter((motion) => motion.from === 'deck')
       .sort((left, right) => left.delayMs - right.delayMs);
 
-    expect(refill).toHaveLength(2);
-    expect(refill[0].to).toBe('top');
-    expect(refill[1].to).toBe('bottom');
+    expect(refill.map((motion) => motion.to)).toEqual(['bottom', 'left', 'right']);
   });
 
   it('does not produce a play animation without an accepted transition context', () => {

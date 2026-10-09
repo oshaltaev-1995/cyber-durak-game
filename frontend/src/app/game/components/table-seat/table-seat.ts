@@ -23,4 +23,24 @@ export class TableSeatComponent {
     if (count > 7) return 'hand-crowded';
     return 'hand-normal';
   });
+
+  protected readonly roleLabels = computed(() => {
+    const seat = this.seat();
+    const labels: string[] = [];
+    if (seat.defender) labels.push(this.i18n.t('pvp.defender'));
+    if (seat.currentAttacker) labels.push(this.i18n.t('pvp.currentAttacker'));
+    if (seat.leadAttacker && !seat.currentAttacker) labels.push(this.i18n.t('pvp.leadAttacker'));
+    if (seat.required) labels.push(this.i18n.t('pvp.currentTurn'));
+    if (seat.finished) labels.push(this.i18n.t('pvp.finishedPlayer'));
+    if (seat.connected === false) labels.push(this.i18n.t('pvp.disconnectedPlayer'));
+    return labels;
+  });
+
+  protected readonly accessibleLabel = computed(() => {
+    const seat = this.seat();
+    return [
+      this.i18n.t('game.hiddenHandLabel', { name: seat.displayName, count: seat.cardCount }),
+      ...this.roleLabels(),
+    ].join('. ');
+  });
 }

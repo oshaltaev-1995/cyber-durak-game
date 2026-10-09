@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { GameCard, HumanActionType } from '../../core/api/game-api.models';
+import { RemoteTableSeatPosition, TableSeatPosition } from './table-seat.models';
 
 export type MotionAnchor = 'top' | 'bottom' | 'left' | 'right' | 'table' | 'deck' | 'discard';
 
@@ -15,7 +16,7 @@ export interface CardMotion {
 
 export interface MotionSnapshot {
   readonly localHand: readonly GameCard[];
-  readonly opponentHandCount: number;
+  readonly remoteHands: Readonly<Partial<Record<RemoteTableSeatPosition, number>>>;
   readonly drawPileCount: number;
   readonly discardCount: number;
   readonly tableCards: readonly GameCard[];
@@ -26,8 +27,8 @@ export interface MotionContext {
   readonly localCards?: readonly GameCard[];
   readonly remoteCardCount?: number;
   readonly remotePlayedCards?: readonly GameCard[];
-  readonly resolvedTo?: 'local' | 'opponent' | 'discard';
-  readonly refillOrder?: 'local-first' | 'opponent-first';
+  readonly remoteFrom?: RemoteTableSeatPosition;
+  readonly resolvedTo?: TableSeatPosition | 'discard';
 }
 
 const CARD_ACTIONS = new Set<HumanActionType>(['INITIAL_ATTACK', 'DEFEND', 'TRANSFER', 'THROW_IN']);
@@ -40,6 +41,7 @@ export function planCardMotions(
   context: MotionContext,
 ): readonly CardMotion[] {
   const motions: CardMotion[] = [];
+  let resolvedCardCount = 0;
   const batch = ++sequence;
   const push = (
     from: MotionAnchor,
@@ -69,22 +71,26 @@ export function planCardMotions(
   const remoteCards = context.remotePlayedCards ?? [];
   const remoteCount = Math.max(context.remoteCardCount ?? remoteCards.length, remoteCards.length);
   for (let index = 0; index < remoteCount; index += 1) {
-    push('top', 'table', remoteCards[index] ?? null, true, false, 0, index);
+    push(context.remoteFrom ?? 'top', 'table', remoteCards[index] ?? null, true, false, 0, index);
   }
 
   if (previous.tableCards.length > 0 && context.resolvedTo) {
-    const destination =
-      context.resolvedTo === 'local'
-        ? 'bottom'
-        : context.resolvedTo === 'opponent'
-          ? 'top'
-          : 'discard';
+    const destination = context.resolvedTo;
     const resolvedCards = [...previous.tableCards, ...localCards].filter(
       (card, index, cards) =>
         cards.findIndex((candidate) => candidate.code === card.code) === index,
     );
+    resolvedCardCount = resolvedCards.length;
     resolvedCards.forEach((card, index) =>
-      push('table', destination, card, false, destination === 'top', 1, index),
+      push(
+        'table',
+        destination,
+        card,
+        false,
+        destination === 'top' || destination === 'left' || destination === 'right',
+        1,
+        index,
+      ),
     );
   }
 
@@ -96,15 +102,21 @@ export function planCardMotions(
       (card) => !previousCodes.has(card.code) && !tableCodes.has(card.code),
     );
     const localDrawCount = Math.min(drawn, localArrivals.length);
-    const opponentDrawCount = drawn - localDrawCount;
-    const localFirst = context.refillOrder !== 'opponent-first';
-    const localOffset = localFirst ? 0 : opponentDrawCount;
-    const opponentOffset = localFirst ? localDrawCount : 0;
+    let remainingDraws = drawn - localDrawCount;
+    let animationIndex = 0;
     localArrivals
       .slice(0, localDrawCount)
-      .forEach((card, index) => push('deck', 'bottom', card, true, false, 2, index + localOffset));
-    for (let index = 0; index < opponentDrawCount; index += 1) {
-      push('deck', 'top', null, true, true, 2, index + opponentOffset);
+      .forEach((card) => push('deck', 'bottom', card, true, false, 2, animationIndex++));
+    for (const position of ['left', 'top', 'right'] as const) {
+      const handGrowth =
+        (next.remoteHands[position] ?? 0) -
+        (previous.remoteHands[position] ?? 0) -
+        (context.resolvedTo === position ? resolvedCardCount : 0);
+      const remoteDrawCount = Math.min(remainingDraws, Math.max(0, handGrowth));
+      for (let index = 0; index < remoteDrawCount; index += 1) {
+        push('deck', position, null, true, true, 2, animationIndex++);
+      }
+      remainingDraws -= remoteDrawCount;
     }
   }
 

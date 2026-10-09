@@ -16,7 +16,10 @@ export class PvPCredentialStore {
       const value = JSON.parse(raw) as Partial<PvPCredential>;
       if (
         typeof value.participant_id === 'string' &&
-        (value.seat === 'one' || value.seat === 'two') &&
+        (value.seat === 'one' ||
+          value.seat === 'two' ||
+          value.seat === 'three' ||
+          value.seat === 'four') &&
         typeof value.reconnect_token === 'string'
       ) {
         return value as PvPCredential;

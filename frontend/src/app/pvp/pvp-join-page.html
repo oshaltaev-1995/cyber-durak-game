@@ -8,7 +8,14 @@
         <h1 id="join-title">
           {{ i18n.t('pvp.roomFrom', { name: room.participants[0].display_name }) }}
         </h1>
-        <p>{{ i18n.t('pvp.secondSeatFree') }}</p>
+        <p>
+          {{
+            i18n.t(room.capacity === 2 ? 'pvp.secondSeatFree' : 'pvp.seatsAvailable', {
+              joined: room.joined_count,
+              capacity: room.capacity,
+            })
+          }}
+        </p>
         @if (auth.currentUser(); as user) {
           <div class="identity-note">
             {{ i18n.t('pvp.enterAs') }} <strong>{{ user.display_name }}</strong>

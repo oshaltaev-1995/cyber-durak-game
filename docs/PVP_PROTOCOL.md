@@ -1,8 +1,8 @@
 # Private PvP protocol
 
-This document describes the backend room and WebSocket contract. The current Angular client still
-creates only two-player rooms; three- and four-player rooms are backend-only integration capability
-until a later UI phase.
+This document describes the backend room and WebSocket contract. The Angular client still creates
+only two-player rooms, but its invite/room route can join and render three- and four-player rooms
+created through backend integration tooling. Public capacity selection remains deferred.
 
 ## Room lifecycle
 

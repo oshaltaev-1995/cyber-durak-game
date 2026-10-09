@@ -35,13 +35,14 @@ describe('TableSeatComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders one accessible facedown card for every hidden card', () => {
+  it('exposes one safe participant label while keeping decorative cards out of the tree', () => {
     const element = fixture.nativeElement as HTMLElement;
     const cards = [...element.querySelectorAll<HTMLElement>('.hidden-card')];
 
     expect(cards).toHaveLength(7);
-    expect(cards[0].getAttribute('aria-label')).toContain('1');
-    expect(cards[6].getAttribute('aria-label')).toContain('7');
+    expect(cards.every((card) => card.getAttribute('aria-hidden') === 'true')).toBe(true);
+    expect(element.querySelector('section')?.getAttribute('aria-label')).toContain('Opponent');
+    expect(element.querySelector('section')?.getAttribute('aria-label')).toContain('7');
     expect(element.textContent).toContain('Opponent');
     expect(element.textContent).toContain('7');
   });
@@ -65,12 +66,12 @@ describe('TableSeatComponent', () => {
     expect(identity.contains(hand)).toBe(false);
   });
 
-  it('updates count and uses stronger compression for large TAKE hands', () => {
-    fixture.componentRef.setInput('seat', { ...topSeat, cardCount: 16 });
+  it('updates count and uses stronger compression for 20-card TAKE hands', () => {
+    fixture.componentRef.setInput('seat', { ...topSeat, cardCount: 20 });
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelectorAll('.hidden-card')).toHaveLength(16);
+    expect(element.querySelectorAll('.hidden-card')).toHaveLength(20);
     expect(element.querySelector('.hidden-hand')?.classList).toContain('hand-huge');
   });
 

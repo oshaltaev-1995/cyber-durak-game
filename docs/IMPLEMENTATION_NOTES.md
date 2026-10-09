@@ -1129,6 +1129,24 @@ unchanged. Three-/four-player rematch and hints are explicitly unsupported, and 
 finish groups are deliberately not written into the binary match-history schema. Details are in
 [`PVP_PROTOCOL.md`](PVP_PROTOCOL.md). Active rooms remain process-local and are not restart durable.
 
+### 15.7 M4 multiplayer table integration
+
+The Angular PvP room consumes the M3 participant collection and maps the viewer's canonical seat to
+bottom, with clockwise opponents at left/top/right (or left/top for three seats). That pure mapping
+is fixed for the room, so transfers and 4→3→2 active-player reduction move role indicators without
+moving participant identities. Remote hands use only public counts; finished and disconnected seats
+remain visible, while controls come exclusively from the authoritative required participant and
+available actions.
+
+The existing `BITO` WebSocket action is presented as **Pass / Пас** during three-/four-player
+attacker phases. Card motion routes public plays and TAKE/refill presentation through all four table
+anchors without deriving legality or hidden identities. Waiting counts, neutral active-room Exit,
+finish groups, per-seat connectivity, compact side hands, and accessible role text now support real
+three-/four-player room projections. Capacity-two hints, rematch, and table behavior remain intact;
+capacity above two hides unsupported hint/rematch controls. Public room creation still omits
+capacity and therefore creates two-player rooms. M4 does not activate a capacity selector and is
+not deployed.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

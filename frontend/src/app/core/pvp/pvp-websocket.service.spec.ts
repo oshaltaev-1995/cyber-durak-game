@@ -50,6 +50,36 @@ const state = (version: number, opponent: PvPState['opponent'] = null): PvPState
     room_phase: 'GAME_ACTIVE',
     rematch_status: 'NONE',
     version,
+    capacity: 2,
+    joined_count: opponent === null ? 1 : 2,
+    seat_order: ['one', 'two'],
+    players: [
+      {
+        participant_id: 'p1',
+        seat: 'one',
+        display_name: 'Alice',
+        connected: true,
+        authenticated: false,
+        is_self: true,
+        hand_count: 6,
+        active: true,
+        finished: false,
+      },
+      ...(opponent === null
+        ? []
+        : [
+            {
+              ...opponent,
+              is_self: false,
+              hand_count: 6,
+              active: true,
+              finished: false,
+            },
+          ]),
+    ],
+    active_seats: ['one', 'two'],
+    finished_seats: [],
+    finish_groups: [],
     opponent,
   }) as unknown as PvPState;
 
@@ -60,6 +90,38 @@ const opponent = (connected: boolean): NonNullable<PvPState['opponent']> => ({
   connected,
   authenticated: false,
 });
+
+const multiplayerState = (version: number): PvPState => {
+  const base = state(version);
+  return {
+    ...base,
+    capacity: 4,
+    joined_count: 4,
+    seat_order: ['one', 'two', 'three', 'four'],
+    players: (['one', 'two', 'three', 'four'] as const).map((seat, index) => ({
+      participant_id: `p${index + 1}`,
+      seat,
+      display_name: `Player ${index + 1}`,
+      connected: true,
+      authenticated: false,
+      is_self: index === 0,
+      hand_count: 6,
+      active: true,
+      finished: false,
+    })),
+    active_seats: ['one', 'two', 'three', 'four'],
+    you: {
+      participant_id: 'p1',
+      seat: 'one',
+      display_name: 'Player 1',
+      connected: true,
+      authenticated: false,
+    },
+    opponent: null,
+    opponent_hand_count: null,
+    required_participant_id: 'p1',
+  };
+};
 
 describe('PvPWebSocketService', () => {
   let service: PvPWebSocketService;
@@ -159,6 +221,106 @@ describe('PvPWebSocketService', () => {
 
     socket.message({ type: 'STATE', state: { ...active, version: 5 } });
     expect(service.hints()).toBeNull();
+  });
+
+  it('sends ordinary gameplay actions but suppresses hints and rematch for multiplayer rooms', () => {
+    service.connect('ABC123', 'secret');
+    const socket = FakeWebSocket.instances[0];
+    authenticate(socket, multiplayerState(4));
+
+    service.requestHints(['9C']);
+    service.requestRematch();
+    service.sendAction('BITO', []);
+
+    expect(socket.sent.map((value) => JSON.parse(value).type)).toEqual(['AUTH', 'ACTION']);
+    expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({
+      version: 4,
+      action: 'BITO',
+      cards: [],
+    });
+  });
+
+  it('does not send multiplayer rematch consent even from a completed room', () => {
+    service.connect('ABC123', 'secret');
+    const socket = FakeWebSocket.instances[0];
+    authenticate(socket, {
+      ...multiplayerState(9),
+      room_phase: 'COMPLETE',
+      game_phase: 'complete',
+    });
+
+    service.requestRematch();
+
+    expect(socket.sent.map((value) => JSON.parse(value).type)).toEqual(['AUTH']);
+    expect(service.rematchPending()).toBe(false);
+  });
+
+  it('tracks simultaneous participant disconnects by identity and ignores stale events', () => {
+    service.connect('ABC123', 'secret');
+    const socket = FakeWebSocket.instances[0];
+    authenticate(socket, multiplayerState(7));
+
+    socket.message({
+      type: 'OPPONENT_DISCONNECTED',
+      version: 7,
+      participant_id: 'p2',
+      seat: 'two',
+    });
+    socket.message({
+      type: 'OPPONENT_DISCONNECTED',
+      version: 7,
+      participant_id: 'p4',
+      seat: 'four',
+    });
+    socket.message({
+      type: 'OPPONENT_CONNECTED',
+      version: 6,
+      participant_id: 'p2',
+      seat: 'two',
+    });
+
+    expect(
+      service
+        .state()
+        ?.players.filter((player) => !player.connected)
+        .map((player) => player.seat),
+    ).toEqual(['two', 'four']);
+
+    socket.message({
+      type: 'OPPONENT_CONNECTED',
+      version: 7,
+      participant_id: 'p2',
+      seat: 'two',
+    });
+    expect(
+      service
+        .state()
+        ?.players.filter((player) => !player.connected)
+        .map((player) => player.seat),
+    ).toEqual(['four']);
+    expect(service.opponentStatus()).toBe('unknown');
+  });
+
+  it('releases only the participant named by a waiting-room leave event', () => {
+    const waiting = {
+      ...multiplayerState(3),
+      room_phase: 'WAITING_FOR_OPPONENT' as const,
+      joined_count: 3,
+      players: multiplayerState(3).players.slice(0, 3),
+    };
+    service.connect('ABC123', 'secret');
+    const socket = FakeWebSocket.instances[0];
+    authenticate(socket, waiting);
+
+    socket.message({
+      type: 'PARTICIPANT_LEFT',
+      version: 3,
+      participant_id: 'p2',
+      seat: 'two',
+    });
+
+    expect(service.state()?.players.map((player) => player.participant_id)).toEqual(['p1', 'p3']);
+    expect(service.state()?.joined_count).toBe(2);
   });
 
   it('does not request hints when it is not the participant turn', () => {
@@ -274,7 +436,12 @@ describe('PvPWebSocketService', () => {
       you: { participant_id: 'p1' },
     } as unknown as PvPState;
     authenticate(socket, active);
-    socket.message({ type: 'OPPONENT_DISCONNECTED', version: 7 });
+    socket.message({
+      type: 'OPPONENT_DISCONNECTED',
+      version: 7,
+      participant_id: 'p2',
+      seat: 'two',
+    });
     expect(service.opponentStatus()).toBe('disconnected');
     expect(service.roomClosure()).toBeNull();
 
@@ -444,9 +611,14 @@ describe('PvPWebSocketService', () => {
     service.connect('ABC123', 'secret');
     const socket = FakeWebSocket.instances[0];
     authenticate(socket, state(7, opponent(true)));
-    socket.message({ type: 'OPPONENT_DISCONNECTED', version: 7 });
+    socket.message({
+      type: 'OPPONENT_DISCONNECTED',
+      version: 7,
+      participant_id: 'p2',
+      seat: 'two',
+    });
     expect(service.opponentStatus()).toBe('disconnected');
-    socket.message({ type: 'OPPONENT_CONNECTED', version: 7 });
+    socket.message({ type: 'OPPONENT_CONNECTED', version: 7, participant_id: 'p2', seat: 'two' });
     expect(service.opponentStatus()).toBe('returned');
     socket.message({ type: 'STATE', state: state(7, opponent(true)) });
     expect(service.opponentStatus()).toBe('returned');

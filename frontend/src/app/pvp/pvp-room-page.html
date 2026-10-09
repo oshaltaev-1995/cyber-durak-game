@@ -1,4 +1,8 @@
-<div class="game-shell" [class.complete]="state()?.game_phase === 'complete'">
+<div
+  class="game-shell"
+  [class.complete]="state()?.game_phase === 'complete'"
+  [class.multiplayer]="(state()?.capacity ?? 2) > 2"
+>
   @if (socket.status() === 'expired') {
     <main
       id="main-content"
@@ -58,7 +62,9 @@
         <div
           class="connection-banner"
           [class.warning]="
-            socket.opponentStatus() === 'disconnected' || socket.status() === 'offline'
+            gameplayPaused() ||
+            socket.opponentStatus() === 'disconnected' ||
+            socket.status() === 'offline'
           "
           role="status"
         >
@@ -77,15 +83,50 @@
       @if (game.room_phase === 'CLOSED') {
         <section class="room-closed" aria-live="assertive">
           <span aria-hidden="true">↩</span>
-          <h1>{{ i18n.t('pvp.opponentLeftTitle') }}</h1>
-          <p>{{ i18n.t('pvp.opponentLeftHint') }}</p>
+          <h1>
+            {{ i18n.t(game.capacity === 2 ? 'pvp.opponentLeftTitle' : 'pvp.roomEndedTitle') }}
+          </h1>
+          <p>
+            {{ i18n.t(game.capacity === 2 ? 'pvp.opponentLeftHint' : 'pvp.roomEndedHint') }}
+          </p>
           <a class="room-again" routerLink="/pvp">{{ i18n.t('pvp.backToPvp') }}</a>
         </section>
       } @else if (game.room_phase === 'WAITING_FOR_OPPONENT') {
         <section class="waiting-room" aria-live="polite">
           <span class="waiting-icon" aria-hidden="true">↗</span>
           <h1>{{ i18n.t('pvp.roomCreated') }}</h1>
-          <p>{{ i18n.t('pvp.waiting') }}</p>
+          <p>
+            {{
+              i18n.t('pvp.waitingPlayers', {
+                joined: game.joined_count,
+                capacity: game.capacity,
+              })
+            }}
+          </p>
+          <ul
+            class="waiting-participants"
+            [attr.aria-label]="
+              i18n.t('pvp.waitingPlayers', {
+                joined: game.joined_count,
+                capacity: game.capacity,
+              })
+            "
+          >
+            @for (player of waitingPlayers(); track player.participant_id) {
+              <li>
+                <span class="waiting-player-badge" aria-hidden="true"
+                  >P{{ game.seat_order.indexOf(player.seat) + 1 }}</span
+                >
+                <strong>{{ player.display_name }}</strong>
+                <small>{{
+                  player.connected ? i18n.t('pvp.connected') : i18n.t('pvp.disconnectedPlayer')
+                }}</small>
+              </li>
+            }
+          </ul>
+          @if (emptySeatCount() > 0) {
+            <small>{{ i18n.t('pvp.emptySeats', { count: emptySeatCount() }) }}</small>
+          }
           <label
             ><span>{{ i18n.t('pvp.inviteLink') }}</span
             ><output>{{ inviteUrl() }}</output></label
@@ -139,12 +180,22 @@
           <section class="result-panel" aria-live="polite">
             <span>{{ i18n.t('game.finished') }}</span>
             <h2>{{ resultTitle() }}</h2>
+            @if (game.capacity > 2 && finishGroupLabels().length > 0) {
+              <section class="finish-groups" [attr.aria-label]="i18n.t('pvp.finishOrder')">
+                <strong>{{ i18n.t('pvp.finishOrder') }}</strong>
+                <ol>
+                  @for (group of finishGroupLabels(); track $index) {
+                    <li>{{ group }}</li>
+                  }
+                </ol>
+              </section>
+            }
             @if (lastBoutText(); as summary) {
               <p class="last-bout-result">
                 <strong>{{ i18n.t('game.lastBout') }}:</strong> {{ summary }}
               </p>
             }
-            @if (game.result_saved) {
+            @if (game.capacity === 2 && game.result_saved) {
               <p class="result-history-note">{{ i18n.t('pvp.saved') }}</p>
               @if (game.progression_award; as award) {
                 <section
@@ -205,79 +256,85 @@
                   i18n.t('game.openHistory')
                 }}</a>
               </div>
-            } @else if (!game.you.authenticated) {
+            } @else if (game.capacity === 2 && !game.you.authenticated) {
               <p class="result-history-note">
                 {{ i18n.t('pvp.guestSavedCta') }}
               </p>
               <a class="result-history-link" routerLink="/register">{{
                 i18n.t('game.createAccount')
               }}</a>
-            } @else {
+            } @else if (game.capacity === 2) {
               <p class="result-history-note">
                 {{ i18n.t('pvp.savePending') }}
               </p>
             }
             <div class="rematch-actions">
-              <div class="rematch-primary">
-                @switch (game.rematch_status) {
-                  @case ('WAITING') {
-                    <p class="rematch-status" role="status">{{ i18n.t('pvp.rematchWaiting') }}</p>
-                    <button
-                      class="rematch-button secondary"
-                      type="button"
-                      [disabled]="socket.rematchPending()"
-                      (click)="cancelRematch()"
-                    >
-                      {{ i18n.t('pvp.rematchCancel') }}
-                    </button>
+              @if (game.capacity === 2) {
+                <div class="rematch-primary">
+                  @switch (game.rematch_status) {
+                    @case ('WAITING') {
+                      <p class="rematch-status" role="status">{{ i18n.t('pvp.rematchWaiting') }}</p>
+                      <button
+                        class="rematch-button secondary"
+                        type="button"
+                        [disabled]="socket.rematchPending()"
+                        (click)="cancelRematch()"
+                      >
+                        {{ i18n.t('pvp.rematchCancel') }}
+                      </button>
+                    }
+                    @case ('INCOMING') {
+                      <section class="rematch-incoming" aria-labelledby="rematch-incoming-title">
+                        <h3 id="rematch-incoming-title">
+                          {{ i18n.t('pvp.rematchIncomingTitle') }}
+                        </h3>
+                        <p>{{ i18n.t('pvp.rematchIncomingHint') }}</p>
+                        <div>
+                          <button
+                            class="rematch-button"
+                            type="button"
+                            [disabled]="socket.rematchPending()"
+                            (click)="acceptRematch()"
+                          >
+                            {{ i18n.t('pvp.rematchAccept') }}
+                          </button>
+                          <button
+                            class="rematch-button secondary"
+                            type="button"
+                            [disabled]="socket.rematchPending()"
+                            (click)="declineRematch()"
+                          >
+                            {{ i18n.t('pvp.rematchDecline') }}
+                          </button>
+                        </div>
+                      </section>
+                    }
+                    @case ('DECLINED') {
+                      <p class="rematch-status" role="status">
+                        {{ i18n.t('pvp.rematchDeclined') }}
+                      </p>
+                      <button
+                        class="rematch-button"
+                        type="button"
+                        [disabled]="socket.rematchPending()"
+                        (click)="requestRematch()"
+                      >
+                        {{ i18n.t('pvp.rematch') }}
+                      </button>
+                    }
+                    @default {
+                      <button
+                        class="rematch-button"
+                        type="button"
+                        [disabled]="socket.rematchPending()"
+                        (click)="requestRematch()"
+                      >
+                        {{ i18n.t('pvp.rematch') }}
+                      </button>
+                    }
                   }
-                  @case ('INCOMING') {
-                    <section class="rematch-incoming" aria-labelledby="rematch-incoming-title">
-                      <h3 id="rematch-incoming-title">{{ i18n.t('pvp.rematchIncomingTitle') }}</h3>
-                      <p>{{ i18n.t('pvp.rematchIncomingHint') }}</p>
-                      <div>
-                        <button
-                          class="rematch-button"
-                          type="button"
-                          [disabled]="socket.rematchPending()"
-                          (click)="acceptRematch()"
-                        >
-                          {{ i18n.t('pvp.rematchAccept') }}
-                        </button>
-                        <button
-                          class="rematch-button secondary"
-                          type="button"
-                          [disabled]="socket.rematchPending()"
-                          (click)="declineRematch()"
-                        >
-                          {{ i18n.t('pvp.rematchDecline') }}
-                        </button>
-                      </div>
-                    </section>
-                  }
-                  @case ('DECLINED') {
-                    <p class="rematch-status" role="status">{{ i18n.t('pvp.rematchDeclined') }}</p>
-                    <button
-                      class="rematch-button"
-                      type="button"
-                      [disabled]="socket.rematchPending()"
-                      (click)="requestRematch()"
-                    >
-                      {{ i18n.t('pvp.rematch') }}
-                    </button>
-                  }
-                  @default {
-                    <button
-                      class="rematch-button"
-                      type="button"
-                      [disabled]="socket.rematchPending()"
-                      (click)="requestRematch()"
-                    >
-                      {{ i18n.t('pvp.rematch') }}
-                    </button>
-                  }
-                }
-              </div>
+                </div>
+              }
               <a class="room-again secondary" routerLink="/pvp">{{ i18n.t('pvp.newRoom') }}</a>
             </div>
           </section>
@@ -310,36 +367,53 @@
           <div class="error-message in-game" role="alert">{{ error }}</div>
         }
 
-        <div class="local-player-row">
+        <div
+          class="local-player-row"
+          [class.is-required]="game.required_seat === game.you.seat"
+          [class.is-finished]="localPlayer()?.finished"
+          [class.is-disconnected]="localPlayer()?.connected === false"
+          [attr.aria-label]="game.you.display_name + '. ' + localRoleLabels().join('. ')"
+        >
           <div class="local-player turn-player" [title]="game.you.display_name">
             {{ i18n.t('game.you') }}
           </div>
           <span class="local-player-name">{{ game.you.display_name }}</span>
+          @for (role of localRoleLabels(); track role) {
+            <span class="local-role">{{ role }}</span>
+          }
         </div>
         <app-hand
           class="player-hand-region"
           [cards]="game.hand"
           [selectedCodes]="selectedCodes()"
           [suggestedCodes]="suggestedCodes()"
-          [disabled]="socket.actionPending() || gameplayPaused() || game.game_phase === 'complete'"
+          [disabled]="
+            socket.actionPending() ||
+            gameplayPaused() ||
+            game.game_phase === 'complete' ||
+            localPlayer()?.finished === true
+          "
           (cardSelected)="toggleCard($event)"
         />
 
         @if (game.game_phase !== 'complete') {
           <div class="action-dock">
-            <app-hint-panel
-              [enabled]="hintPreference.enabled()"
-              [loading]="socket.hintPending()"
-              [cards]="game.hand"
-              [combinations]="socket.hints()?.combinations ?? []"
-              (enabledChange)="setHintsEnabled($event)"
-            />
+            @if (game.capacity === 2) {
+              <app-hint-panel
+                [enabled]="hintPreference.enabled()"
+                [loading]="socket.hintPending()"
+                [cards]="game.hand"
+                [combinations]="socket.hints()?.combinations ?? []"
+                (enabledChange)="setHintsEnabled($event)"
+              />
+            }
             <app-action-bar
               [actions]="game.available_actions"
               [selectedCards]="selectedCards()"
               [activeAttackValue]="game.active_attack_value"
               [maxAttackCardAddition]="game.max_attack_card_addition"
               [pending]="socket.actionPending() || gameplayPaused()"
+              [bitoMeansPass]="game.capacity > 2"
               (actionSelected)="submitAction($event)"
             />
           </div>

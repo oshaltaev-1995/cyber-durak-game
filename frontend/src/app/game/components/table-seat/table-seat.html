@@ -3,9 +3,10 @@
   [class.position-top]="seat().position === 'top'"
   [class.position-left]="seat().position === 'left'"
   [class.position-right]="seat().position === 'right'"
-  [attr.aria-label]="
-    i18n.t('game.hiddenHandLabel', { name: seat().displayName, count: seat().cardCount })
-  "
+  [class.is-required]="seat().required"
+  [class.is-finished]="seat().finished"
+  [class.is-disconnected]="seat().connected === false"
+  [attr.aria-label]="accessibleLabel()"
 >
   <div class="seat-identity">
     <span class="seat-badge" aria-hidden="true">{{ seat().badge }}</span>
@@ -15,6 +16,14 @@
       >{{ seat().cardCount }} {{ i18n.cardCount(seat().cardCount) }}</strong
     >
   </div>
+
+  @if (roleLabels().length > 0) {
+    <div class="seat-roles" aria-hidden="true">
+      @for (label of roleLabels(); track label) {
+        <span>{{ label }}</span>
+      }
+    </div>
+  }
 
   <div
     class="hidden-hand"
@@ -26,13 +35,7 @@
     [attr.data-card-count]="seat().cardCount"
   >
     @for (index of cardIndexes(); track index) {
-      <div
-        class="hidden-card"
-        role="img"
-        [attr.aria-label]="
-          i18n.t('game.hiddenCardPosition', { current: index + 1, total: seat().cardCount })
-        "
-      >
+      <div class="hidden-card" aria-hidden="true">
         <span aria-hidden="true">K</span>
       </div>
     }

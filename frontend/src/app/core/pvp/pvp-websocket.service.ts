@@ -102,6 +102,7 @@ export class PvPWebSocketService {
       this.status() !== 'connected' ||
       this.socket?.readyState !== WebSocket.OPEN ||
       state === null ||
+      state.capacity !== 2 ||
       state.required_participant_id !== state.you.participant_id ||
       this.actionPending()
     ) {
@@ -332,10 +333,20 @@ export class PvPWebSocketService {
         return;
       }
       case 'OPPONENT_DISCONNECTED':
-        if (this.isCurrentVersion(message.version)) this.setOpponentDisconnected();
+        if (this.isCurrentVersion(message.version)) {
+          this.applyParticipantConnection(message.participant_id, false);
+          if (this.state()?.capacity === 2) this.setOpponentDisconnected();
+        }
         return;
       case 'OPPONENT_CONNECTED':
-        if (this.isCurrentVersion(message.version)) this.setOpponentConnected();
+        if (this.isCurrentVersion(message.version)) {
+          this.applyParticipantConnection(message.participant_id, true);
+          if (this.state()?.capacity === 2) this.setOpponentConnected();
+        }
+        return;
+      case 'PARTICIPANT_LEFT':
+        if (this.isCurrentVersion(message.version))
+          this.applyParticipantLeft(message.participant_id);
         return;
       case 'PONG':
         if (!this.isCurrent(socket, generation)) return;
@@ -356,7 +367,7 @@ export class PvPWebSocketService {
     this.clearHints();
     this.state.set(state);
     if (this.actionError()?.code !== 'STALE_VERSION') this.actionError.set(null);
-    if (state.opponent === null) {
+    if (state.capacity !== 2 || state.opponent === null) {
       this.opponentStatus.set('unknown');
     } else if (state.opponent.connected) {
       if (this.opponentStatus() !== 'returned') this.setOpponentConnected();
@@ -374,6 +385,7 @@ export class PvPWebSocketService {
       this.status() !== 'connected' ||
       this.socket?.readyState !== WebSocket.OPEN ||
       state?.room_phase !== 'COMPLETE' ||
+      state.capacity !== 2 ||
       state.match_id === null ||
       this.rematchPending()
     ) {
@@ -465,6 +477,31 @@ export class PvPWebSocketService {
   private isCurrentVersion(version: number): boolean {
     const current = this.state();
     return current === null || version >= current.version;
+  }
+
+  private applyParticipantConnection(participantId: string, connected: boolean): void {
+    const state = this.state();
+    if (
+      state === null ||
+      !state.players.some((player) => player.participant_id === participantId)
+    ) {
+      return;
+    }
+    const players = state.players.map((player) =>
+      player.participant_id === participantId ? { ...player, connected } : player,
+    );
+    const opponent =
+      state.opponent?.participant_id === participantId
+        ? { ...state.opponent, connected }
+        : state.opponent;
+    this.state.set({ ...state, players, opponent });
+  }
+
+  private applyParticipantLeft(participantId: string): void {
+    const state = this.state();
+    if (state === null || state.room_phase !== 'WAITING_FOR_OPPONENT') return;
+    const players = state.players.filter((player) => player.participant_id !== participantId);
+    this.state.set({ ...state, players, joined_count: players.length });
   }
 
   private setOpponentDisconnected(): void {

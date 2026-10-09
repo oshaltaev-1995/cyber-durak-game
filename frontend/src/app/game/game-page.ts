@@ -377,10 +377,6 @@ export class GamePageComponent implements OnInit, OnDestroy {
           remoteCardCount: this.remotePlayedCount(updatedGame.recent_events),
           remotePlayedCards: this.newPublicRemoteCards(previous, updatedGame),
           resolvedTo: this.resolutionDestination(previous, updatedGame),
-          refillOrder:
-            previous.bout_starting_attacker === previous.human_seat
-              ? 'local-first'
-              : 'opponent-first',
         }),
       );
     }
@@ -500,7 +496,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private motionSnapshot(game: GameResponse): MotionSnapshot {
     return {
       localHand: game.human_hand,
-      opponentHandCount: game.bot_hand_count,
+      remoteHands: { top: game.bot_hand_count },
       drawPileCount: game.draw_pile_count,
       discardCount: game.discard_count,
       tableCards: game.table_cards,
@@ -515,7 +511,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
       planCardMotions(
         {
           ...current,
-          opponentHandCount: current.opponentHandCount + remoteCardCount,
+          remoteHands: { top: (current.remoteHands.top ?? 0) + remoteCardCount },
           tableCards: [],
         },
         current,
@@ -544,7 +540,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private resolutionDestination(
     previous: GameResponse,
     game: GameResponse,
-  ): 'local' | 'opponent' | 'discard' | undefined {
+  ): 'bottom' | 'top' | 'discard' | undefined {
     const summary = game.last_bout_summary;
     if (summary === null) return undefined;
     const nextTableCodes = new Set(game.table_cards.map((card) => card.code));
@@ -554,7 +550,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
     )
       return undefined;
     if (summary.outcome === 'BITO') return 'discard';
-    return summary.actor_seat === game.human_seat ? 'local' : 'opponent';
+    return summary.actor_seat === game.human_seat ? 'bottom' : 'top';
   }
 
   private botEventText(event: BotPresentationEvent): string {

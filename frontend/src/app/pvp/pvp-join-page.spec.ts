@@ -13,6 +13,8 @@ const waitingRoom: PvPRoomStatus = {
   invite_code: 'MixedCase',
   room_phase: 'WAITING_FOR_OPPONENT',
   version: 0,
+  capacity: 2,
+  joined_count: 1,
   participants: [
     {
       participant_id: 'p1',
@@ -103,6 +105,16 @@ describe('PvPJoinPageComponent', () => {
       .querySelector<HTMLButtonElement>('button.primary')
       ?.click();
     expect(api.joinRoom).toHaveBeenCalledWith('MixedCase', null);
+  });
+
+  it('shows remaining capacity for a joinable multiplayer room', async () => {
+    api.getRoom.mockReturnValue(of({ ...waitingRoom, capacity: 4, joined_count: 2 }));
+    await create();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'В комнате 2 из 4 игроков',
+    );
+    expect((fixture.nativeElement as HTMLElement).querySelector('button.primary')).not.toBeNull();
   });
 
   it('shows a full room without a join action', async () => {

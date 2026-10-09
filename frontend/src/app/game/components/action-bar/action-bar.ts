@@ -16,6 +16,7 @@ export class ActionBarComponent {
   readonly activeAttackValue = input<number | null>(null);
   readonly maxAttackCardAddition = input<number | null>(null);
   readonly pending = input(false);
+  readonly bitoMeansPass = input(false);
   readonly actionSelected = output<HumanActionType>();
 
   protected readonly i18n = inject(TranslationService);
@@ -110,6 +111,7 @@ export class ActionBarComponent {
   }
 
   protected actionLabel(action: HumanActionType): string {
+    if (action === 'BITO' && this.bitoMeansPass()) return this.i18n.t('action.PASS');
     return this.i18n.t(`action.${action}` as TranslationKey);
   }
 }

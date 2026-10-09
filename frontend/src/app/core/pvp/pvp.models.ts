@@ -23,6 +23,13 @@ export interface PvPParticipant {
   readonly authenticated: boolean;
 }
 
+export interface PvPPlayerState extends PvPParticipant {
+  readonly is_self: boolean;
+  readonly hand_count: number | null;
+  readonly active: boolean;
+  readonly finished: boolean;
+}
+
 export interface PvPCredential {
   readonly participant_id: string;
   readonly seat: Seat;
@@ -41,6 +48,13 @@ export interface PvPState {
   readonly match_id: string | null;
   readonly room_phase: PvPRoomPhase;
   readonly version: number;
+  readonly capacity: 2 | 3 | 4;
+  readonly joined_count: number;
+  readonly seat_order: readonly Seat[];
+  readonly players: readonly PvPPlayerState[];
+  readonly active_seats: readonly Seat[];
+  readonly finished_seats: readonly Seat[];
+  readonly finish_groups: readonly (readonly Seat[])[];
   readonly rematch_status: PvPRematchStatus;
   readonly you: PvPParticipant;
   readonly opponent: PvPParticipant | null;
@@ -59,6 +73,7 @@ export interface PvPState {
   readonly table_arithmetic: TableArithmetic;
   readonly bout_starting_attacker: Seat | null;
   readonly attacker: Seat | null;
+  readonly lead_attacker: Seat | null;
   readonly defender: Seat | null;
   readonly bout_phase: BoutPhase | null;
   readonly packets: readonly AttackPacket[];
@@ -85,6 +100,8 @@ export interface PvPRoomStatus {
   readonly invite_code: string;
   readonly room_phase: PvPRoomPhase;
   readonly version: number;
+  readonly capacity: 2 | 3 | 4;
+  readonly joined_count: number;
   readonly participants: readonly PvPParticipant[];
 }
 
@@ -133,6 +150,18 @@ export type PvPServerMessage =
       readonly left_participant_id: string;
     }
   | {
-      readonly type: 'OPPONENT_CONNECTED' | 'OPPONENT_DISCONNECTED' | 'PONG';
+      readonly type: 'OPPONENT_CONNECTED' | 'OPPONENT_DISCONNECTED';
+      readonly version: number;
+      readonly participant_id: string;
+      readonly seat: Seat;
+    }
+  | {
+      readonly type: 'PARTICIPANT_LEFT';
+      readonly version: number;
+      readonly participant_id: string;
+      readonly seat: Seat;
+    }
+  | {
+      readonly type: 'PONG';
       readonly version: number;
     };

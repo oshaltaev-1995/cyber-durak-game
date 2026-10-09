@@ -31,8 +31,13 @@ import {
   MotionSnapshot,
   planCardMotions,
 } from '../game/presentation/card-motion';
-import { HiddenTableSeat } from '../game/presentation/table-seat.models';
-import { PvPState } from '../core/pvp/pvp.models';
+import {
+  HiddenTableSeat,
+  RemoteTableSeatPosition,
+  TableSeatPosition,
+  relativeSeatPosition,
+} from '../game/presentation/table-seat.models';
+import { PvPPlayerState, PvPState } from '../core/pvp/pvp.models';
 
 const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   WRONG_TURN: 'error.wrong_turn',
@@ -94,29 +99,63 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     () => `${window.location.origin}/join/${this.inviteCode}`,
   );
   protected readonly statusText = computed(() => this.getStatusText());
+  protected readonly localPlayer = computed(() => {
+    const state = this.state();
+    return state?.players.find((player) => player.is_self) ?? null;
+  });
+  protected readonly localRoleLabels = computed(() => {
+    const state = this.state();
+    const player = this.localPlayer();
+    if (state === null || player === null) return [];
+    return this.roleLabels(state, player);
+  });
   protected readonly gameplayPaused = computed(() => {
     const state = this.state();
+    const activeRemoteDisconnected =
+      state?.players.some(
+        (player) => !player.is_self && player.active && !player.finished && !player.connected,
+      ) ?? false;
     return (
       state?.room_phase === 'CLOSED' ||
       this.startingRematch() ||
       this.socket.roomClosure() !== null ||
       this.socket.status() !== 'connected' ||
-      this.socket.opponentStatus() === 'disconnected' ||
-      state?.opponent?.connected === false
+      (state?.capacity === 2 && this.socket.opponentStatus() === 'disconnected') ||
+      activeRemoteDisconnected
     );
   });
   protected readonly opponentSeats = computed<readonly HiddenTableSeat[]>(() => {
     const state = this.state();
-    if (state?.opponent === null || state?.opponent === undefined) return [];
-    return [
-      {
-        id: state.opponent.participant_id,
-        position: 'top',
-        displayName: state.opponent.display_name,
-        cardCount: state.opponent_hand_count ?? 0,
-        badge: 'P2',
-      },
-    ];
+    if (state === null) return [];
+    return state.players
+      .filter((player) => !player.is_self)
+      .sort(
+        (left, right) => state.seat_order.indexOf(left.seat) - state.seat_order.indexOf(right.seat),
+      )
+      .map((player) => ({
+        id: player.participant_id,
+        seat: player.seat,
+        position: relativeSeatPosition(
+          state.seat_order,
+          state.you.seat,
+          player.seat,
+        ) as RemoteTableSeatPosition,
+        displayName: player.display_name,
+        cardCount: player.hand_count ?? 0,
+        badge: `P${state.seat_order.indexOf(player.seat) + 1}`,
+        connected: player.connected,
+        active: player.active,
+        finished: player.finished,
+        currentAttacker: state.attacker === player.seat,
+        leadAttacker: state.lead_attacker === player.seat,
+        defender: state.defender === player.seat,
+        required: state.required_seat === player.seat,
+      }));
+  });
+  protected readonly waitingPlayers = computed(() => this.state()?.players ?? []);
+  protected readonly emptySeatCount = computed(() => {
+    const state = this.state();
+    return state === null ? 0 : Math.max(0, state.capacity - state.joined_count);
   });
   protected inviteCode = '';
   private lastVersion = -1;
@@ -307,6 +346,9 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     const summary = state?.last_bout_summary;
     if (state === null || summary === null || summary === undefined) return null;
     const localActor = summary.actor_seat === state.you.seat;
+    const actorName =
+      state.players.find((player) => player.seat === summary.actor_seat)?.display_name ??
+      this.i18n.t('pvp.playerFallback', { seat: summary.actor_seat });
     if (summary.outcome === 'TAKE') {
       if (localActor) {
         return this.i18n.t('game.youTook', {
@@ -315,7 +357,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
         });
       }
       return this.i18n.t('game.opponentTook', {
-        name: state.opponent?.display_name ?? this.i18n.t('pvp.opponent'),
+        name: actorName,
         count: summary.table_card_count,
         cards: this.i18n.cardCount(summary.table_card_count),
       });
@@ -323,7 +365,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     return localActor
       ? this.i18n.t('game.youDefended')
       : this.i18n.t('game.opponentDefended', {
-          name: state.opponent?.display_name ?? this.i18n.t('pvp.opponent'),
+          name: actorName,
         });
   }
 
@@ -338,10 +380,12 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
         ? this.i18n.t('pvp.roomOtherTab')
         : this.i18n.t('pvp.connectFailed');
     }
-    if (this.socket.opponentStatus() === 'disconnected') {
+    if (this.state()?.capacity === 2 && this.socket.opponentStatus() === 'disconnected') {
       return this.i18n.t('pvp.opponentDisconnected');
     }
-    if (this.socket.opponentStatus() === 'returned') return this.i18n.t('pvp.opponentReturned');
+    if (this.state()?.capacity === 2 && this.socket.opponentStatus() === 'returned') {
+      return this.i18n.t('pvp.opponentReturned');
+    }
     return null;
   }
 
@@ -374,12 +418,27 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
 
   protected resultTitle(): string {
     const state = this.state();
+    if ((state?.capacity ?? 2) > 2) return this.i18n.t('game.finished');
     if (state?.result?.outcome === 'DRAW') return this.i18n.t('game.draw');
     return state?.result?.winner_participant_id === state?.you.participant_id
       ? this.i18n.t('game.win')
       : this.i18n.t('pvp.winner', {
           name: state?.result?.winner_display_name ?? this.i18n.t('pvp.opponent'),
         });
+  }
+
+  protected finishGroupLabels(): readonly string[] {
+    const state = this.state();
+    if (state === null) return [];
+    return state.finish_groups.map((group) =>
+      group
+        .map(
+          (seat) =>
+            state.players.find((player) => player.seat === seat)?.display_name ??
+            this.i18n.t('pvp.playerFallback', { seat }),
+        )
+        .join(', '),
+    );
   }
 
   protected requestRematch(): void {
@@ -424,13 +483,19 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     if (this.socket.status() === 'disconnected' || this.socket.status() === 'error') {
       return this.i18n.t('pvp.connectionLost');
     }
-    if (this.gameplayPaused()) return this.i18n.t('pvp.opponentDisconnected');
+    if (this.gameplayPaused()) {
+      return state?.capacity === 2
+        ? this.i18n.t('pvp.opponentDisconnected')
+        : this.i18n.t('pvp.participantDisconnected');
+    }
     if (state === null) return this.i18n.t('pvp.loadingRoom');
     if (state.room_phase === 'WAITING_FOR_OPPONENT') return this.i18n.t('pvp.waiting');
     if (state.game_phase === 'complete') return this.i18n.t('pvp.complete');
     if (state.required_participant_id !== state.you.participant_id) {
       return this.i18n.t('pvp.opponentThinking', {
-        name: state.opponent?.display_name ?? this.i18n.t('pvp.opponent'),
+        name:
+          state.players.find((player) => player.participant_id === state.required_participant_id)
+            ?.display_name ?? this.i18n.t('pvp.opponent'),
       });
     }
     if (state.available_actions.includes('INITIAL_ATTACK')) return this.i18n.t('pvp.attackPrompt');
@@ -452,9 +517,8 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
         localCards: this.submittedCards,
         remoteCardCount: remoteCards.length,
         remotePlayedCards: remoteCards,
+        remoteFrom: this.remoteActionSource(previous),
         resolvedTo: this.resolutionDestination(previous, next),
-        refillOrder:
-          previous.bout_starting_attacker === previous.you.seat ? 'local-first' : 'opponent-first',
       }),
     );
     this.submittedAction = null;
@@ -462,9 +526,15 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   }
 
   private motionSnapshot(state: PvPState): MotionSnapshot {
+    const remoteHands: Partial<Record<RemoteTableSeatPosition, number>> = {};
+    for (const player of state.players) {
+      if (player.is_self) continue;
+      const position = relativeSeatPosition(state.seat_order, state.you.seat, player.seat);
+      if (position !== 'bottom') remoteHands[position] = player.hand_count ?? 0;
+    }
     return {
       localHand: state.hand,
-      opponentHandCount: state.opponent_hand_count ?? 0,
+      remoteHands,
       drawPileCount: state.draw_pile_count,
       discardCount: state.discard_count,
       tableCards: state.table_cards,
@@ -474,7 +544,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   private resolutionDestination(
     previous: PvPState,
     state: PvPState,
-  ): 'local' | 'opponent' | 'discard' | undefined {
+  ): TableSeatPosition | 'discard' | undefined {
     const summary = state.last_bout_summary;
     if (summary === null) return undefined;
     const nextTableCodes = new Set(state.table_cards.map((card) => card.code));
@@ -484,6 +554,25 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     )
       return undefined;
     if (summary.outcome === 'BITO') return 'discard';
-    return summary.actor_seat === state.you.seat ? 'local' : 'opponent';
+    return relativeSeatPosition(state.seat_order, state.you.seat, summary.actor_seat);
+  }
+
+  private remoteActionSource(state: PvPState): RemoteTableSeatPosition | undefined {
+    if (state.required_seat === null || state.required_seat === state.you.seat) return undefined;
+    const position = relativeSeatPosition(state.seat_order, state.you.seat, state.required_seat);
+    return position === 'bottom' ? undefined : position;
+  }
+
+  private roleLabels(state: PvPState, player: PvPPlayerState): readonly string[] {
+    const labels: string[] = [];
+    if (state.defender === player.seat) labels.push(this.i18n.t('pvp.defender'));
+    if (state.attacker === player.seat) labels.push(this.i18n.t('pvp.currentAttacker'));
+    if (state.lead_attacker === player.seat && state.attacker !== player.seat) {
+      labels.push(this.i18n.t('pvp.leadAttacker'));
+    }
+    if (state.required_seat === player.seat) labels.push(this.i18n.t('pvp.currentTurn'));
+    if (player.finished) labels.push(this.i18n.t('pvp.finishedPlayer'));
+    if (!player.connected) labels.push(this.i18n.t('pvp.disconnectedPlayer'));
+    return labels;
   }
 }

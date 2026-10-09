@@ -10,6 +10,19 @@
   gap: 0.22rem;
 }
 
+.table-seat.is-required {
+  filter: drop-shadow(0 0 0.65rem rgb(73 229 190 / 45%));
+}
+
+.table-seat.is-finished {
+  opacity: 0.66;
+}
+
+.table-seat.is-disconnected .seat-badge {
+  color: #342b12;
+  background: #ffe08a;
+}
+
 .seat-identity {
   z-index: 1;
   display: flex;
@@ -45,6 +58,31 @@
 .seat-count {
   white-space: nowrap;
   font-size: 0.68rem;
+}
+
+.seat-roles {
+  z-index: 1;
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
+.seat-roles span {
+  padding: 0.12rem 0.38rem;
+  border: 1px solid rgb(73 229 190 / 24%);
+  border-radius: 999px;
+  color: #c8fff0;
+  background: rgb(5 35 30 / 82%);
+  font-size: 0.56rem;
+  font-weight: 760;
+}
+
+.is-disconnected .seat-roles span,
+.is-finished .seat-roles span {
+  color: #ffe7a5;
+  border-color: rgb(255 224 138 / 24%);
 }
 
 .hidden-hand {
@@ -103,13 +141,28 @@
 .position-right .hidden-hand {
   --hidden-card-width: 3.65rem;
   --hidden-card-height: 5.15rem;
-  --hidden-overlap: -3.55rem;
+  --hidden-overlap: -4.8rem;
   width: var(--hidden-card-width);
-  min-height: 8.8rem;
+  min-height: 7.7rem;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
   padding: 0;
+}
+
+.position-left .hand-crowded,
+.position-right .hand-crowded {
+  --hidden-overlap: -4.95rem;
+}
+
+.position-left .hand-large,
+.position-right .hand-large {
+  --hidden-overlap: -5.02rem;
+}
+
+.position-left .hand-huge,
+.position-right .hand-huge {
+  --hidden-overlap: -5.08rem;
 }
 
 .position-left .hidden-card + .hidden-card,
@@ -177,6 +230,29 @@
 
   .seat-identity {
     font-size: 0.66rem;
+  }
+
+  .position-left .hidden-hand,
+  .position-right .hidden-hand {
+    --hidden-card-width: 3.2rem;
+    --hidden-card-height: 4.45rem;
+    --hidden-overlap: -4.42rem;
+    min-height: 4.6rem;
+  }
+
+  .position-left .hand-crowded,
+  .position-right .hand-crowded {
+    --hidden-overlap: -4.43rem;
+  }
+
+  .position-left .hand-large,
+  .position-right .hand-large {
+    --hidden-overlap: -4.44rem;
+  }
+
+  .position-left .hand-huge,
+  .position-right .hand-huge {
+    --hidden-overlap: -4.45rem;
   }
 }
 
