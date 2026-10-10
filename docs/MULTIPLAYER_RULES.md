@@ -1,9 +1,9 @@
 # KIBA 2–4 Player Canon
 
-> Status: **M1 canonical freeze**. This document is the authoritative multiplayer extension of
-> [`GAME_RULES.md`](GAME_RULES.md). It defines gameplay for two, three, and four players without
-> changing the existing two-player rules. It specifies rules only; no multiplayer implementation is
-> implied.
+> Status: **M1 canonical freeze with D1 deck-variant amendment**. This document is the authoritative
+> multiplayer extension of [`GAME_RULES.md`](GAME_RULES.md). D1 adds the configurations in
+> [`DECK_VARIANTS.md`](DECK_VARIANTS.md) and corrects initial-street legality without changing the
+> remaining two-to-four-player state machine. It specifies rules only; implementation is not implied.
 
 ## 1. Scope and compatibility
 
@@ -14,10 +14,10 @@ are outside this canon.
 Unless this document explicitly generalizes a role, order, refill, or outcome rule, all rules from
 `GAME_RULES.md` remain unchanged:
 
-- one 36-card deck and seven-card initial hands;
+- one selected canonical profile/deck-count configuration and seven-card initial hands;
 - rank values and effective values;
 - exposed-suit-or-rank dual trump and the ×2 trump multiplier;
-- arithmetic initial attacks;
+- single-card, same-rank, arithmetic, and contiguous-street initial attacks;
 - strictly greater, selection-local irredundant defense;
 - exact and same-rank-extension transfers with snowball accumulation;
 - latest-defense ranks and values, latest-defense total, table total, arithmetic mean, and rank-run
@@ -75,8 +75,9 @@ rules-level reseating.
 
 ### 4.1 Initial deal
 
-Deal seven cards to each player round-robin in clockwise seat order. The remaining draw pile and
-exposed top card retain their existing meanings.
+Deal seven cards to each player round-robin in clockwise seat order from the selected 36-, 54-,
+72-, or 108-card configuration. The remaining draw pile and exposed top card retain their existing
+meanings.
 
 ### 4.2 Initial lead attacker
 
@@ -114,12 +115,12 @@ defender, current lead attacker, and attacking-phase order, but never refill ord
 ### 5.1 Lead-only initial attack
 
 Only the lead attacker owns the initial attack window. They commit one complete batch satisfying
-the existing initial-attack rules. No additional attacker may add a card before the defender's
-first response.
+the existing initial-attack rules, including the recovered contiguous-street basis defined in
+`DECK_VARIANTS.md`. No additional attacker may add a card before the defender's first response.
 
 When the defender begins responding, the initial attack window closes permanently for that bout.
-An unplayed card cannot later be justified by saying it belonged to the initial arithmetic or
-same-rank relationship.
+An unplayed card cannot later be justified by saying it belonged to the initial arithmetic,
+same-rank, or street relationship.
 
 The card is not banned for the bout. It may be used later if it independently satisfies a current
 post-defense reason: latest-defense rank or value, latest-defense total, table total, arithmetic
@@ -278,7 +279,7 @@ which attacker played it. Attacker handoff never resets the table.
 
 - table total includes all physical table cards;
 - arithmetic mean includes all physical table cards;
-- rank-run analysis includes all physical table ranks;
+- rank-run analysis includes all physical table ranks and uses the selected profile's linear order;
 - latest-defense anchors are the latest successful defense cards;
 - latest-defense total is the total of that latest defense packet.
 
@@ -492,6 +493,7 @@ NEXT BOUT OR MATCH END
 3. Current attacker is active, is not defender, and owns the only attacking decision.
 4. Finished players never receive actions and every clockwise traversal skips them.
 5. The initial attack belongs only to the lead and is one complete batch.
+   A qualifying initial street is one allowed basis for that batch.
 6. At most one packet is unresolved.
 7. A batch cannot change after defender response begins.
 8. A closed attacking phase never reopens or cycles back.
@@ -522,7 +524,7 @@ NEXT BOUT OR MATCH END
 | Seat traversal       | Other active seat                          | Clockwise, skip finished                                                  | Clockwise, skip finished                                                   |
 | Initial lead         | Lowest effective trump across two          | Across three                                                              | Across four                                                                |
 | Initial defender     | Other player                               | Next active clockwise                                                     | Next active clockwise                                                      |
-| Initial attack       | Lead only                                  | Lead only                                                                 | Lead only                                                                  |
+| Initial attack       | Lead only; all canonical bases             | Lead only; all canonical bases                                            | Lead only; all canonical bases                                             |
 | Attacker order       | One attacker                               | Lead plus one additional attacker                                         | Lead plus two additional attackers                                         |
 | Attacking phases     | One non-cycling phase                      | Each non-defender once                                                    | Each non-defender once                                                     |
 | Batch boundary       | Fixed before response                      | Same                                                                      | Same                                                                       |
@@ -538,7 +540,18 @@ NEXT BOUT OR MATCH END
 | Finish               | Winner or simultaneous draw                | Ordered finish groups                                                     | Ordered finish groups                                                      |
 | Final tie            | Both empty = DRAW                          | All remaining empty share group                                           | All remaining empty share group                                            |
 
-## 17. Future Product Decisions
+## 17. D1 deck-variant amendment
+
+The D1 freeze generalizes card population and rank order through `profile × physical deck copies`
+without introducing another multiplayer state machine. CLASSIC/EXTENDED and one/two copies all use
+the roles, transfers, phases, shared cap, immutable refill order, and finish rules above.
+
+D1 also records the original author's recovered correction that a contiguous street is a legal
+initial attack. M1's earlier post-response-only wording is superseded on that point. Initial streets
+remain lead-only, atomic, non-wrapping, profile-aware, and subject to the same physical-card cap.
+All other M1 rules remain intact.
+
+## 18. Future Product Decisions
 
 These are deliberately non-canonical and do not block M2 domain work:
 
@@ -549,8 +562,10 @@ These are deliberately non-canonical and do not block M2 domain work:
 - compact-table layout on different screen sizes;
 - whether bots later support three or four players;
 - matchmaking, public lobbies, ratings, and placement-statistics presentation;
-- persistence and rematch UX for future multi-participant rooms.
+- persistence and rematch UX for future multi-participant rooms;
+- exact deck-profile/deck-count controls, defaults, and release gating;
+- whether 54 cards are recommended for three- or four-player sessions.
 
-## 18. Open Gameplay Questions
+## 19. Open Gameplay Questions
 
 **NONE.**

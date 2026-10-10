@@ -1,14 +1,18 @@
 # KIBA 2–4 Player Canonical Scenarios
 
-> These 48 deterministic scenarios are acceptance specifications for the M1 canon in
-> [`MULTIPLAYER_RULES.md`](MULTIPLAYER_RULES.md). They are documentation, not executable tests.
+> These 48 M1 scenarios plus 40 D1 deck-variant scenarios are deterministic acceptance
+> specifications for [`MULTIPLAYER_RULES.md`](MULTIPLAYER_RULES.md) and
+> [`DECK_VARIANTS.md`](DECK_VARIANTS.md). They are documentation, not executable tests.
 
 ## Conventions
 
 - Clockwise seats are written `A → B → C → D → A`; shorter games retain the same notation.
 - All named players are active unless a scenario explicitly marks one finished.
 - Rank values use the canonical base values unless a trump state is stated.
-- Repeated ranks denote distinct suits from the one 36-card deck.
+- Unless a D1 scenario states otherwise, repeated ranks in S01–S48 denote distinct suits from
+  Single Classic.
+- D1 scenarios name rank profile and deck count explicitly. Copy labels identify physical instances
+  only and are not required player-facing labels.
 - “Count” means total attacking cards counted against the current defender tenure.
 - Unmentioned card choices are irrelevant to the asserted rule; every stated defense is
   strictly greater and irredundant.
@@ -27,6 +31,11 @@
 | Shared arithmetic table     | S27–S31      |
 | Refill                      | S32–S37, S48 |
 | Finish and endgame          | S38–S47      |
+| Deck configuration/identity | D01–D06      |
+| Trump and Joker behavior    | D07–D20      |
+| Initial/profile streets     | D21–D31      |
+| Street capacity             | D32–D34      |
+| Integration/compatibility   | D35–D40      |
 
 ## Starting order
 
@@ -551,12 +560,355 @@
 - **Post-bout:** balanced-quota ties also use `A → B`; no two-player exception or second state
   machine is involved.
 
+## D1 deck-variant scenarios
+
+### D01 — Single Classic population
+
+- **Configuration:** CLASSIC ×1; two players.
+- **Exposed top:** irrelevant to population; no cards are selected for an action.
+- **Cards/values:** nine suited ranks `6..A`, four suits, no Jokers; 36 unique physical instances.
+- **Capacity:** not applicable before a bout.
+- **Expected result:** the configuration is valid with exactly 36 cards; any construction with a
+  Joker or duplicate physical instance is invalid.
+
+### D02 — Single Extended population
+
+- **Configuration:** EXTENDED ×1; four players.
+- **Exposed top:** irrelevant to population; no action selection.
+- **Cards/values:** thirteen suited ranks `2..A` in four suits plus one red and one black Joker;
+  `52 + 2 = 54` physical instances.
+- **Capacity:** not applicable.
+- **Expected result:** the configuration is valid with exactly 54 cards; omitting either Joker or a
+  suited card is invalid.
+
+### D03 — Double Classic identity and conservation
+
+- **Configuration:** CLASSIC ×2; three players.
+- **Exposed top:** `6♣` from copy 1; no action selection.
+- **Cards/values:** every Classic display card has copy-1 and copy-2 instances; total 72.
+- **Capacity:** not applicable.
+- **Expected result:** both `K♥` instances coexist as distinct physical cards and conservation at
+  72 is valid; collapsing them to one object is invalid.
+
+### D04 — Double Extended Joker population
+
+- **Configuration:** EXTENDED ×2; four players.
+- **Exposed top:** red Joker from copy 1; no action selection.
+- **Cards/values:** 104 suited instances, two red Jokers, and two black Jokers; total 108.
+- **Capacity:** not applicable.
+- **Expected result:** conservation at 108 with exactly two Jokers of each color is valid; treating
+  same-color copies as one physical card is invalid.
+
+### D05 — Exact duplicates in a same-rank batch
+
+- **Configuration:** CLASSIC ×2; two players.
+- **Exposed top:** `6♣`; neither selected King is trump.
+- **Selected cards/values:** copy-1 `K♥ = 18` and copy-2 `K♥ = 18`; both have logical rank K.
+- **Capacity:** defender hand 7, so `max_add_now = 7`; batch length 2.
+- **Expected result:** the two-card same-rank initial batch is legal and retains two physical IDs.
+
+### D06 — Duplicate identity survives movement
+
+- **Configuration:** CLASSIC ×2; three players.
+- **Exposed top:** `8♣`; selected cards are the two physical `K♥` instances, each 18.
+- **Sequence/capacity:** with cap 7, both Kings legally enter one same-rank packet; after TAKE both
+  move to the defender's hand, and a later refill moves neither existing card.
+- **Expected result:** both IDs remain independently present through hand → table → hand/refill;
+  replacing or merging either instance is invalid.
+
+### D07 — Classic ordinary suit trump
+
+- **Configuration:** CLASSIC ×1; two players.
+- **Exposed top:** `7♥`.
+- **Selected cards/values:** `8♥ = 16` and `8♠ = 8`.
+- **Capacity:** defender hand 7; each one-card action fits.
+- **Expected result:** the Heart is trump by suit and the Spade is not; those effective values are
+  canonical.
+
+### D08 — Classic ordinary rank trump
+
+- **Configuration:** CLASSIC ×1; four players.
+- **Exposed top:** `7♥`.
+- **Selected cards/values:** `7♠ = 14` and `8♠ = 8`.
+- **Capacity:** defender hand 7; selected one-card actions fit.
+- **Expected result:** the Seven is trump by rank while the unrelated Eight is not.
+
+### D09 — Extended Heart top trumps red Joker
+
+- **Configuration:** EXTENDED ×1; two players.
+- **Exposed top:** `7♥`.
+- **Selected cards/values:** red Joker `50`; black Joker `25`.
+- **Capacity:** defender hand 7; one selected Joker fits.
+- **Expected result:** selecting the red Joker uses trump value 50; treating the black Joker as
+  trump is invalid.
+
+### D10 — Extended Diamond top trumps red Joker
+
+- **Configuration:** EXTENDED ×1; three players.
+- **Exposed top:** `4♦`.
+- **Selected cards/values:** red Joker `50`; black Joker `25`; `4♣ = 8` by rank.
+- **Capacity:** defender hand 7; each stated one-card action fits.
+- **Expected result:** red Joker and every suited Four are trump; black Joker remains non-trump.
+
+### D11 — Extended Spade top trumps black Joker
+
+- **Configuration:** EXTENDED ×1; four players.
+- **Exposed top:** `10♠`.
+- **Selected cards/values:** black Joker `50`; red Joker `25`; `3♠ = 6`.
+- **Capacity:** defender hand 7; one-card actions fit.
+- **Expected result:** black Joker and every Spade are trump; red Joker is not.
+
+### D12 — Extended Club top trumps black Joker
+
+- **Configuration:** EXTENDED ×1; two players.
+- **Exposed top:** `Q♣`.
+- **Selected cards/values:** black Joker `50`; red Joker `25`; `Q♥ = 30` by rank.
+- **Capacity:** defender hand 7; each one-card action fits.
+- **Expected result:** black Joker and every suited Queen are trump; red Joker remains 25.
+
+### D13 — Ordinary top affects both same-color Joker copies
+
+- **Configuration:** EXTENDED ×2; four players.
+- **Exposed top:** `9♦` from copy 1.
+- **Selected cards/values:** both red Joker instances are 50; both black Joker instances are 25.
+- **Capacity:** defender hand 7; a two-red-Joker same-rank batch has length 2 and fits.
+- **Expected result:** both red Joker copies are trump and remain distinct; no black Joker is trump.
+
+### D14 — Exposed red Joker trumps red suits
+
+- **Configuration:** EXTENDED ×1; three players.
+- **Exposed top:** red Joker.
+- **Selected cards/values:** `5♥ = 10`, `6♦ = 12`, `5♣ = 5`.
+- **Capacity:** defender hand 7; each stated selection fits.
+- **Expected result:** Hearts and Diamonds are trump; Clubs are not.
+
+### D15 — Exposed red Joker trumps every red Joker copy
+
+- **Configuration:** EXTENDED ×2; two players.
+- **Exposed top:** red Joker from copy 1.
+- **Selected cards/values:** the playable red Joker from copy 2 is `50`; the exposed copy-1 red
+  Joker is also classified as trump while it remains at the draw-pile front.
+- **Capacity:** defender hand 7; selecting the playable copy-2 red Joker as one card fits.
+- **Expected result:** every red Joker physical instance is trump, including the other copy; each
+  remains independently identified.
+
+### D16 — Exposed red Joker leaves black Joker normal
+
+- **Configuration:** EXTENDED ×2; four players.
+- **Exposed top:** red Joker from copy 2.
+- **Selected cards/values:** both black Joker instances are 25.
+- **Capacity:** defender hand 7; a two-card same-rank batch fits.
+- **Expected result:** the black Jokers may relate by logical rank but are not trump; assigning 50
+  to either is invalid.
+
+### D17 — Exposed black Joker trumps black suits
+
+- **Configuration:** EXTENDED ×1; three players.
+- **Exposed top:** black Joker.
+- **Selected cards/values:** `5♣ = 10`, `6♠ = 12`, `5♥ = 5`.
+- **Capacity:** defender hand 7; each stated selection fits.
+- **Expected result:** Clubs and Spades are trump; Hearts are not.
+
+### D18 — Exposed black Joker affects only black Jokers
+
+- **Configuration:** EXTENDED ×2; four players.
+- **Exposed top:** black Joker from copy 1.
+- **Selected cards/values:** the playable copy-2 black Joker is 50; the exposed copy-1 black Joker
+  is also classified as trump; both red Joker instances are 25.
+- **Capacity:** defender hand 7; either playable Joker as a one-card action fits.
+- **Expected result:** both black copies are trump and both red copies are non-trump; cross-color
+  Joker rank equality does not change trump color.
+
+### D19 — Empty pile removes every trump
+
+- **Configuration:** EXTENDED ×2; two players.
+- **Exposed top:** none because the draw pile is empty.
+- **Selected cards/values:** red Joker `25`, black Joker `25`, `A♥ = 20`, `7♥ = 7`.
+- **Capacity:** defender hand 7; each stated one-card action fits.
+- **Expected result:** no card is trump; using 50 for a Joker or doubling a suited card is invalid.
+
+### D20 — Exact exposed-card duplicate doubles only once
+
+- **Configuration:** CLASSIC ×2; two players.
+- **Exposed top:** copy-1 `K♥`.
+- **Selected cards/values:** copy-2 `K♥ = 36`, matching both exposed rank and suit.
+- **Capacity:** defender hand 7; the one-card selection fits.
+- **Expected result:** effective value 36 is canonical; an ×3 value of 54 is invalid.
+
+### D21 — Classic low initial street
+
+- **Configuration:** CLASSIC ×1; two players.
+- **Exposed top:** `A♣`; selected non-trump ranks `6-7-8-9-10`.
+- **Selected values/capacity:** base values `6+7+8+9+10`; defender hand 7; batch length 5.
+- **Expected result:** five distinct consecutive Classic ranks form a legal initial attack.
+
+### D22 — Classic high initial street
+
+- **Configuration:** CLASSIC ×1; four players.
+- **Exposed top:** `6♣`; selected non-trump ranks `10-J-Q-K-A`.
+- **Selected values/capacity:** `10, 12, 15, 18, 20`; defender hand 7; batch length 5.
+- **Expected result:** `10-J-Q-K-A` is a legal initial street for the lead attacker only.
+
+### D23 — Classic wrap is illegal
+
+- **Configuration:** CLASSIC ×1; three players.
+- **Exposed top:** `10♣`; selected ranks `K-A-6-7-8`.
+- **Selected values/capacity:** five physical cards; defender hand 7, so size alone fits.
+- **Expected result:** the initial attack is illegal because Classic does not wrap from Ace to Six.
+
+### D24 — Classic street with duplicates
+
+- **Configuration:** CLASSIC ×2; two players.
+- **Exposed top:** `6♣`; selected ranks `10-J-Q-K-A + J + Q` using separate instances.
+- **Selected values/capacity:** five distinct consecutive ranks, seven physical cards; defender
+  hand 7 gives cap and `max_add_now` 7.
+- **Expected result:** the complete seven-card initial batch is legal; duplicate J/Q cards add no
+  distinct street positions but belong to the run.
+
+### D25 — Duplicate cannot create a fifth Classic position
+
+- **Configuration:** CLASSIC ×2; four players.
+- **Exposed top:** `6♣`; selected ranks `10-J-Q-K + Q`.
+- **Selected values/capacity:** four distinct ranks, five physical cards; defender hand 7.
+- **Expected result:** the initial attack is illegal as a street because the duplicate Queen does
+  not raise distinct run length from four to five.
+
+### D26 — Extended low initial street
+
+- **Configuration:** EXTENDED ×1; two players.
+- **Exposed top:** `A♠`; selected non-trump ranks `2-3-4-5-6`.
+- **Selected values/capacity:** `2, 3, 4, 5, 6`; defender hand 7; batch length 5.
+- **Expected result:** the five lowest Extended ranks form a legal initial attack.
+
+### D27 — Extended Ace-high initial street
+
+- **Configuration:** EXTENDED ×1; three players.
+- **Exposed top:** `2♣`; selected non-trump ranks `10-J-Q-K-A`.
+- **Selected values/capacity:** `10, 12, 15, 18, 20`; defender hand 7; batch length 5.
+- **Expected result:** the batch is a legal initial street.
+
+### D28 — Extended street reaches Joker
+
+- **Configuration:** EXTENDED ×1; four players.
+- **Exposed top:** `2♣`; selected ranks `10-J-Q-K-A-Joker`, using the red Joker at value 25.
+- **Selected values/capacity:** six distinct consecutive ranks; defender hand 7; batch length 6.
+- **Expected result:** the initial attack is legal because Joker follows Ace in Extended order.
+
+### D29 — Extended wrap is illegal
+
+- **Configuration:** EXTENDED ×1; two players.
+- **Exposed top:** `10♣`; selected ranks `A-Joker-2-3-4`.
+- **Selected values/capacity:** five physical cards; defender hand 7, so size alone fits.
+- **Expected result:** the attack is illegal because Extended never wraps from Joker to Two.
+
+### D30 — Two Jokers do not create two street positions
+
+- **Configuration:** EXTENDED ×2; three players.
+- **Exposed top:** `2♣`; selected ranks `Q-K-A-red Joker-black Joker`.
+- **Selected values/capacity:** four distinct ranks (`Q, K, A, Joker`) across five physical cards;
+  defender hand 7.
+- **Expected result:** the initial attack is illegal as a street because both Joker colors occupy
+  the same terminal rank.
+
+### D31 — Both Joker colors share the terminal run rank
+
+- **Configuration:** EXTENDED ×1; four players.
+- **Exposed top:** `2♣`; selected ranks `10-J-Q-K-A-red Joker-black Joker`.
+- **Selected values/capacity:** six distinct ranks and seven physical cards; defender hand 7.
+- **Expected result:** the batch is a legal initial street; both Jokers belong to the terminal
+  Joker rank while contributing only one distinct position.
+
+### D32 — Seven-card street fills a seven-card cap
+
+- **Configuration:** CLASSIC ×2; two players.
+- **Exposed top:** `6♣`; selected `10-J-Q-K-A + J + Q`.
+- **Selected values/capacity:** five distinct run ranks, seven physical cards; defender has seven,
+  so `bout_attack_cap = max_add_now = 7`.
+- **Expected result:** the initial attack is legal and exhausts the shared cap.
+
+### D33 — Eight physical street cards exceed a seven-card cap
+
+- **Configuration:** CLASSIC ×2; three players.
+- **Exposed top:** `6♣`; selected `10-J-Q-K-A + J + Q + K`.
+- **Selected values/capacity:** five distinct run ranks, eight physical cards; defender has seven,
+  so `max_add_now = 7`.
+- **Expected result:** the complete batch is rejected atomically for size despite a valid rank run.
+
+### D34 — Ten-card street may fit a ten-card defender
+
+- **Configuration:** CLASSIC ×2; four players.
+- **Exposed top:** `6♣`; selected both physical copies of each rank `10-J-Q-K-A`.
+- **Selected values/capacity:** five distinct run ranks, ten physical cards; defender has ten, so
+  `bout_attack_cap = max_add_now = 10`.
+- **Expected result:** the complete initial batch is legal; there is no special seven-card street
+  limit.
+
+### D35 — Extended post-response street uses table history
+
+- **Configuration:** EXTENDED ×1; three players.
+- **Exposed top:** `2♣`; physical table ranks are `10, J, K, A`; current attacker selects
+  `Q + red Joker`.
+- **Selected values/capacity:** selected values 15 and 25; two shared-cap slots and at least two
+  defender cards remain.
+- **Expected result:** the throw-in batch is legal because table plus selection forms
+  `10-J-Q-K-A-Joker`; historical table cards remain rank evidence.
+
+### D36 — Closed initial street cannot justify an omitted duplicate
+
+- **Configuration:** CLASSIC ×2; two players.
+- **Exposed top:** `6♣`; attacker initially selects `10-J-Q-K-A` and retains a second Queen.
+- **Selected values/capacity:** initial length 5 under cap 7; after defender response, capacity
+  remains but no new table reason authorizes Q.
+- **Expected result:** the retained Queen is illegal on the old initial-street rationale; the
+  initial window is closed.
+
+### D37 — Red and black Jokers satisfy same-rank mechanics
+
+- **Configuration:** EXTENDED ×1; two players.
+- **Exposed top:** `2♥`; red Joker is 50 and black Joker is 25, but both have logical rank Joker.
+- **Selected cards/capacity:** red Joker + black Joker; defender hand 7; batch length 2.
+- **Expected result:** the pair is legal under the ordinary same-rank initial-attack rule despite
+  different effective values; color-dependent trump remains unchanged.
+
+### D38 — Joker is a normal value-bearing transfer target
+
+- **Configuration:** EXTENDED ×1; three players.
+- **Exposed top:** `2♣`; a non-trump red Joker attacks for 25; defender selects
+  `10♥ + Q♥ = 25`.
+- **Selected values/capacity:** transfer selection totals exactly 25; receiving defender has at
+  least three cards, so the resulting three-card packet fits.
+- **Expected result:** the transfer is legal by exact value; the Joker is not wild and substitutes
+  for no rank.
+
+### D39 — Single Classic two-player compatibility
+
+- **Configuration:** CLASSIC ×1; two players.
+- **Exposed top:** `7♥`.
+- **Selected cards/values:** attacker selects `K♣ = 18`; defender selects `J♣ + 7♣ = 26`
+  because the Seven is trump at 14.
+- **Capacity:** defender begins with seven; one attack card fits; the two-card defense is strictly
+  greater and irredundant (`26-12=14`, `26-14=12`).
+- **Expected result:** defense is legal under unchanged current rules; D1 changes this mode only by
+  adding initial-street legality.
+
+### D40 — Extended deck keeps the multiplayer state machine
+
+- **Configuration:** EXTENDED ×2; four players `A → B → C → D`.
+- **Exposed top:** red Joker from copy 1.
+- **Selected cards/values:** A selects the initial street `10-J-Q-K-A-red Joker` using the copy-2
+  red Joker at 50 against B.
+- **Capacity:** six distinct ranks, six physical cards; B has seven, so the batch fits; A alone owns
+  the initial window.
+- **Expected result:** the initial attack is legal, B remains the one defender, attacker order stays
+  `A → C → D`, and refill order stays `A → C → D → B`; no second multiplayer state machine exists.
+
 ## Scenario-level invariant summary
 
-Together these scenarios require M2 to preserve the following observable facts:
+Together these scenarios require every conforming implementation to preserve the following
+observable facts:
 
 - roles and all traversal derive from one stable clockwise active-seat ring;
-- only the lead owns the initial window;
+- only the lead owns the initial window, which may use the recovered profile-aware street basis;
 - batches are atomic before defender response;
 - attacker phases may repeat internally but never cycle back after closing;
 - one defender-tenure cap is shared by every attacker;
@@ -568,3 +920,5 @@ Together these scenarios require M2 to preserve the following observable facts:
   deterministic tie-break for balanced quotas before physical draw;
 - finish is evaluated only after complete resolution/refill, with simultaneous finish groups and
   no fabricated final loser.
+- deck configuration is profile × copy count, physical instances never collapse, trump doubles
+  once, and street order is profile-specific, distinct-rank based, and non-wrapping.

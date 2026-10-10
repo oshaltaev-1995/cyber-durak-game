@@ -157,12 +157,24 @@ Avoid implicit UI-driven state transitions.
 ```text
 id
 rank
-suit
+suit?
 joker_color?
-deck_instance?
+deck_copy
 ```
 
-`deck_instance` is not required for one-deck MVP but makes future multi-deck support possible.
+`id` is the stable physical-card identity. `deck_copy` participates in constructing that identity
+even when two cards have the same rank, suit, Joker color, and display label. A one-copy game may
+use a constant copy value, but double-deck configurations must never collapse visual duplicates.
+
+### DeckConfig
+
+```text
+rank_profile = CLASSIC | EXTENDED
+deck_count = 1 | 2
+```
+
+Configuration derives the physical population (36, 54, 72, or 108), legal rank order, base-value
+table, Joker availability, and conservation total. Do not model four unrelated game types.
 
 ### TrumpState
 
@@ -267,8 +279,9 @@ for every card calculation during that bout.
 
 ### 7.1 New-game bootstrap
 
-Callers start a fresh 36-card MVP match through `create_new_game(rng=...)`. The factory creates the
-canonical deck, shuffles a mutable copy, and delegates the round-robin deal to `GameState.deal`.
+Current callers start a fresh 36-card MVP match through `create_new_game(rng=...)`. The factory
+creates the canonical deck, shuffles a mutable copy, and delegates the round-robin deal to
+`GameState.deal`.
 It derives trump from the exposed front of the remaining draw pile and selects the owner of the
 lowest effective-value trump in the two dealt hands as initial attacker. It returns a
 `READY_FOR_BOUT` immutable state and does not start the first bout automatically.
@@ -280,6 +293,9 @@ or neither hand contains trump; a unique lowest-trump result consumes no additio
 Default local play receives a new standard-library generator rather than depending on global
 mutable random state. A future authoritative multiplayer layer can own and replace this source
 without changing the rules engine.
+
+D2 must make the selected `DeckConfig` authoritative input to this bootstrap while preserving the
+same shuffle/deal/lowest-effective-trump flow and the current Single Classic default.
 
 ---
 
@@ -338,6 +354,10 @@ and:
 Are these cards a legal initial attack structure?
 ```
 
+Initial-attack validation includes one profile-aware contiguous street of at least five distinct
+ranks. The same rank-order primitive should serve post-response street analysis; it must not be
+duplicated in UI, bot, or transport layers.
+
 The same core logic can be reused for:
 
 - attack
@@ -361,16 +381,17 @@ The baseline bot is an isolated deterministic policy in `game/bot.py`. Given the
 applies exactly one action through the existing authoritative game transitions; it does not edit
 hands or bout state and does not hide a recursive game loop.
 
-Candidate ordering uses effective values from the fixed bout trump snapshot. Initial attacks only
-need single-card candidates because every single card is legal and all card values are positive, so
-no multi-card candidate can improve the policy's primary lowest-total criterion. For defense,
+Candidate ordering uses effective values from the fixed bout trump snapshot. In the current Single
+Classic baseline, initial attacks need only single-card candidates because every single card is
+legal and all card values are positive, so no multi-card candidate can improve the policy's primary
+lowest-total criterion. For defense,
 transfer, and throw-ins, a value-indexed dynamic program retains one preferred subset for each
 reachable effective total. This avoids power-set growth after TAKE creates a large hand. Two
 bounded rank-focused supplements cover rules that cannot be reduced to one effective total:
-same-rank transfer candidates contain at most the four physical cards of the packet rank, while
-rank-run throw-in candidates use at most one cheapest held card per normal rank. Every retained or
-supplemental candidate is still submitted to the authoritative `GameState` action before the bot
-may choose it.
+same-rank transfer candidates contain at most the four Single Classic physical cards of the packet
+rank, while rank-run throw-in candidates use at most one cheapest held card per current normal rank.
+Every retained or supplemental candidate is still submitted to the authoritative `GameState`
+action before the bot may choose it.
 
 The baseline prioritizes the cheapest legal irredundant defense and defends before transferring. It transfers
 only when no defense exists and an exact or same-rank-extended legal transfer survives bout limits;
@@ -860,8 +881,11 @@ Minimum categories:
 - every rank base value
 - trump rank
 - trump suit
-- Joker
+- same-color Joker under an ordinary EXTENDED top card
+- red/black exposed-Joker color families and opposite-color exclusion
+- duplicate cards matching several trump relationships still double only once
 - no trump after deck exhaustion
+- physical-card conservation for 36, 54, 72, and 108
 
 ### Attack
 
@@ -870,6 +894,10 @@ Minimum categories:
 - invalid unrelated cards
 - arithmetic relation
 - trump-adjusted relation
+- profile-aware initial street with at least five distinct ranks
+- duplicate ranks inside an initial street
+- no CLASSIC or EXTENDED street wrap
+- physical-card cap applied to the complete street batch
 
 ### Defense
 
@@ -888,6 +916,7 @@ Minimum categories:
 - combination satisfying mean
 - recomputation after every addition
 - non-integer mean
+- profile-aware rank run, including terminal Extended Joker rank
 
 ### Transfer
 
@@ -1095,6 +1124,10 @@ bout-start roles and never changes after transfer, preserving the existing two-p
 changes documentation only; the current engine, APIs, WebSocket protocol, private-room capacity,
 frontend, and production remain two-player until a separately authorized implementation phase.
 
+D1 later supersedes M1 only where M1 described rank runs as post-response-only: a qualifying
+contiguous street is also a legal initial-attack basis. The remaining M1 state machine and all 48
+M1 scenarios stay canonical.
+
 ### 15.5 M2 generalized domain engine
 
 The immutable game domain stores two to four hands against a fixed clockwise `Seat` ring. Finished
@@ -1249,6 +1282,33 @@ and the versioned local-only `kiba.multiplayerOnboarding.v1` first-match overlay
 restored sessions never trigger it. M5.5B is a local release candidate only: the capability remains
 default off, no database migration is introduced, and no production deployment is performed.
 
+### 15.11 D1 deck variants canon freeze
+
+[`DECK_VARIANTS.md`](DECK_VARIANTS.md) defines future deck state as `rank profile × physical deck
+count`: CLASSIC/EXTENDED with one/two physical copies produce 36/54/72/108 cards. D1 also records
+the recovered initial-street attack basis. This phase changes documentation only; current runtime
+code and production remain Single Classic.
+
+D2 must make configuration authoritative in the domain before adapters expose it. Deck generation,
+base values, trump resolution, rank order, conservation checks, bot candidate generation, and Hint
+Mode must consume that state rather than hard-code 36 cards, `6..A`, four copies per rank, or no
+Jokers. A stable physical ID must include enough copy identity to distinguish exact visual
+duplicates without forcing copy labels into ordinary presentation.
+
+One shared profile-aware rank-order primitive should validate both initial and post-response
+streets. EXTENDED places one logical Joker rank after Ace; red/black colors and multiple physical
+Jokers are duplicates at that position. Trump classification is independent: same-color Joker
+relationships apply, the opposite-color Joker remains non-trump, and every trump card receives
+exactly one ×2 multiplier. The old provisional exact-duplicate ×3 proposal is removed.
+
+All existing roles, packet transitions, dynamic cap, refill, finish groups, transport authority,
+and hidden-information boundaries remain unchanged. D2 requires its own explicit authorization and
+tests; D1 adds no runtime behavior, API field, persistence, migration, frontend control, or
+production setting.
+
+D2 executable coverage should trace D01–D40 in `MULTIPLAYER_SCENARIOS.md` in addition to retaining
+the existing S01–S48 coverage.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap
@@ -1302,7 +1362,8 @@ No UI polish yet.
 - UX polish
 - balance changes
 - 3–4 player support
-- 54-card/Joker mode
+- CLASSIC/EXTENDED profile support
+- one/two-deck configuration support
 
 ### Phase 5 — growth / monetization only if justified
 
@@ -1334,7 +1395,7 @@ Requirements:
 - tests for trump suit and trump rank
 - trump multiplier is x2
 - no trump when TrumpState.active is false
-- do not implement multi-deck x3 yet
+- exact duplicates remain separate physical cards and are never x3
 
 Run the test suite and report changed files.
 ```
@@ -1348,8 +1409,10 @@ Then move feature by feature.
 When implementation and documentation disagree:
 
 1. `docs/GAME_RULES.md` controls gameplay behavior.
-2. `docs/PRODUCT_BRIEF.md` controls MVP/product scope.
-3. `docs/IMPLEMENTATION_NOTES.md` controls preferred architecture.
-4. Existing code should be changed to match the above unless a deliberate spec update is made first.
+2. `docs/DECK_VARIANTS.md` controls canonical deck configuration, Joker, and street-profile details.
+3. `docs/MULTIPLAYER_RULES.md` controls the two-to-four-player extension.
+4. `docs/PRODUCT_BRIEF.md` controls MVP/product scope.
+5. `docs/IMPLEMENTATION_NOTES.md` controls preferred architecture.
+6. Existing code should be changed to match the above unless a deliberate spec update is made first.
 
 Any rule change discovered during playtesting should be documented before or together with the code change.

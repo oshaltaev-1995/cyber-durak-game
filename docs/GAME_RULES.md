@@ -14,27 +14,37 @@ The goal is simple:
 
 The main difference from ordinary Durak is that attacks, defenses, throw-ins and transfers are based on **card point values and arithmetic relations**, rather than suit matching.
 
-The game also uses a dynamic trump system: after each completed bout, the exposed top card of the deck determines the trump rank and trump suit for the next bout.
+The game also uses a dynamic trump system: after each completed bout, the exposed top card of the
+deck determines the trump relationships for the next bout.
 
 ---
 
 ## 2. Decks
 
-Supported deck sizes:
+Canonical deck configuration has two independent dimensions: rank profile and physical deck
+count. Their combinations are:
 
-- **36 cards**
-- **54 cards** including two Jokers
+| Profile  | Copies | Cards |
+| -------- | -----: | ----: |
+| CLASSIC  |      1 |    36 |
+| EXTENDED |      1 |    54 |
+| CLASSIC  |      2 |    72 |
+| EXTENDED |      2 |   108 |
 
-The Alpha implementation constructs only the 36-card deck. The 54-card/Joker deck and variants
-using two physical decks remain future scope and must not invent values for ranks 2–5.
+CLASSIC contains suited ranks `6..A` and no Jokers. EXTENDED contains suited ranks `2..A` plus one
+red and one black Joker per physical deck copy. Double decks contain two distinct physical
+instances of every card, even when their display identities are identical. Complete population,
+identity, Joker, trump, and street rules are frozen in [`DECK_VARIANTS.md`](DECK_VARIANTS.md).
+
+The current application implements Single Classic only. The other configurations are canonical
+but remain unimplemented until a separately authorized phase.
 
 ---
 
 ## 3. Initial deal
 
 - Each player receives **7 cards**.
-- For the two-participant digital MVP, cards are dealt round-robin in the order Seat ONE, Seat TWO,
-  repeated until both participants have seven cards.
+- Cards are dealt round-robin in clockwise seat order until every participant has seven cards.
 - The remaining deck stays face-up with its top card visible.
 - The visible top card determines the trump state for the bout.
 - The visible top card remains physically at the front of the draw pile and is the next card drawn
@@ -42,8 +52,8 @@ using two physical decks remain future scope and must not invent values for rank
 
 ### 3.1 Initial attacker
 
-For a fresh digital 36-card MVP match, all 36 cards are shuffled before the initial deal. The
-exposed top draw-pile card then defines trump by the normal matching-suit or matching-rank rule.
+For a fresh match, every physical card in the selected configuration is shuffled before the initial
+deal. The exposed top draw-pile card then defines trump under the selected profile.
 
 The reconstructed Kiba rule is:
 
@@ -55,26 +65,30 @@ current trump state, not by suit order, rank order, or base value alone.
 Example: with exposed `7♥`, `7♠ = 14`, `8♥ = 16`, and `6♥ = 12`. The holder of `6♥` attacks first.
 
 Historical behavior is not remembered for two edge cases. The digital implementation chooses
-randomly with equal probability between Seat ONE and Seat TWO when both players' lowest trump
-values are equal, or when neither initial hand contains a trump. These are digital product
-fallbacks; the exposed card and shuffled deck order remain unchanged.
+randomly with equal probability among the tied lowest-value trump holders, or among all active
+players when no initial hand contains a trump. These are digital product fallbacks; the exposed
+card and shuffled deck order remain unchanged.
 
 ---
 
 ## 4. Card point values
 
-| Card | Base value |
-|---|---:|
-| 6 | 6 |
-| 7 | 7 |
-| 8 | 8 |
-| 9 | 9 |
-| 10 | 10 |
-| Jack (J) | 12 |
-| Queen (Q) | 15 |
-| King (K) | 18 |
-| Ace (A) | 20 |
-| Joker | 25 |
+| Card      | Base value |
+| --------- | ---------: |
+| 2         |          2 |
+| 3         |          3 |
+| 4         |          4 |
+| 5         |          5 |
+| 6         |          6 |
+| 7         |          7 |
+| 8         |          8 |
+| 9         |          9 |
+| 10        |         10 |
+| Jack (J)  |         12 |
+| Queen (Q) |         15 |
+| King (K)  |         18 |
+| Ace (A)   |         20 |
+| Joker     |         25 |
 
 All arithmetic rules use the **effective card value**, not necessarily the base value.
 
@@ -82,7 +96,7 @@ All arithmetic rules use the **effective card value**, not necessarily the base 
 
 ## 5. Trump system
 
-### 5.1 Normal exposed card
+### 5.1 Normal exposed suited card
 
 If the exposed top card is, for example:
 
@@ -94,6 +108,10 @@ So trump status is determined by:
 
 - matching the exposed card's **suit**, OR
 - matching the exposed card's **rank**
+
+In EXTENDED, the exposed suit's color also makes the same-color Joker trump: Hearts or Diamonds
+make every red Joker trump; Clubs or Spades make every black Joker trump. The opposite-color Joker
+remains non-trump.
 
 A trump card has:
 
@@ -111,43 +129,27 @@ Example:
 
 if Hearts are trump.
 
+Any card satisfying several trump relationships is still doubled only once.
+
 ### 5.2 Joker exposed on top
 
-If a Joker is the exposed top card:
+If a red Joker is exposed, all Hearts, all Diamonds, and every red Joker physical instance are
+trump. Every black Joker remains non-trump.
 
-- all cards of the **same color** as that Joker are trump;
-- the second Joker is also trump.
+If a black Joker is exposed, all Clubs, all Spades, and every black Joker physical instance are
+trump. Every red Joker remains non-trump.
 
-Examples:
-
-- red Joker → all Hearts and Diamonds are trump, plus the other Joker;
-- black Joker → all Clubs and Spades are trump, plus the other Joker.
+Red and black Jokers share a logical rank for ordinary rank-based mechanics, but that does not
+create a cross-color Joker trump relationship.
 
 A trump Joker is worth:
 
 `25 × 2 = 50`
 
-### 5.3 Exact duplicate of the exposed card
+In a double deck, an exact visual duplicate of the exposed suited card is a separate physical card,
+but it is still only trump and doubled once. There is no ×3 multiplier.
 
-This matters only in future variants using more than one physical deck.
-
-If a player holds an exact duplicate of the exposed card — same rank and same suit — the current reconstructed rule is:
-
-`effectiveValue = baseValue × 3`
-
-Example:
-
-exposed card: `K♠`
-
-duplicate `K♠` in hand:
-
-`18 × 3 = 54`
-
-**Status: provisional / balance decision.**
-
-This rule should not block the MVP and may be omitted until multi-deck play exists.
-
-### 5.4 Trump after the deck is exhausted
+### 5.3 Trump after the deck is exhausted
 
 When the draw pile is empty:
 
@@ -203,15 +205,16 @@ A player may start an attack with:
 
 - any single card;
 - multiple cards of the same rank;
-- a set of cards connected by a valid arithmetic relation.
+- a set of cards connected by a valid arithmetic relation;
+- one contiguous street of at least five distinct ranks.
 
 Cards may not simply be placed together without a relation.
 
 ### 7.1 Initial-attack relation scope
 
-An initial attack may use a single card, same-rank relationships, or one connected structure made
-from two or more non-empty card groups with equal effective totals. Either side of an arithmetic
-equality may contain multiple physical cards.
+An initial attack may use a single card, same-rank relationships, one connected structure made from
+two or more non-empty card groups with equal effective totals, or one qualifying street. Either
+side of an arithmetic equality may contain multiple physical cards.
 
 Initial attack construction does **not** expose the selected cards' total or arithmetic mean as new
 targets. Table-total and arithmetic-mean targets become available only for post-response throw-ins
@@ -243,7 +246,27 @@ Because:
 
 `12 + 6 = 18 = K`
 
-### 7.2 Trump values participate in attack relations
+### 7.2 Initial street
+
+A street is a legal initial-attack basis when the complete initial batch contains at least five
+distinct consecutive ranks in the current profile's linear order and every selected rank belongs
+to that one run. Duplicate physical cards whose rank belongs to the run may also be included, but
+do not increase its distinct length. Streets never wrap.
+
+Examples:
+
+- CLASSIC `6-7-8-9-10` ✅
+- CLASSIC `10-J-Q-K-A + J + Q` ✅ when all seven physical cards fit the attack cap
+- CLASSIC `K-A-6-7-8` ❌
+- EXTENDED `2-3-4-5-6` ✅
+- EXTENDED `10-J-Q-K-A-Joker` ✅
+- EXTENDED `A-Joker-2-3-4` ❌
+
+This recovered canonical rule supersedes the earlier post-response-only restriction. The complete
+definition is in [`DECK_VARIANTS.md`](DECK_VARIANTS.md). The ordinary initial-window and dynamic
+attack-cap rules still apply.
+
+### 7.3 Trump values participate in attack relations
 
 Example:
 
@@ -259,7 +282,7 @@ Therefore:
 
 The cards are connected because their effective values are equal.
 
-### 7.3 Same rank remains a valid relation
+### 7.4 Same rank remains a valid relation
 
 If one or more cards of a rank are already part of a legal attack, additional cards of that same rank may be added, subject to the card-count limit.
 
@@ -515,14 +538,16 @@ No exact integer target is produced.
 ### 10.6 Rank run
 
 A throw-in may also complete or extend one contiguous run of at least five distinct ranks across
-all physical cards already on the table and every card selected in the new action. The canonical
-rank order is:
+all physical cards already on the table and every card selected in the new action. The current
+profile supplies the linear rank order:
 
-`6, 7, 8, 9, 10, J, Q, K, A`
+- CLASSIC: `6, 7, 8, 9, 10, J, Q, K, A`;
+- EXTENDED: `2, 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A, Joker`.
 
 Run eligibility uses ranks only. Trump and effective values do not change the order, and duplicate
-cards of one rank do not increase the run length. Every selected card's rank must belong to the same
-qualifying run; unrelated extra selected cards cannot be justified by another part of the table.
+cards of one rank do not increase the run length. Red and black Jokers share the one terminal Joker
+rank. Every selected card's rank must belong to the same qualifying run; unrelated extra selected
+cards cannot be justified by another part of the table. The order never wraps.
 
 Examples:
 
@@ -531,8 +556,8 @@ Examples:
 - table `10, J, K, A`, selected `Q + 6` → no one run contains both selected ranks ❌
 
 Historical covered cards remain physical table cards and therefore participate in the run. Direct
-anchor lifecycle is irrelevant to this mechanism. A rank run is a post-defense throw-in rule only;
-it does not make the initial attack legal.
+anchor lifecycle is irrelevant to this mechanism. The same rank-run structure is also an initial
+attack basis under §7.2; post-response evaluation additionally includes historical table cards.
 
 ---
 
@@ -775,9 +800,9 @@ Kings are trump.
 
 Red Joker is exposed.
 
-Other Joker:
-
-`25 × 2 = 50`
+- `8♥ = 8 × 2 = 16`
+- every red Joker physical instance is `25 × 2 = 50`
+- every black Joker remains `25`
 
 ---
 
@@ -799,34 +824,30 @@ The implementation should preserve these invariants:
 11. After taking, previous attacker attacks again.
 12. Attacker refills first.
 13. No trump exists after the deck is exhausted.
+14. Trump doubles a card exactly once; exact duplicates never receive a ×3 multiplier.
+15. Every physical card instance remains unique, including visual duplicates in double decks.
+16. Streets use the current profile's linear rank order, require at least five distinct consecutive
+    ranks, and never wrap.
+17. A qualifying street is legal both as a complete initial-attack batch and as a post-response
+    throw-in reason, subject to the ordinary attack cap.
 
 ---
 
-## 20. Rules that are still provisional or need playtesting
+## 20. Canon status
 
-These are not blockers for implementation, but they should be easy to change:
+The gameplay rules in this document, [`DECK_VARIANTS.md`](DECK_VARIANTS.md), and
+[`MULTIPLAYER_RULES.md`](MULTIPLAYER_RULES.md) are frozen with no open gameplay questions. Future
+balance changes require an explicit canon amendment rather than a silent reinterpretation.
 
-### 20.1 Exact duplicate multiplier in multi-deck mode
+### 20.1 Open Gameplay Questions
 
-Current reconstructed proposal:
+**NONE.**
 
-`same suit + same rank as exposed card = ×3`
+### 20.2 Future Product Decisions
 
-Not needed for MVP.
-
-### 20.2 Joker visual color convention
-
-A 54-card deck implementation must define how red and black Jokers are represented in the data model and UI.
-
-### 20.3 Complex arithmetic chains
-
-The rules engine should initially implement the confirmed arithmetic relations literally and be covered by tests.
-
-If playtesting reveals degenerate loops or overly powerful chains, the game design may later add limits without rewriting the whole engine.
-
-### 20.4 Player counts
-
-The rules clearly support transfer chains and therefore naturally support 3+ players, but the first playable MVP intentionally starts with 2 participants total: one human and one bot.
+Exact deck-selector presentation, recommended configurations by player count, visible treatment of
+duplicate physical copies, staged release availability, and onboarding are product decisions rather
+than gameplay law.
 
 ---
 
@@ -839,7 +860,8 @@ First playable implementation:
 - 7-card hands
 - dynamic rank + suit trump
 - ×2 trump values
-- arithmetic attack relations
+- arithmetic and same-rank attack relations
+- initial and post-response streets
 - defense by strictly higher total
 - throw-ins using rank, total sum and arithmetic mean
 - transfer by exact accumulated value
@@ -849,12 +871,12 @@ First playable implementation:
 - no multi-deck mode
 - bot opponent
 
-After the core is stable:
+Additional canonical configurations may be implemented after the current core is stable:
 
 - 3–4 players
 - online rooms
-- 54-card deck
-- Jokers
+- EXTENDED profile and Jokers
+- double-deck configurations
 - matchmaking
 - rankings
 - cosmetics
