@@ -749,12 +749,14 @@
 - **Selected values/capacity:** `10, 12, 15, 18, 20`; defender hand 7; batch length 5.
 - **Expected result:** `10-J-Q-K-A` is a legal initial street for the lead attacker only.
 
-### D23 — Classic wrap is illegal
+### D23 — Classic wrap is invalid as a street basis
 
 - **Configuration:** CLASSIC ×1; three players.
 - **Exposed top:** `10♣`; selected ranks `K-A-6-7-8`.
 - **Selected values/capacity:** five physical cards; defender hand 7, so size alone fits.
-- **Expected result:** the initial attack is illegal because Classic does not wrap from Ace to Six.
+- **Expected street result:** invalid because Classic does not wrap from Ace to Six. This scenario
+  does not assert overall initial-attack illegality; another independent canonical basis, if one
+  applies to fully specified cards and effective values, remains authoritative.
 
 ### D24 — Classic street with duplicates
 
@@ -794,12 +796,18 @@
 - **Selected values/capacity:** six distinct consecutive ranks; defender hand 7; batch length 6.
 - **Expected result:** the initial attack is legal because Joker follows Ace in Extended order.
 
-### D29 — Extended wrap is illegal
+### D29 — Extended wrap is invalid as a street basis
 
 - **Configuration:** EXTENDED ×1; two players.
-- **Exposed top:** `10♣`; selected ranks `A-Joker-2-3-4`.
-- **Selected values/capacity:** five physical cards; defender hand 7, so size alone fits.
-- **Expected result:** the attack is illegal because Extended never wraps from Joker to Two.
+- **Exposed top:** `10♣`; selected logical ranks `A-Joker-2-3-4`; concrete suits and Joker color
+  are irrelevant to the rank-only street predicate.
+- **Selected ranks/capacity:** five physical cards and five distinct ranks; defender hand 7, so
+  size alone fits.
+- **Expected street result:** invalid because Extended never wraps from Joker to Two.
+- **Overall initial-attack result:** not asserted by this scenario. Initial bases compose with OR,
+  so these cards may still be legal through arithmetic or another independent basis. For example,
+  with non-trump `A, 2, 3, 4` and a non-trump red Joker, `A + 3 + 4 = Joker + 2 = 27`, making the
+  complete batch legal through arithmetic while its street basis remains invalid.
 
 ### D30 — Two Jokers do not create two street positions
 
