@@ -203,6 +203,8 @@ Examples:
 
 The initial attack window still closes when the defender begins responding. An omitted card cannot
 later claim membership in the closed initial street; it requires a new current throw-in reason.
+The post-response street test described below is one such new reason when the current table plus
+the selected throw-in qualifies. That later test does not reopen or extend the initial batch.
 
 ## 10. Street capacity
 
@@ -225,6 +227,10 @@ The existing post-response street mechanism remains available. Use all physical 
 the newly selected throw-in cards to test one contiguous run in the current profile. The run must
 contain at least five distinct ranks, every selected rank must belong to it, duplicates do not add
 positions, and no wrap is permitted. Historical covered cards remain eligible rank evidence.
+This test is always made from the current table state: a duplicate omitted from the initial batch
+may therefore be legal later when its logical rank belongs to a qualifying current table street.
+The duplicate does not add a distinct run position, and its legality is a new post-response
+`RANK_RUN` basis rather than reuse of the closed initial relationship.
 
 All ordinary attacker-phase, `max_add_now`, shared-cap, packet, and response rules still apply.
 

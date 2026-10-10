@@ -853,14 +853,15 @@
 - **Expected result:** the throw-in batch is legal because table plus selection forms
   `10-J-Q-K-A-Joker`; historical table cards remain rank evidence.
 
-### D36 — Closed initial street cannot justify an omitted duplicate
+### D36 — Omitted duplicate gains a current post-response street basis
 
 - **Configuration:** CLASSIC ×2; two players.
 - **Exposed top:** `6♣`; attacker initially selects `10-J-Q-K-A` and retains a second Queen.
 - **Selected values/capacity:** initial length 5 under cap 7; after defender response, capacity
-  remains but no new table reason authorizes Q.
-- **Expected result:** the retained Queen is illegal on the old initial-street rationale; the
-  initial window is closed.
+  and defender hand both permit one card; the attacker selects the retained Queen.
+- **Expected result:** the Queen is legal because current table plus selection is
+  `10-J-Q-Q-K-A`, whose distinct ranks form `10-J-Q-K-A`. This is a new post-response `RANK_RUN`
+  basis, not reuse of the closed initial-street relationship; the initial window remains closed.
 
 ### D37 — Red and black Jokers satisfy same-rank mechanics
 
