@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from kiba_api.api.schemas import (
+    BotPresentationEventResponse,
     CardResponse,
     DeckCount,
     LastBoutSummaryResponse,
@@ -27,8 +28,15 @@ class RoomIdentityRequest(_StrictModel):
 
 class RoomCreateRequest(RoomIdentityRequest):
     capacity: int = Field(default=2, ge=2, le=4)
+    human_players: int | None = Field(default=None, ge=2, le=4)
     deck_profile: DeckProfile = DeckProfile.CLASSIC
     deck_count: DeckCount = 1
+
+    @model_validator(mode="after")
+    def human_count_fits_capacity(self) -> "RoomCreateRequest":
+        if self.human_players is not None and self.human_players > self.capacity:
+            raise ValueError("human_players cannot exceed capacity")
+        return self
 
 
 class ParticipantResponse(BaseModel):
@@ -37,6 +45,7 @@ class ParticipantResponse(BaseModel):
     display_name: str
     connected: bool
     authenticated: bool
+    is_bot: bool
 
 
 class PlayerStateResponse(ParticipantResponse):
@@ -65,9 +74,12 @@ class PvPStateResponse(BaseModel):
     room_phase: str
     version: int
     capacity: int
+    human_players: int
+    bot_count: int
     deck_profile: DeckProfile
     deck_count: Literal[1, 2]
     joined_count: int
+    human_joined_count: int
     seat_order: list[str]
     players: list[PlayerStateResponse]
     active_seats: list[str]
@@ -109,6 +121,7 @@ class PvPStateResponse(BaseModel):
     required_participant_id: str | None
     required_seat: str | None
     available_actions: list[HumanActionType]
+    recent_events: list[BotPresentationEventResponse]
 
 
 class RoomJoinResponse(BaseModel):
@@ -123,9 +136,12 @@ class RoomStatusResponse(BaseModel):
     room_phase: str
     version: int
     capacity: int
+    human_players: int
+    bot_count: int
     deck_profile: DeckProfile
     deck_count: Literal[1, 2]
     joined_count: int
+    human_joined_count: int
     participants: list[ParticipantResponse]
 
 

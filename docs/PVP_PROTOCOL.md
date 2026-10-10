@@ -6,27 +6,32 @@ three-/four-player product remains disabled by default until staged rollout.
 
 ## Feature capability
 
-`KIBA_MULTIPLAYER_3_4_ENABLED` and `KIBA_DECK_VARIANTS_ENABLED` both default to `false`.
-`GET /api/capabilities` exposes those two booleans and no environment contents. The first gate
-controls capacity `3`/`4`; the second controls every configuration except CLASSIC ×1. The gates are
-independent: for example, two-player EXTENDED requires only the deck gate, while three-player
-EXTENDED requires both. Omitted configuration and explicit CLASSIC ×1 remain accepted when the
-deck gate is off. Rejections use `FEATURE_NOT_AVAILABLE`.
+`KIBA_MULTIPLAYER_3_4_ENABLED`, `KIBA_MIXED_ROOMS_ENABLED`, and
+`KIBA_DECK_VARIANTS_ENABLED` default to `false`. `GET /api/capabilities` exposes only those three
+booleans. The first gate controls capacity `3`/`4`, the second permits reserved bot seats in a
+private room, and the third controls every configuration except CLASSIC ×1. The gates compose: a
+four-seat EXTENDED mixed room requires all three. Omitted configuration remains an all-human
+CLASSIC ×1 room. Rejections use `FEATURE_NOT_AVAILABLE`.
 
 ## Room lifecycle
 
-`POST /api/pvp/rooms` accepts the existing optional `nickname`, an optional `capacity` of `2`, `3`,
-or `4`, and optional `deck_profile` (`classic`/`extended`) and `deck_count` (`1`/`2`). Omitting the
-new fields means CLASSIC ×1 and preserves existing behavior. Capacity and deck configuration are
-immutable room properties; joiners never choose or replace them.
-The creator receives canonical seat `one`; later joins receive the lowest unoccupied canonical seat.
-The room remains `WAITING_FOR_OPPONENT` until joined count equals capacity and then starts exactly
-one authoritative generalized game with the same seat ring.
+`POST /api/pvp/rooms` accepts the existing optional `nickname`, an optional total `capacity` of
+`2`, `3`, or `4`, optional `human_players`, and optional `deck_profile`/`deck_count`.
+`human_players` defaults to `capacity`, preserving the existing request. It must be at least two
+and no greater than capacity. Initial mixed shapes are 2H+1B, 2H+2B, and 3H+1B; one-human games
+remain the separate Play vs Bots product. Room configuration is immutable.
+
+Humans own the lowest `human_players` canonical seats and bots own the remaining higher seats.
+Bot participants, IDs, and unique backend-assigned names are reserved at creation; bots have no
+account, reconnect credential, or socket. A joining human receives the lowest open human seat and
+can never claim a bot seat. If their normalized name collides with a reserved bot name, that bot is
+renamed before the match starts. The room starts only when `human_joined_count == human_players`,
+then creates one authoritative game whose player count equals total capacity.
 
 `POST /api/pvp/rooms/{invite_code}/join` cannot overfill a room. One authenticated account cannot
 claim two participant identities in the same waiting room. `GET /api/pvp/rooms/{invite_code}` and
-join/create snapshots add `capacity`, `joined_count`, stable `seat_order`, and ordered public player
-descriptors.
+join/create snapshots include `capacity`, `human_players`, `bot_count`, `joined_count` (joined
+humans), `human_joined_count`, stable `seat_order`, and ordered public player descriptors.
 
 When the room fills, the authoritative `GameState` is created from the room's exact profile and
 copy count. Reconnect returns the same live state and physical card identities. A unanimous
@@ -42,8 +47,10 @@ no competitive result.
 
 ## Identity, reconnect, and transport
 
-Connection, participant identity, reconnect credential, canonical seat, and engine actor are
-separate values. A reconnect credential restores the same participant and seat; replacing a socket
+Connection, participant kind, identity, reconnect credential, canonical seat, and engine actor are
+separate values. `connected` means a human has a current socket or a bot seat is present and
+backend-owned; it does not fabricate bot networking. A human reconnect credential restores the
+same participant and seat; replacing a socket
 does not reassign gameplay order. Several participants may be disconnected simultaneously without
 freeing seats or changing the game. A canonically finished participant stays in the room, may keep
 observing public updates, and has no available action.
@@ -53,6 +60,13 @@ do not submit a trusted role or actor seat. The engine remains authoritative for
 legality. The room lock and expected `version` preserve atomic application: one accepted action
 increments the version once, while stale, replayed, wrong-turn, or illegal actions do not mutate the
 snapshot.
+
+After a human action, and also at initial start/rematch, the room driver advances consecutive
+bot-owned turns until human input or terminal state. It uses the same sanitized `BotDecisionContext`
+and 5,000-transition safety bound as Play vs Bots. One accepted human message increments the room
+version once for its entire atomic bot cascade. Response-scoped `recent_events` contains ordered,
+public bot action summaries (seat, action kind, card count, public values) and no exact hidden cards.
+Reconnect and socket replacement do not replay or trigger a cascade.
 
 Card actions accept exactly one reference form. Existing CLASSIC ×1 clients may continue sending
 face codes in `cards` (`JD`, `KS`, `10C`). Generalized clients send exact match-scoped physical IDs
@@ -72,9 +86,10 @@ Each `STATE` retains the legacy two-player `you`, `opponent`, `opponent_hand_cou
 `result` fields. For a two-player room they keep their previous meaning. Additive generalized fields
 are:
 
-- `capacity`, `joined_count`, and canonical `seat_order`;
+- `capacity`, `human_players`, `bot_count`, human `joined_count`/`human_joined_count`, and canonical
+  `seat_order`;
 - authoritative `deck_profile` and `deck_count`;
-- ordered `players`, with public hand count, connected, active, finished, and `is_self` state;
+- ordered `players`, with public hand count, connected, active, finished, `is_self`, and `is_bot`;
 - `active_seats`, `finished_seats`, and ordered `finish_groups`;
 - `lead_attacker`, alongside the existing current bout `attacker`, `defender`, and required actor.
 - participant-relative `rematch_status`, ready/total counts, and ordered public participant IDs
@@ -85,7 +100,7 @@ Jokers use stable non-translated codes `RJ` and `BJ`, `rank: "JOKER"`, nullable 
 `joker_color`. The ID is a protocol reference and must not be rendered as a deck-copy label. Two
 visible duplicate faces have the same code and distinct IDs. Own-hand cards, the exposed top card,
 and table cards include IDs. The viewer receives exact cards only for their own hand. Other
-participants expose counts only.
+participants, including bots, expose counts only.
 Future draw-pile cards, private RNG state, reconnect credentials, account IDs, and other secrets are
 never serialized. The already-public exposed top draw card and table/discard metadata remain public.
 
@@ -103,17 +118,25 @@ retain the legacy face-code fields and add exact physical-ID fields for selected
 combination cards. A three- or four-player `HINT_REQUEST` is rejected as
 `FEATURE_NOT_AVAILABLE`. After a terminal result, existing `REMATCH_REQUEST`, `REMATCH_ACCEPT`,
 `REMATCH_DECLINE`, and `REMATCH_CANCEL` messages support every room capacity. A request counts as
-the requester's consent; all original stable-seat participants, including early finishers, must
-accept before a fresh match starts. Decline clears the proposal without changing the completed
+the requester's consent. All original humans, including early finishers, must accept before a fresh
+match starts; bots consent implicitly and cannot send a vote. Ready/total counts therefore count
+humans. Decline clears the proposal without changing the completed
 result, requester cancel clears the proposal, duplicate acceptance is idempotent, and disconnect/reconnect
 preserves recorded intent. The rematch keeps room identity, participants, seats and reconnect
 credentials and deck configuration, but creates a fresh `GameState`, physical deck, shuffle and
 `match_id`. Relevant live gates are rechecked before the new match starts.
 
-Three-/four-player matches and their rematches deliberately write no history, XP, statistics,
-achievements, or ratings. Two-player CLASSIC ×1 exactly-once persistence is unchanged. There are no
-bots, matchmaking, external spectators, or durable active-room storage. Rooms and reconnect
-credentials remain process-local and are lost on backend restart.
+Temporary human disconnect keeps the seat, hand, bot roster/names, and any rematch consent. Bots
+never substitute for or act on a disconnected human turn. Explicit human Exit from an active mixed
+room closes it neutrally, without finish groups or continued bot play. A canonically finished human
+remains an observer; a finished bot is skipped. If all humans finish before the remaining bots, the
+same cascade completes the all-bot remainder without client input.
+
+Mixed matches and all three-/four-player matches deliberately write no history, XP, statistics,
+achievements, ratings, or cosmetic progression. Two-player all-human CLASSIC ×1 exactly-once
+persistence is unchanged. There is no matchmaking, external spectator, bot account, or durable
+active-room storage. Rooms and human reconnect credentials remain process-local and are lost on
+backend restart.
 
 ## Test matrix
 
@@ -123,9 +146,12 @@ reconnect, simultaneous
 disconnects, cleanup, pre-start and active Exit, private projections for three and four seats,
 nested hidden-card/deck/token checks, valid/wrong/stale/concurrent actions, initial attack, defense,
 wrapped transfer, non-cycling attacker handoff, TAKE, BITO, 4→3→2 finish reduction, simultaneous
-finish groups, feature-gate bypass rejection, real REST/WebSocket broadcasts, unanimous three- and
-four-player rematch, and the existing two-player guest, persistence, hint, rematch, and reconnect
-suites. Deck integration additionally covers two-player EXTENDED action/defense/reconnect,
+finish groups, feature-gate bypass rejection, real REST/WebSocket broadcasts, unanimous rematch,
+and the existing two-player guest, persistence, hint, rematch, and reconnect suites. Mixed-room
+coverage adds deterministic seat reservation/start for 2H+1B, 2H+2B, and 3H+1B, bot-start and
+human-to-bot cascades, name collision recovery, bot credential/vote exclusion, private bot hands,
+human-only rematch consent, configuration preservation, and 50 complete deterministic games for
+each supported mixed composition. Deck integration additionally covers two-player EXTENDED action/defense/reconnect,
 three-player EXTENDED street/handoff, four-player EXTENDED ×2 with 108-card conservation and
 WebSocket action broadcast, exact duplicate selection, hidden-ID rejection, all-config rematches,
 live-gate rechecks, and non-default persistence exclusion.

@@ -29,6 +29,7 @@ from kiba_api.sessions.service import (
     SessionErrorCode,
     SessionNotFoundError,
     SessionParticipant,
+    bot_presentation_event,
 )
 
 __all__ = [
@@ -57,4 +58,5 @@ __all__ = [
     "remember_resolved_bout",
     "record_accepted_action",
     "assign_bot_names",
+    "bot_presentation_event",
 ]

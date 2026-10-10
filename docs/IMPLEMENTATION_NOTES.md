@@ -1420,6 +1420,38 @@ Unknown Angular routes render a localized branded Not Found page and set `robots
 unknown document routes; the client-visible state is intentionally corrected without a brittle
 nginx route whitelist. Privacy product-scope copy now describes private rooms for 2–4 players.
 
+### 15.16 H1 mixed human/bot private-room backend
+
+Private rooms now use one participant model for human and backend-owned bot seats. Total
+`capacity` remains 2–4, while optional `human_players` defaults to capacity for wire compatibility
+and is constrained to `2..capacity`. Humans occupy the lowest canonical seats; reserved bots occupy
+the higher seats with stable opaque IDs, unique names from the existing bot-name pool, and no user,
+reconnect token, or WebSocket. A waiting room starts when all required humans—not all network
+participants—have joined. A pre-start human/bot name collision rerolls the bot name before it
+becomes active.
+
+`KIBA_MIXED_ROOMS_ENABLED` is an independent default-off capability. Mixed capacity 3/4 also needs
+`KIBA_MULTIPLAYER_3_4_ENABLED`; non-default decks additionally need
+`KIBA_DECK_VARIANTS_ENABLED`. The server advertises the three booleans without exposing other
+configuration. Existing creator requests omit `human_players` and therefore remain all-human with
+unchanged behavior.
+
+The room service reuses the established sanitized bot policy and iterative 5,000-action guard. At
+start, after an accepted human action, and after rematch start, it advances only bot-owned actors
+until a human decision or terminal state. Bot actions are represented by bounded public event
+summaries and per-seat counters; exact bot hands, other human hands, future draw order, and decision
+context remain private. A human message plus its cascade is one locked/versioned transition, so
+reconnect or stale-socket replay cannot duplicate bot play. Finished participants retain stable
+seats, and an all-bot active remainder completes automatically.
+
+Disconnect never changes seat ownership or substitutes a bot for a human. Active explicit human
+Exit still closes the room neutrally. Mixed rematch consent counts every original human and no bot;
+the refreshed match preserves room, participant IDs/names/seats, human credentials, and deck
+configuration while replacing match ID and game state. Mixed rooms never enter the current binary
+history/progression path; all-human two-player CLASSIC ×1 persistence remains unchanged. This is a
+process-local backend/protocol addition with no migration, Angular change, canon change, or
+production activation.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

@@ -111,7 +111,10 @@ async def create_room(
     user: OptionalCurrentUser,
 ) -> RoomJoinResponse:
     """Create a guest-friendly invitation and assign its creator to Seat.ONE."""
+    human_players = payload.human_players or payload.capacity
     if payload.capacity > 2 and not request.app.state.settings.multiplayer_3_4_enabled:
+        raise PvPError(PvPErrorCode.FEATURE_NOT_AVAILABLE)
+    if human_players < payload.capacity and not request.app.state.settings.mixed_rooms_enabled:
         raise PvPError(PvPErrorCode.FEATURE_NOT_AVAILABLE)
     deck_config = DeckConfig(payload.deck_profile, payload.deck_count)
     if deck_config != DEFAULT_DECK_CONFIG and not request.app.state.settings.deck_variants_enabled:
@@ -120,6 +123,7 @@ async def create_room(
     room, participant = service.create_room(
         display_name,
         capacity=payload.capacity,
+        human_players=human_players,
         deck_config=deck_config,
         user_id=user.id if user is not None else None,
         preferred_locale=(
@@ -283,6 +287,11 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                     if (
                         current_room.capacity > 2
                         and not websocket.app.state.settings.multiplayer_3_4_enabled
+                    ):
+                        raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
+                    if (
+                        current_room.is_mixed
+                        and not websocket.app.state.settings.mixed_rooms_enabled
                     ):
                         raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
                     if (

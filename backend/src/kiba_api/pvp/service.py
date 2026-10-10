@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import random
 import secrets
 import unicodedata
 from collections.abc import Callable, Iterable, Iterator
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
 
 from kiba_api.game import (
     DEFAULT_DECK_CONFIG,
+    BotActionError,
     BoutActionError,
     BoutState,
     Card,
@@ -27,18 +29,24 @@ from kiba_api.game import (
     GamePhase,
     GameState,
     Seat,
+    choose_bot_action,
     create_new_game,
+    play_bot_turn,
     seats_for_player_count,
     start_game_bout,
 )
 from kiba_api.locale import Locale
 from kiba_api.sessions import (
+    BOT_NAME_POOL,
     ActionCounters,
+    BotPresentationEvent,
     HintError,
     HumanActionType,
     MoveHints,
     acting_seat,
     apply_game_action,
+    assign_bot_names,
+    bot_presentation_event,
     get_move_hints,
     record_accepted_action,
     remember_resolved_bout,
@@ -119,12 +127,13 @@ class PvPParticipant:
     seat: Seat
     display_name: str
     user_id: UUID | None
-    reconnect_token: str
+    reconnect_token: str | None
     preferred_locale: Locale = Locale.RU
     connection_id: str | None = None
+    is_bot: bool = False
 
     def __post_init__(self) -> None:
-        if not self.participant_id or not self.display_name or not self.reconnect_token:
+        if not self.participant_id or not self.display_name:
             raise ValueError("participant identity fields must not be empty")
         if not isinstance(self.seat, Seat):
             raise TypeError("participant seat must be a Seat")
@@ -134,10 +143,24 @@ class PvPParticipant:
             raise TypeError("participant preferred_locale must be a Locale")
         if self.connection_id is not None and not self.connection_id:
             raise ValueError("connection_id must be non-empty or None")
+        if not isinstance(self.is_bot, bool):
+            raise TypeError("is_bot must be a bool")
+        if self.is_bot and (
+            self.user_id is not None
+            or self.reconnect_token is not None
+            or self.connection_id is not None
+        ):
+            raise ValueError("bot participants cannot have account or network credentials")
+        if not self.is_bot and not self.reconnect_token:
+            raise ValueError("human participants require a reconnect credential")
 
     @property
     def connected(self) -> bool:
-        return self.connection_id is not None
+        return self.is_bot or self.connection_id is not None
+
+    @property
+    def network_connected(self) -> bool:
+        return not self.is_bot and self.connection_id is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,10 +198,12 @@ class PvPRoom:
     created_at: datetime
     updated_at: datetime
     capacity: int = 2
+    human_players: int = 2
     deck_config: DeckConfig = DEFAULT_DECK_CONFIG
     match_id: str | None = None
     rematch_acceptances: tuple[str, ...] = ()
     rematch_declined_by: str | None = None
+    recent_events: tuple[BotPresentationEvent, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.room_id or not self.invite_code:
@@ -192,6 +217,12 @@ class PvPRoom:
         if not isinstance(self.deck_config, DeckConfig):
             raise TypeError("deck_config must be a DeckConfig")
         if (
+            isinstance(self.human_players, bool)
+            or not isinstance(self.human_players, int)
+            or not 2 <= self.human_players <= self.capacity
+        ):
+            raise ValueError("human_players must be between two and room capacity")
+        if (
             not isinstance(self.participants, tuple)
             or not 1 <= len(self.participants) <= self.capacity
         ):
@@ -202,7 +233,8 @@ class PvPRoom:
             raise ValueError("room participant seats must be unique")
         if len({value.participant_id for value in self.participants}) != len(self.participants):
             raise ValueError("room participant ids must be unique")
-        if len({value.reconnect_token for value in self.participants}) != len(self.participants):
+        human_tokens = [value.reconnect_token for value in self.participants if not value.is_bot]
+        if len(set(human_tokens)) != len(human_tokens):
             raise ValueError("room reconnect credentials must be unique")
         if any(value.seat not in seat_order for value in self.participants):
             raise ValueError("participant seats must fit the configured capacity")
@@ -211,6 +243,14 @@ class PvPRoom:
         )
         if tuple(value.seat for value in self.participants) != expected_participant_order:
             raise ValueError("participants must retain ascending canonical seat order")
+        human_seats = seat_order[: self.human_players]
+        bot_seats = seat_order[self.human_players :]
+        if any(value.is_bot != (value.seat in bot_seats) for value in self.participants):
+            raise ValueError("participant kinds must match reserved human and bot seats")
+        if not all(any(value.seat is seat for value in self.participants) for seat in bot_seats):
+            raise ValueError("every reserved bot seat must have a participant")
+        if any(value.seat not in human_seats for value in self.human_participants):
+            raise ValueError("humans may occupy only reserved human seats")
         if isinstance(self.version, bool) or not isinstance(self.version, int) or self.version < 0:
             raise ValueError("room version must be a non-negative integer")
         if self.created_at.tzinfo is None or self.updated_at.tzinfo is None:
@@ -224,12 +264,18 @@ class PvPRoom:
         if len({summary.seat for summary in self.action_summaries}) != len(self.action_summaries):
             raise ValueError("action summary seats must be unique")
         participant_ids = {participant.participant_id for participant in self.participants}
+        human_participant_ids = {
+            participant.participant_id for participant in self.human_participants
+        }
         if len(set(self.rematch_acceptances)) != len(self.rematch_acceptances):
             raise ValueError("rematch acceptances must be unique")
-        if not set(self.rematch_acceptances).issubset(participant_ids):
-            raise ValueError("rematch acceptances must belong to room participants")
-        if self.rematch_declined_by is not None and self.rematch_declined_by not in participant_ids:
-            raise ValueError("rematch decline must belong to a room participant")
+        if not set(self.rematch_acceptances).issubset(human_participant_ids):
+            raise ValueError("rematch acceptances must belong to human participants")
+        if (
+            self.rematch_declined_by is not None
+            and self.rematch_declined_by not in human_participant_ids
+        ):
+            raise ValueError("rematch decline must belong to a human participant")
         if self.rematch_declined_by is not None and self.rematch_acceptances:
             raise ValueError("a declined rematch cannot retain acceptances")
         completion_ids = {result.participant_id for result in self.completion_results}
@@ -242,13 +288,17 @@ class PvPRoom:
 
         if self.phase is PvPRoomPhase.WAITING_FOR_OPPONENT:
             if (
-                not 1 <= len(self.participants) < self.capacity
+                not 1 <= len(self.human_participants) < self.human_players
                 or self.state is not None
                 or self.match_id is not None
             ):
-                raise ValueError("a waiting room must be below capacity and have no game")
+                raise ValueError("a waiting room must need humans and have no game")
         elif self.phase is PvPRoomPhase.GAME_ACTIVE:
-            if len(self.participants) != self.capacity or self.state is None:
+            if (
+                len(self.participants) != self.capacity
+                or len(self.human_participants) != self.human_players
+                or self.state is None
+            ):
                 raise ValueError("an active room must be full and have one game")
             if self.state.phase is not GamePhase.BOUT_ACTIVE:
                 raise ValueError("an active room must expose a started bout")
@@ -272,6 +322,26 @@ class PvPRoom:
             self.rematch_acceptances or self.rematch_declined_by is not None
         ):
             raise ValueError("rematch decisions require a complete room")
+        if not isinstance(self.recent_events, tuple) or not all(
+            isinstance(value, BotPresentationEvent) for value in self.recent_events
+        ):
+            raise TypeError("recent_events must contain BotPresentationEvent values")
+
+    @property
+    def human_participants(self) -> tuple[PvPParticipant, ...]:
+        return tuple(value for value in self.participants if not value.is_bot)
+
+    @property
+    def bot_participants(self) -> tuple[PvPParticipant, ...]:
+        return tuple(value for value in self.participants if value.is_bot)
+
+    @property
+    def bot_count(self) -> int:
+        return self.capacity - self.human_players
+
+    @property
+    def is_mixed(self) -> bool:
+        return self.bot_count > 0
 
     def participant(self, seat: Seat) -> PvPParticipant:
         for participant in self.participants:
@@ -287,7 +357,9 @@ class PvPRoom:
 
     def participant_by_token(self, reconnect_token: str) -> PvPParticipant:
         for participant in self.participants:
-            if secrets.compare_digest(participant.reconnect_token, reconnect_token):
+            if participant.reconnect_token is not None and secrets.compare_digest(
+                participant.reconnect_token, reconnect_token
+            ):
                 return participant
         raise PvPError(PvPErrorCode.INVALID_CREDENTIAL)
 
@@ -310,7 +382,7 @@ class PvPRoom:
 
 def _uses_completion_persistence(room: PvPRoom) -> bool:
     """Return whether this room participates in binary profile persistence."""
-    return room.capacity == 2 and room.deck_config == DEFAULT_DECK_CONFIG
+    return not room.is_mixed and room.capacity == 2 and room.deck_config == DEFAULT_DECK_CONFIG
 
 
 @dataclass(frozen=True, slots=True)
@@ -370,7 +442,7 @@ class InMemoryPvPRoomStore:
                     continue
                 with record.lock:
                     room = record.room
-                    if any(participant.connected for participant in room.participants):
+                    if any(participant.network_connected for participant in room.participants):
                         continue
                     age = now - room.updated_at
                     if room.phase in {PvPRoomPhase.WAITING_FOR_OPPONENT, PvPRoomPhase.CLOSED}:
@@ -426,6 +498,7 @@ _MultiplayerGameFactory = Callable[[int], GameState]
 _ConfiguredGameFactory = Callable[[int, DeckConfig], GameState]
 _TokenFactory = Callable[[int], str]
 _CompletionRecorder = Callable[[PvPRoom], tuple[PvPParticipantCompletion, ...]]
+_BotTurn = Callable[[GameState, Seat], GameState]
 
 
 class PvPRoomService:
@@ -442,7 +515,17 @@ class PvPRoomService:
         token_factory: _TokenFactory = secrets.token_urlsafe,
         ttl: RoomTTLPolicy | None = None,
         completion_recorder: _CompletionRecorder | None = None,
+        bot_turn: _BotTurn = play_bot_turn,
+        bot_action_limit: int = 5_000,
+        name_rng: random.Random | None = None,
+        bot_name_pool: tuple[str, ...] = BOT_NAME_POOL,
     ) -> None:
+        if (
+            isinstance(bot_action_limit, bool)
+            or not isinstance(bot_action_limit, int)
+            or bot_action_limit <= 0
+        ):
+            raise ValueError("bot_action_limit must be a positive integer")
         self._store = store or InMemoryPvPRoomStore()
         self._game_factory = game_factory
         self._multiplayer_game_factory = (
@@ -460,12 +543,18 @@ class PvPRoomService:
         self._token_factory = token_factory
         self._ttl = ttl or RoomTTLPolicy()
         self._completion_recorder = completion_recorder
+        self._bot_turn = bot_turn
+        self._bot_action_limit = bot_action_limit
+        self._name_rng = name_rng or random.Random()
+        self._bot_name_pool = bot_name_pool
+        self._identity_lock = RLock()
 
     def create_room(
         self,
         display_name: str,
         *,
         capacity: int = 2,
+        human_players: int | None = None,
         deck_config: DeckConfig = DEFAULT_DECK_CONFIG,
         user_id: UUID | None = None,
         preferred_locale: Locale = Locale.RU,
@@ -475,15 +564,24 @@ class PvPRoomService:
             seats_for_player_count(capacity)
         except (TypeError, ValueError) as error:
             raise PvPError(PvPErrorCode.INVALID_CAPACITY) from error
+        required_humans = capacity if human_players is None else human_players
+        if (
+            isinstance(required_humans, bool)
+            or not isinstance(required_humans, int)
+            or not 2 <= required_humans <= capacity
+        ):
+            raise PvPError(PvPErrorCode.INVALID_CAPACITY)
         now = self._now()
         self._store.cleanup(now, self._ttl)
         invite_code = self._unique_invite_code()
         creator = self._new_participant(Seat.ONE, display_name, user_id, preferred_locale)
+        bot_seats = seats_for_player_count(capacity)[required_humans:]
+        bots = self._new_bot_participants(bot_seats, excluded_names=(display_name,))
         room = PvPRoom(
             room_id=self._token_factory(18),
             invite_code=invite_code,
             phase=PvPRoomPhase.WAITING_FOR_OPPONENT,
-            participants=(creator,),
+            participants=_ordered_participants((creator, *bots)),
             state=None,
             last_bout=None,
             game_started_at=None,
@@ -494,6 +592,7 @@ class PvPRoomService:
             created_at=now,
             updated_at=now,
             capacity=capacity,
+            human_players=required_humans,
             deck_config=deck_config,
             match_id=None,
         )
@@ -508,7 +607,7 @@ class PvPRoomService:
         user_id: UUID | None = None,
         preferred_locale: Locale = Locale.RU,
     ) -> tuple[PvPRoom, PvPParticipant]:
-        """Assign the lowest free seat and start exactly when capacity is reached."""
+        """Assign the lowest free human seat and start when all humans have joined."""
         now = self._now()
         self._store.cleanup(now, self._ttl, exclude=invite_code)
         with self._store.locked_record(invite_code) as record:
@@ -516,7 +615,7 @@ class PvPRoomService:
             room = record.room
             if (
                 room.phase is not PvPRoomPhase.WAITING_FOR_OPPONENT
-                or len(room.participants) >= room.capacity
+                or len(room.human_participants) >= room.human_players
             ):
                 raise PvPError(PvPErrorCode.ROOM_FULL)
             if user_id is not None and any(
@@ -525,7 +624,9 @@ class PvPRoomService:
                 raise PvPError(PvPErrorCode.PARTICIPANT_ALREADY_JOINED)
             occupied = {value.seat for value in room.participants}
             seat = next(
-                value for value in seats_for_player_count(room.capacity) if value not in occupied
+                value
+                for value in seats_for_player_count(room.capacity)[: room.human_players]
+                if value not in occupied
             )
             participant = self._new_participant(
                 seat,
@@ -534,7 +635,8 @@ class PvPRoomService:
                 preferred_locale,
             )
             participants = _ordered_participants((*room.participants, participant))
-            if len(participants) < room.capacity:
+            participants = self._resolve_bot_name_collisions(participants)
+            if len(tuple(value for value in participants if not value.is_bot)) < room.human_players:
                 record.room = replace(
                     room,
                     participants=participants,
@@ -549,18 +651,31 @@ class PvPRoomService:
                 raise ValueError("PvP game factory returned the wrong player count")
             initial_attacker = state.current_attacker
             state = start_game_bout(state)
+            state, last_bout, events, summaries = self._advance_bots(
+                state,
+                None,
+                tuple(PvPSeatActionSummary(value.seat) for value in participants),
+                bot_seats=tuple(value.seat for value in participants if value.is_bot),
+            )
+            phase = (
+                PvPRoomPhase.COMPLETE
+                if state.phase is GamePhase.COMPLETE
+                else PvPRoomPhase.GAME_ACTIVE
+            )
             record.room = replace(
                 room,
-                phase=PvPRoomPhase.GAME_ACTIVE,
+                phase=phase,
                 participants=participants,
                 state=state,
+                last_bout=last_bout,
                 game_started_at=now,
                 initial_attacker=initial_attacker,
-                action_summaries=tuple(PvPSeatActionSummary(value.seat) for value in participants),
+                action_summaries=summaries,
                 match_id=self._new_match_id(None),
                 updated_at=now,
             )
-            return record.room, participant
+            self._persist_completed_room(record)
+            return _with_recent_events(record.room, events), participant
 
     def get_room(self, invite_code: str) -> PvPRoom:
         """Return the latest room snapshot for public status or tests."""
@@ -637,7 +752,7 @@ class PvPRoomService:
             if (
                 room.phase is PvPRoomPhase.WAITING_FOR_OPPONENT
                 and room.capacity > 2
-                and len(room.participants) > 1
+                and len(room.human_participants) > 1
             ):
                 record.room = replace(
                     room,
@@ -650,7 +765,10 @@ class PvPRoomService:
                     updated_at=now,
                 )
                 return record.room
-            disconnected = tuple(replace(value, connection_id=None) for value in room.participants)
+            disconnected = tuple(
+                replace(value, connection_id=None) if not value.is_bot else value
+                for value in room.participants
+            )
             record.room = replace(
                 room,
                 phase=PvPRoomPhase.CLOSED,
@@ -704,7 +822,7 @@ class PvPRoomService:
             acceptances = (
                 () if room.rematch_declined_by is not None else room.rematch_acceptances
             ) + (participant.participant_id,)
-            if len(acceptances) == len(room.participants):
+            if len(acceptances) == len(room.human_participants):
                 return self._start_rematch(record, room, now)
             record.room = replace(
                 room,
@@ -734,7 +852,8 @@ class PvPRoomService:
             if expected_version != room.version:
                 raise PvPActionError(PvPErrorCode.STALE_VERSION)
             if not room.rematch_acceptances or (
-                room.capacity == 2 and participant.participant_id in room.rematch_acceptances
+                len(room.human_participants) == 2
+                and participant.participant_id in room.rematch_acceptances
             ):
                 raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
             record.room = replace(
@@ -814,8 +933,16 @@ class PvPRoomService:
                 action_type,
                 selected,
             )
-            if state.phase is GamePhase.READY_FOR_BOUT:
-                state = start_game_bout(state)
+            summaries = _replace_action_summary(
+                room.action_summaries,
+                PvPSeatActionSummary(participant.seat, counters),
+            )
+            state, last_bout, events, summaries = self._advance_bots(
+                state,
+                last_bout,
+                summaries,
+                bot_seats=tuple(value.seat for value in room.bot_participants),
+            )
             phase = (
                 PvPRoomPhase.COMPLETE
                 if state.phase is GamePhase.COMPLETE
@@ -826,15 +953,12 @@ class PvPRoomService:
                 phase=phase,
                 state=state,
                 last_bout=last_bout,
-                action_summaries=_replace_action_summary(
-                    room.action_summaries,
-                    PvPSeatActionSummary(participant.seat, counters),
-                ),
+                action_summaries=summaries,
                 version=room.version + 1,
                 updated_at=now,
             )
             self._persist_completed_room(record)
-            return record.room
+            return _with_recent_events(record.room, events)
 
     def get_hints(
         self,
@@ -861,7 +985,7 @@ class PvPRoomService:
                 raise PvPActionError(PvPErrorCode.GAME_COMPLETE)
             if expected_version != room.version:
                 raise PvPActionError(PvPErrorCode.STALE_VERSION)
-            if any(not value.connected for value in room.participants):
+            if any(not value.connected for value in room.human_participants):
                 raise PvPActionError(PvPErrorCode.GAME_NOT_READY)
             try:
                 hints = get_move_hints(room.state, participant.seat, selected)
@@ -907,16 +1031,23 @@ class PvPRoomService:
             raise ValueError("PvP game factory must return READY_FOR_BOUT")
         initial_attacker = state.current_attacker
         state = start_game_bout(state)
+        state, last_bout, events, summaries = self._advance_bots(
+            state,
+            None,
+            tuple(PvPSeatActionSummary(participant.seat) for participant in room.participants),
+            bot_seats=tuple(value.seat for value in room.bot_participants),
+        )
+        phase = (
+            PvPRoomPhase.COMPLETE if state.phase is GamePhase.COMPLETE else PvPRoomPhase.GAME_ACTIVE
+        )
         record.room = replace(
             room,
-            phase=PvPRoomPhase.GAME_ACTIVE,
+            phase=phase,
             state=state,
-            last_bout=None,
+            last_bout=last_bout,
             game_started_at=now,
             initial_attacker=initial_attacker,
-            action_summaries=tuple(
-                PvPSeatActionSummary(participant.seat) for participant in room.participants
-            ),
+            action_summaries=summaries,
             completion_results=(),
             match_id=self._new_match_id(room.match_id),
             rematch_acceptances=(),
@@ -924,7 +1055,123 @@ class PvPRoomService:
             version=room.version + 1,
             updated_at=now,
         )
-        return record.room
+        self._persist_completed_room(record)
+        return _with_recent_events(record.room, events)
+
+    def _advance_bots(
+        self,
+        state: GameState,
+        last_bout: BoutState | None,
+        summaries: tuple[PvPSeatActionSummary, ...],
+        *,
+        bot_seats: tuple[Seat, ...],
+    ) -> tuple[
+        GameState,
+        BoutState | None,
+        tuple[BotPresentationEvent, ...],
+        tuple[PvPSeatActionSummary, ...],
+    ]:
+        """Advance consecutive bot-owned decisions without crossing a human turn."""
+        events: list[BotPresentationEvent] = []
+        action_count = 0
+        while state.phase is not GamePhase.COMPLETE:
+            if state.phase is GamePhase.READY_FOR_BOUT:
+                state = start_game_bout(state)
+                continue
+            actor = acting_seat(state)
+            if actor not in bot_seats:
+                return state, last_bout, tuple(events), summaries
+            if action_count >= self._bot_action_limit:
+                raise RuntimeError("mixed-room bot cascade exceeded its safety bound")
+            previous_state = state
+            try:
+                action = choose_bot_action(previous_state, actor)
+                state = self._bot_turn(previous_state, actor)
+            except BotActionError as error:
+                raise RuntimeError("baseline bot could not advance an owned decision") from error
+            last_bout = remember_resolved_bout(previous_state, state, last_bout)
+            events.append(bot_presentation_event(previous_state, action, actor))
+            counters = record_accepted_action(
+                next(value.counters for value in summaries if value.seat is actor),
+                previous_state,
+                HumanActionType(action.action_type.name),
+                action.cards,
+            )
+            summaries = _replace_action_summary(
+                summaries,
+                PvPSeatActionSummary(actor, counters),
+            )
+            action_count += 1
+        return state, last_bout, tuple(events), summaries
+
+    def _new_bot_participants(
+        self,
+        seats: tuple[Seat, ...],
+        *,
+        excluded_names: tuple[str, ...],
+    ) -> tuple[PvPParticipant, ...]:
+        if not seats:
+            return ()
+        with self._identity_lock:
+            names = assign_bot_names(
+                len(seats),
+                human_display_name=None,
+                excluded_display_names=excluded_names,
+                rng=self._name_rng,
+                pool=self._bot_name_pool,
+            )
+            ids = tuple(self._token_factory(18) for _seat in seats)
+        return tuple(
+            PvPParticipant(
+                participant_id=participant_id,
+                seat=seat,
+                display_name=name,
+                user_id=None,
+                reconnect_token=None,
+                is_bot=True,
+            )
+            for participant_id, seat, name in zip(ids, seats, names, strict=True)
+        )
+
+    def _resolve_bot_name_collisions(
+        self,
+        participants: tuple[PvPParticipant, ...],
+    ) -> tuple[PvPParticipant, ...]:
+        human_names = {
+            _normalized_display_name(value.display_name)
+            for value in participants
+            if not value.is_bot
+        }
+        collisions = tuple(
+            value
+            for value in participants
+            if value.is_bot and _normalized_display_name(value.display_name) in human_names
+        )
+        if not collisions:
+            return participants
+        retained_names = tuple(
+            value.display_name for value in participants if value.is_bot and value not in collisions
+        )
+        with self._identity_lock:
+            replacements = assign_bot_names(
+                len(collisions),
+                human_display_name=None,
+                excluded_display_names=tuple(
+                    value.display_name for value in participants if not value.is_bot
+                )
+                + retained_names,
+                rng=self._name_rng,
+                pool=self._bot_name_pool,
+            )
+        replacement_by_seat = dict(
+            zip((value.seat for value in collisions), replacements, strict=True)
+        )
+        return tuple(
+            replace(value, display_name=replacement_by_seat[value.seat])
+            if value.seat in replacement_by_seat
+            else value
+            for value in participants
+        )
 
     def _create_game(self, capacity: int, deck_config: DeckConfig) -> GameState:
         if deck_config != DEFAULT_DECK_CONFIG:
@@ -973,7 +1220,7 @@ class PvPRoomService:
         room = record.room
         if room.phase is PvPRoomPhase.CLOSED:
             raise PvPError(PvPErrorCode.ROOM_CLOSED)
-        if any(participant.connected for participant in room.participants):
+        if any(participant.network_connected for participant in room.participants):
             return
         age = now - room.updated_at
         if room.phase is PvPRoomPhase.WAITING_FOR_OPPONENT:
@@ -1007,11 +1254,22 @@ def normalize_guest_nickname(value: str | None) -> str:
     return normalized
 
 
+def _normalized_display_name(value: str) -> str:
+    return " ".join(value.split()).casefold()
+
+
 def _replace_participant(
     participants: tuple[PvPParticipant, ...],
     updated: PvPParticipant,
 ) -> tuple[PvPParticipant, ...]:
     return tuple(updated if item.seat is updated.seat else item for item in participants)
+
+
+def _with_recent_events(
+    room: PvPRoom,
+    events: tuple[BotPresentationEvent, ...],
+) -> PvPRoom:
+    return replace(room, recent_events=events) if events else room
 
 
 def _replace_action_summary(

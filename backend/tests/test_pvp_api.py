@@ -142,6 +142,7 @@ def test_public_capability_defaults_off_and_server_rejects_multiplayer_creation(
     assert capability.status_code == 200
     assert capability.json() == {
         "multiplayer_3_4_enabled": False,
+        "mixed_rooms_enabled": False,
         "deck_variants_enabled": False,
     }
     assert two_player.status_code == 201
@@ -161,6 +162,7 @@ def test_public_capability_and_multiplayer_creation_when_enabled(database: Datab
     with TestClient(create_app(database=database, settings=settings)) as enabled_client:
         assert enabled_client.get("/api/capabilities").json() == {
             "multiplayer_3_4_enabled": True,
+            "mixed_rooms_enabled": False,
             "deck_variants_enabled": False,
         }
         for capacity in (2, 3, 4):

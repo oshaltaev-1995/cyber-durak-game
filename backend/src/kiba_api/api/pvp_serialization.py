@@ -9,7 +9,11 @@ from kiba_api.api.pvp_schemas import (
     RoomJoinResponse,
     RoomStatusResponse,
 )
-from kiba_api.api.schemas import TableArithmeticResponse, TrumpResponse
+from kiba_api.api.schemas import (
+    BotPresentationEventResponse,
+    TableArithmeticResponse,
+    TrumpResponse,
+)
 from kiba_api.api.serialization import (
     _format_fraction,
     _presentation_card_key,
@@ -32,6 +36,8 @@ from kiba_api.sessions import acting_seat, available_actions_for
 
 def serialize_room_join(room: PvPRoom, participant: PvPParticipant) -> RoomJoinResponse:
     """Return the participant credential once alongside their private state view."""
+    if participant.reconnect_token is None:
+        raise ValueError("only human participants receive join credentials")
     return RoomJoinResponse(
         invite_code=room.invite_code,
         invite_path=f"/api/pvp/rooms/{room.invite_code}",
@@ -51,9 +57,12 @@ def serialize_room_status(room: PvPRoom) -> RoomStatusResponse:
         room_phase=room.phase.value,
         version=room.version,
         capacity=room.capacity,
+        human_players=room.human_players,
+        bot_count=room.bot_count,
         deck_profile=room.deck_config.profile,
         deck_count=room.deck_config.deck_count,
-        joined_count=len(room.participants),
+        joined_count=len(room.human_participants),
+        human_joined_count=len(room.human_participants),
         participants=[_serialize_participant(value) for value in room.participants],
     )
 
@@ -76,9 +85,12 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             room_phase=room.phase.value,
             version=room.version,
             capacity=room.capacity,
+            human_players=room.human_players,
+            bot_count=room.bot_count,
             deck_profile=room.deck_config.profile,
             deck_count=room.deck_config.deck_count,
-            joined_count=len(room.participants),
+            joined_count=len(room.human_participants),
+            human_joined_count=len(room.human_participants),
             seat_order=seat_order,
             players=player_states,
             active_seats=[],
@@ -86,7 +98,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             finish_groups=[],
             rematch_status=_rematch_status(room, viewer),
             rematch_ready_count=len(room.rematch_acceptances),
-            rematch_total_count=len(room.participants),
+            rematch_total_count=len(room.human_participants),
             rematch_requester_participant_id=(
                 room.rematch_acceptances[0] if room.rematch_acceptances else None
             ),
@@ -126,6 +138,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             required_participant_id=None,
             required_seat=None,
             available_actions=[],
+            recent_events=_serialize_bot_events(room),
         )
 
     trump_state = state.current_trump_state
@@ -152,9 +165,12 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
         room_phase=room.phase.value,
         version=room.version,
         capacity=room.capacity,
+        human_players=room.human_players,
+        bot_count=room.bot_count,
         deck_profile=room.deck_config.profile,
         deck_count=room.deck_config.deck_count,
-        joined_count=len(room.participants),
+        joined_count=len(room.human_participants),
+        human_joined_count=len(room.human_participants),
         seat_order=seat_order,
         players=player_states,
         active_seats=[seat.value for seat in state.active_seats],
@@ -162,7 +178,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
         finish_groups=[[seat.value for seat in group] for group in state.finish_groups],
         rematch_status=_rematch_status(room, viewer),
         rematch_ready_count=len(room.rematch_acceptances),
-        rematch_total_count=len(room.participants),
+        rematch_total_count=len(room.human_participants),
         rematch_requester_participant_id=(
             room.rematch_acceptances[0] if room.rematch_acceptances else None
         ),
@@ -233,6 +249,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
         ),
         required_seat=actor.value if actor is not None else None,
         available_actions=([] if room_closed else list(available_actions_for(state, viewer.seat))),
+        recent_events=_serialize_bot_events(room),
     )
 
 
@@ -243,6 +260,7 @@ def _serialize_participant(participant: PvPParticipant) -> ParticipantResponse:
         display_name=participant.display_name,
         connected=participant.connected,
         authenticated=participant.user_id is not None,
+        is_bot=participant.is_bot,
     )
 
 
@@ -280,6 +298,19 @@ def _rematch_ready_participant_ids(room: PvPRoom) -> list[str]:
         participant.participant_id
         for participant in room.participants
         if participant.participant_id in accepted
+    ]
+
+
+def _serialize_bot_events(room: PvPRoom) -> list[BotPresentationEventResponse]:
+    return [
+        BotPresentationEventResponse(
+            type=event.type.value,
+            card_count=event.card_count,
+            value=event.value,
+            target=event.target,
+            actor_seat=event.actor_seat.value,
+        )
+        for event in room.recent_events
     ]
 
 

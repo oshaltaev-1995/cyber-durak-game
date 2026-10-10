@@ -68,6 +68,7 @@ def test_deck_variant_flag_defaults_off_and_composes_independently() -> None:
     with TestClient(create_app(settings=Settings(database_url="sqlite://"))) as client:
         assert client.get("/api/capabilities").json() == {
             "multiplayer_3_4_enabled": False,
+            "mixed_rooms_enabled": False,
             "deck_variants_enabled": False,
         }
         omitted = client.post("/api/games")

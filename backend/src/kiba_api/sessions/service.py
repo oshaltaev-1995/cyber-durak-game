@@ -566,7 +566,7 @@ class GameSessionService:
             except BotActionError as error:
                 raise RuntimeError("baseline bot could not advance an owned decision") from error
             last_bout = remember_resolved_bout(previous_state, state, last_bout)
-            recent_events.append(_bot_presentation_event(previous_state, action, actor))
+            recent_events.append(bot_presentation_event(previous_state, action, actor))
             bot_action_count += 1
 
         return state, last_bout, tuple(recent_events)
@@ -622,7 +622,7 @@ _BOT_EVENT_TYPES = {
 }
 
 
-def _bot_presentation_event(
+def bot_presentation_event(
     previous_state: GameState,
     action: BotAction,
     actor: Seat,
@@ -655,6 +655,9 @@ def _bot_presentation_event(
         target=target,
         actor_seat=actor,
     )
+
+
+_bot_presentation_event = bot_presentation_event
 
 
 def _record_accepted_human_action(
