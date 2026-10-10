@@ -62,6 +62,13 @@ button:disabled {
   font-size: 0.72rem;
 }
 
+.variant-label,
+.result-variant {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
 .restart-confirmation {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;

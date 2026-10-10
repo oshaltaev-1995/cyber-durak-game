@@ -9,11 +9,22 @@ export type BoutPhase =
   | 'complete';
 export type Seat = 'one' | 'two' | 'three' | 'four';
 export type Suit = 'clubs' | 'diamonds' | 'hearts' | 'spades';
+export type DeckProfile = 'classic' | 'extended';
+export type DeckCount = 1 | 2;
+export type JokerColor = 'red' | 'black';
+
+export interface DeckConfig {
+  readonly deck_profile: DeckProfile;
+  readonly deck_count: DeckCount;
+}
 
 export interface GameCard {
+  /** Exact physical identity. D3 payloads always provide it; optional only for legacy fixtures. */
+  readonly id?: string;
   readonly code: string;
   readonly rank: string;
-  readonly suit: Suit;
+  readonly suit: Suit | null;
+  readonly joker_color?: JokerColor | null;
   readonly base_value: number;
   readonly effective_value: number;
   readonly is_trump: boolean;
@@ -128,6 +139,7 @@ export interface BotSessionParticipant {
 
 export interface KibaCapabilities {
   readonly multiplayer_3_4_enabled: boolean;
+  readonly deck_variants_enabled?: boolean;
 }
 
 export interface GameResponse {
@@ -143,6 +155,8 @@ export interface GameResponse {
   readonly human_seat: Seat;
   readonly bot_seat: Seat;
   readonly total_players: 2 | 3 | 4;
+  readonly deck_profile: DeckProfile;
+  readonly deck_count: DeckCount;
   readonly participants: readonly BotSessionParticipant[];
   readonly active_seats: readonly Seat[];
   readonly finished_seats: readonly Seat[];
@@ -190,6 +204,8 @@ export interface HintCombination {
   readonly action: HumanActionType;
   readonly card_ids: readonly string[];
   readonly added_card_ids: readonly string[];
+  readonly physical_card_ids?: readonly string[];
+  readonly added_physical_card_ids?: readonly string[];
   readonly reason: HintReasonType;
   readonly selected_value: number;
   readonly target_value: number | null;
@@ -198,6 +214,8 @@ export interface HintCombination {
 export interface HintResponse {
   readonly selected_card_ids: readonly string[];
   readonly suggested_card_ids: readonly string[];
+  readonly selected_physical_ids?: readonly string[];
+  readonly suggested_physical_ids?: readonly string[];
   readonly suggested_action_types: readonly HumanActionType[];
   readonly combinations: readonly HintCombination[];
 }
@@ -206,7 +224,7 @@ export type CardActionType = 'INITIAL_ATTACK' | 'DEFEND' | 'TRANSFER' | 'THROW_I
 
 export interface CardActionRequest {
   readonly action: CardActionType;
-  readonly cards: readonly string[];
+  readonly card_ids: readonly string[];
 }
 
 export interface TerminalActionRequest {

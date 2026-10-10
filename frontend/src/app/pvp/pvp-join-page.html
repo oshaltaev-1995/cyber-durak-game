@@ -9,6 +9,25 @@
           {{ i18n.t('pvp.roomFrom', { name: room.participants[0].display_name }) }}
         </h1>
         <strong>{{ i18n.t('pvp.roomSize', { count: room.capacity }) }}</strong>
+        <strong class="room-deck-config">{{
+          i18n.t(room.deck_count === 1 ? 'deck.activeSingle' : 'deck.activeDouble', {
+            profile: i18n.t(
+              room.deck_profile === 'classic' ? 'deck.classicName' : 'deck.extendedName'
+            ),
+            count: (room.deck_profile === 'classic' ? 36 : 54) * room.deck_count,
+          })
+        }}</strong>
+        @if (room.capacity > 2 || room.deck_profile !== 'classic' || room.deck_count !== 1) {
+          <p class="progression-note">
+            {{
+              i18n.t(
+                room.deck_profile !== 'classic' || room.deck_count !== 1
+                  ? 'deck.noProgress'
+                  : 'pvp.multiplayerNoProgress'
+              )
+            }}
+          </p>
+        }
         <p>
           {{
             i18n.t(room.capacity === 2 ? 'pvp.secondSeatFree' : 'pvp.seatsAvailable', {

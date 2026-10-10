@@ -108,8 +108,8 @@ Angular development server proxies `/api` to the local backend, so both services
 The UI works from public server state only: bot cards and future draw-pile order remain hidden, and
 the backend decides whether every submitted move is legal.
 
-Guest language choice, the optional-hints toggle, and the minimal first-run Welcome flag are stored
-in browser `localStorage`. Hints default to on, can be disabled immediately, and are computed on
+Guest language choice, the optional-hints toggle, and versioned first-run Welcome, multiplayer, and
+deck-variant guide flags are stored in browser `localStorage`. Hints default to on, can be disabled immediately, and are computed on
 demand by the authoritative backend from the selecting player's own cards and public game state.
 The Welcome is optional, links to the nine-step tutorial or directly to guest play, and stores no
 profile or game state. An authenticated account stores its
@@ -138,8 +138,9 @@ curl http://localhost:18000/api/games/<game_id>
 ```
 
 Submit one of `INITIAL_ATTACK`, `DEFEND`, `TRANSFER`, `THROW_IN`, `TAKE`, or `BITO` to
-`POST /api/games/<game_id>/actions`. Card actions use stable codes such as `6C`, `10H`, `QS`, `KD`,
-and `AC`. Interactive OpenAPI documentation is available at <http://localhost:18000/docs>.
+`POST /api/games/<game_id>/actions`. Visible cards carry a player-facing face code plus a stable
+physical `id`; actions use the physical IDs so duplicate faces in two-deck games remain distinct.
+Interactive OpenAPI documentation is available at <http://localhost:18000/docs>.
 
 The Alpha 2 backend also exposes process-local private Human-vs-Human rooms:
 

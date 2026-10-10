@@ -14,6 +14,8 @@ const waitingRoom: PvPRoomStatus = {
   room_phase: 'WAITING_FOR_OPPONENT',
   version: 0,
   capacity: 2,
+  deck_profile: 'classic',
+  deck_count: 1,
   joined_count: 1,
   participants: [
     {
@@ -116,6 +118,19 @@ describe('PvPJoinPageComponent', () => {
     );
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Комната на 4 игроков');
     expect((fixture.nativeElement as HTMLElement).querySelector('button.primary')).not.toBeNull();
+  });
+
+  it('shows an immutable double-deck room configuration and progression policy to joiners', async () => {
+    api.getRoom.mockReturnValue(
+      of({ ...waitingRoom, capacity: 4, deck_profile: 'extended', deck_count: 2 }),
+    );
+    await create();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Расширенная · 2 колоды · 108 карт');
+    expect(element.textContent).toContain('Варианты колоды пока не влияют');
+    expect(element.querySelector('input[name="deckProfile"]')).toBeNull();
+    expect(element.querySelector('input[name="deckCount"]')).toBeNull();
   });
 
   it('shows a full room without a join action', async () => {

@@ -40,7 +40,7 @@
                 >{{ i18n.t('game.attack') }} · {{ packet.attack_value }}</span
               >
               <div class="packet-cards">
-                @for (card of packet.attack_cards; track card.code) {
+                @for (card of packet.attack_cards; track identity(card)) {
                   <app-playing-card [card]="card" [compact]="true" />
                 }
               </div>
@@ -52,7 +52,7 @@
               >
               @if (packet.defense_cards.length > 0) {
                 <div class="packet-cards">
-                  @for (card of packet.defense_cards; track card.code) {
+                  @for (card of packet.defense_cards; track identity(card)) {
                     <app-playing-card [card]="card" [compact]="true" />
                   }
                 </div>
@@ -66,7 +66,7 @@
               @for (reason of packet.throw_in_reasons; track reason.type) {
                 <div class="throw-reason">
                   <strong>{{ reasonLabel(reason.type) }}</strong>
-                  @for (card of reason.source_cards ?? []; track card.code) {
+                  @for (card of reason.source_cards ?? []; track identity(card)) {
                     <span>{{ cardLabel(card) }} = {{ card.effective_value }}</span>
                   }
                   @if (reason.expression) {
@@ -84,7 +84,7 @@
   @if (directAnchors().length > 0) {
     <div class="anchors">
       <span>{{ i18n.t('game.currentAnchor') }}:</span>
-      @for (card of directAnchors(); track card.code) {
+      @for (card of directAnchors(); track identity(card)) {
         <strong>{{ cardLabel(card) }} · {{ card.effective_value }}</strong>
       }
     </div>

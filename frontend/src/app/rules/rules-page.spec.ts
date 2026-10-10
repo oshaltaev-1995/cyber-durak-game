@@ -117,7 +117,9 @@ describe('RulesPageComponent', () => {
     expect(text).toContain("Pass permanently ends that attacker's phase");
     expect(text).toContain('original bout starter draws first');
     expect(text).toContain('Simultaneous finishers share a placement');
-    expect(text).toContain('Public Beta');
+    expect(text).toContain('36 / 54 / 72 / 108 cards');
+    expect(text).toContain('Red Joker on top trumps');
+    expect(text).toContain('A Street is legal as an initial attack');
     expect(text).not.toContain('Alpha uses');
   });
 });

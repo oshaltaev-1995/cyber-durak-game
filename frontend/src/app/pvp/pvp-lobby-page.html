@@ -39,9 +39,28 @@
           }
         </div>
       </fieldset>
-      @if (selectedPlayers() > 2) {
-        <p class="progression-note">{{ i18n.t('pvp.multiplayerNoProgress') }}</p>
-      }
+    }
+    @if (deckVariantsEnabled()) {
+      <app-deck-config-selector
+        [profile]="selectedDeckProfile()"
+        [deckCount]="selectedDeckCount()"
+        [playerCount]="selectedPlayers()"
+        (profileChange)="selectedDeckProfile.set($event)"
+        (deckCountChange)="selectedDeckCount.set($event)"
+      />
+    }
+    @if (
+      selectedPlayers() > 2 || selectedDeckProfile() !== 'classic' || selectedDeckCount() !== 1
+    ) {
+      <p class="progression-note">
+        {{
+          i18n.t(
+            selectedDeckProfile() !== 'classic' || selectedDeckCount() !== 1
+              ? 'deck.noProgress'
+              : 'pvp.multiplayerNoProgress'
+          )
+        }}
+      </p>
     }
     <button class="primary" type="button" [disabled]="pending()" (click)="createRoom()">
       {{ i18n.t(pending() ? 'pvp.creating' : 'pvp.create') }}

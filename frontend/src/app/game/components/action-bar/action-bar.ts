@@ -3,6 +3,7 @@ import { CARD_ACTIONS, GameCard, HumanActionType } from '../../../core/api/game-
 import { TranslationService } from '../../../core/i18n/translation.service';
 import { TranslationKey } from '../../../core/i18n/translations/ru';
 import { formatCardShort } from '../../card-presentation';
+import { cardIdentity } from '../../../core/deck/deck-config';
 
 @Component({
   selector: 'app-action-bar',
@@ -20,13 +21,16 @@ export class ActionBarComponent {
   readonly actionSelected = output<HumanActionType>();
 
   protected readonly i18n = inject(TranslationService);
+  protected readonly identity = cardIdentity;
 
   protected selectedTotal(): number {
     return this.selectedCards().reduce((total, card) => total + card.effective_value, 0);
   }
 
   protected cardLabel(card: GameCard): string {
-    return formatCardShort(card);
+    return formatCardShort(card, (color) =>
+      this.i18n.t(color === 'red' ? 'deck.redJoker' : 'deck.blackJoker'),
+    );
   }
 
   protected selectionValuesExpression(): string {

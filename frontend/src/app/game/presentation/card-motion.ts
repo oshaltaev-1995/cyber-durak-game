@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { GameCard, HumanActionType } from '../../core/api/game-api.models';
 import { RemoteTableSeatPosition, TableSeatPosition } from './table-seat.models';
+import { cardIdentity } from '../../core/deck/deck-config';
 
 export type MotionAnchor = 'top' | 'bottom' | 'left' | 'right' | 'table' | 'deck' | 'discard';
 
@@ -58,7 +59,7 @@ export function planCardMotions(
     index: number,
   ): void => {
     motions.push({
-      id: `${batch}-${phase}-${index}-${from}-${to}-${card?.code ?? 'hidden'}`,
+      id: `${batch}-${phase}-${index}-${from}-${to}-${card === null ? 'hidden' : cardIdentity(card)}`,
       from,
       to,
       card,
@@ -92,7 +93,7 @@ export function planCardMotions(
     const destination = context.resolvedTo;
     const resolvedCards = [...previous.tableCards, ...localCards].filter(
       (card, index, cards) =>
-        cards.findIndex((candidate) => candidate.code === card.code) === index,
+        cards.findIndex((candidate) => cardIdentity(candidate) === cardIdentity(card)) === index,
     );
     resolvedCardCount = resolvedCards.length;
     resolvedCards.forEach((card, index) =>
@@ -110,10 +111,10 @@ export function planCardMotions(
 
   const drawn = Math.max(0, previous.drawPileCount - next.drawPileCount);
   if (drawn > 0) {
-    const previousCodes = new Set(previous.localHand.map((card) => card.code));
-    const tableCodes = new Set(previous.tableCards.map((card) => card.code));
+    const previousCodes = new Set(previous.localHand.map(cardIdentity));
+    const tableCodes = new Set(previous.tableCards.map(cardIdentity));
     const localArrivals = next.localHand.filter(
-      (card) => !previousCodes.has(card.code) && !tableCodes.has(card.code),
+      (card) => !previousCodes.has(cardIdentity(card)) && !tableCodes.has(cardIdentity(card)),
     );
     const localDrawCount = Math.min(drawn, localArrivals.length);
     let remainingDraws = drawn - localDrawCount;

@@ -78,7 +78,7 @@ export class PvPWebSocketService {
     this.open(sameRoom || initialState !== null);
   }
 
-  sendAction(action: HumanActionType, cards: readonly string[]): void {
+  sendAction(action: HumanActionType, cardIds: readonly string[]): void {
     const state = this.state();
     if (
       this.status() !== 'connected' ||
@@ -92,13 +92,15 @@ export class PvPWebSocketService {
     this.clearHints();
     this.actionError.set(null);
     this.connectionNotice.set(null);
-    this.socket.send(JSON.stringify({ type: 'ACTION', version: state.version, action, cards }));
+    this.socket.send(
+      JSON.stringify({ type: 'ACTION', version: state.version, action, card_ids: cardIds }),
+    );
   }
 
-  requestHints(selectedCardIds: readonly string[]): void {
+  requestHints(selectedPhysicalIds: readonly string[]): void {
     const state = this.state();
     if (
-      selectedCardIds.length === 0 ||
+      selectedPhysicalIds.length === 0 ||
       this.status() !== 'connected' ||
       this.socket?.readyState !== WebSocket.OPEN ||
       state === null ||
@@ -117,7 +119,7 @@ export class PvPWebSocketService {
         type: 'HINT_REQUEST',
         request_id: requestId,
         version: state.version,
-        selected_card_ids: selectedCardIds,
+        selected_physical_ids: selectedPhysicalIds,
       }),
     );
   }

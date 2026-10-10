@@ -8,6 +8,7 @@ import {
 import { TranslationService } from '../../../core/i18n/translation.service';
 import { TranslationKey } from '../../../core/i18n/translations/ru';
 import { formatCardShort } from '../../card-presentation';
+import { cardIdentity } from '../../../core/deck/deck-config';
 
 @Component({
   selector: 'app-hint-panel',
@@ -37,12 +38,22 @@ export class HintPanelComponent {
       : `Σ ${hint.selected_value} → ${hint.target_value}`;
   }
 
+  protected hintIds(hint: HintCombination): readonly string[] {
+    return hint.physical_card_ids ?? hint.card_ids;
+  }
+
   protected cardExpression(cardIds: readonly string[]): string {
-    const cardsByCode = new Map(this.cards().map((card) => [card.code, card]));
-    const cards = cardIds.map((code) => cardsByCode.get(code));
+    const cardsById = new Map(this.cards().map((card) => [cardIdentity(card), card]));
+    const cards = cardIds.map((id) => cardsById.get(id));
     if (cards.some((card) => card === undefined)) {
       return this.i18n.t('hints.combinationUnavailable');
     }
-    return cards.map((card) => formatCardShort(card as GameCard)).join(' + ');
+    return cards
+      .map((card) =>
+        formatCardShort(card as GameCard, (color) =>
+          this.i18n.t(color === 'red' ? 'deck.redJoker' : 'deck.blackJoker'),
+        ),
+      )
+      .join(' + ');
   }
 }

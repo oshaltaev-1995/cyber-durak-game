@@ -8,6 +8,7 @@ import {
 import { PlayingCardComponent } from '../playing-card/playing-card';
 import { TranslationService } from '../../../core/i18n/translation.service';
 import { formatCardShort } from '../../card-presentation';
+import { cardIdentity } from '../../../core/deck/deck-config';
 
 @Component({
   selector: 'app-game-table',
@@ -23,6 +24,7 @@ export class GameTableComponent {
   readonly activeAttackValue = input.required<number | null>();
   readonly directAnchors = input.required<readonly GameCard[]>();
   readonly final = input(false);
+  protected readonly identity = cardIdentity;
 
   protected formatExactValue(value: string | null): string {
     return value?.replace('/', ' / ') ?? '—';
@@ -33,6 +35,8 @@ export class GameTableComponent {
   }
 
   protected cardLabel(card: GameCard): string {
-    return formatCardShort(card);
+    return formatCardShort(card, (color) =>
+      this.i18n.t(color === 'red' ? 'deck.redJoker' : 'deck.blackJoker'),
+    );
   }
 }

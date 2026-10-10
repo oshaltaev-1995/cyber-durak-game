@@ -26,6 +26,8 @@ import { TrumpIndicatorComponent } from '../game/components/trump-indicator/trum
 import { TurnReminderComponent } from '../game/components/turn-reminder/turn-reminder';
 import { TranslationService } from '../core/i18n/translation.service';
 import { TranslationKey } from '../core/i18n/translations/ru';
+import { cardIdentity, isDefaultDeckConfig } from '../core/deck/deck-config';
+import { DeckVariantsOnboardingStore } from '../core/onboarding/deck-variants-onboarding.store';
 import {
   CardMotionController,
   MotionSnapshot,
@@ -84,17 +86,24 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   protected readonly hintPreference = inject(HintPreferenceService);
   protected readonly i18n = inject(TranslationService);
   protected readonly cardMotion = inject(CardMotionController);
-  protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
+  private readonly deckOnboarding = inject(DeckVariantsOnboardingStore);
+  protected readonly selectedIds = signal<ReadonlySet<string>>(new Set());
   protected readonly copyStatus = signal<'idle' | 'copied' | 'failed'>('idle');
   protected readonly leaveConfirmation = signal(false);
   protected readonly startingRematch = signal(false);
+  protected readonly deckOnboardingVisible = signal(false);
   protected readonly state = this.socket.state;
   protected readonly selectedCards = computed<readonly GameCard[]>(() => {
-    const selected = this.selectedCodes();
-    return this.state()?.hand.filter((card) => selected.has(card.code)) ?? [];
+    const selected = this.selectedIds();
+    return this.state()?.hand.filter((card) => selected.has(cardIdentity(card))) ?? [];
   });
-  protected readonly suggestedCodes = computed<ReadonlySet<string>>(
-    () => new Set(this.socket.hints()?.suggested_card_ids ?? []),
+  protected readonly suggestedIds = computed<ReadonlySet<string>>(
+    () =>
+      new Set(
+        this.socket.hints()?.suggested_physical_ids ??
+          this.socket.hints()?.suggested_card_ids ??
+          [],
+      ),
   );
   protected readonly inviteUrl = computed(
     () => `${window.location.origin}/join/${this.inviteCode}`,
@@ -186,6 +195,10 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     effect(() => {
       const current = this.state();
       if (current !== null) {
+        const enteredFreshVariant =
+          this.previousState?.room_phase === 'WAITING_FOR_OPPONENT' &&
+          current.room_phase === 'GAME_ACTIVE' &&
+          !isDefaultDeckConfig(current);
         if (current.version > this.lastVersion && this.lastVersion >= 0) {
           const startsRematch =
             this.previousState?.game_phase === 'complete' &&
@@ -193,15 +206,18 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
             current.match_id !== this.previousState.match_id;
           if (startsRematch) this.presentRematchStart();
           else if (this.previousState !== null) this.presentTransition(this.previousState, current);
-          this.selectedCodes.set(new Set());
+          this.selectedIds.set(new Set());
         } else {
-          const ownedCodes = new Set(current.hand.map((card) => card.code));
-          this.selectedCodes.update(
-            (selected) => new Set([...selected].filter((code) => ownedCodes.has(code))),
+          const ownedIds = new Set(current.hand.map(cardIdentity));
+          this.selectedIds.update(
+            (selected) => new Set([...selected].filter((id) => ownedIds.has(id))),
           );
         }
         this.lastVersion = Math.max(this.lastVersion, current.version);
         this.previousState = current;
+        if (enteredFreshVariant && !this.deckOnboarding.hasSeen()) {
+          this.deckOnboardingVisible.set(true);
+        }
       }
     });
     effect(() => {
@@ -245,12 +261,12 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     this.socket.disconnect();
   }
 
-  protected toggleCard(code: string): void {
+  protected toggleCard(id: string): void {
     if (this.socket.actionPending() || this.gameplayPaused()) return;
-    this.selectedCodes.update((current) => {
+    this.selectedIds.update((current) => {
       const next = new Set(current);
-      if (next.has(code)) next.delete(code);
-      else next.add(code);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
     this.socket.actionError.set(null);
@@ -263,6 +279,11 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     else this.socket.clearHints();
   }
 
+  protected dismissDeckOnboarding(): void {
+    this.deckOnboarding.markSeen();
+    this.deckOnboardingVisible.set(false);
+  }
+
   protected submitAction(action: HumanActionType): void {
     const state = this.state();
     if (state === null || this.gameplayPaused() || !state.available_actions.includes(action))
@@ -272,7 +293,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
       action === 'DEFEND' ||
       action === 'TRANSFER' ||
       action === 'THROW_IN'
-        ? this.selectedCards().map((card) => card.code)
+        ? this.selectedCards().map(cardIdentity)
         : [];
     this.submittedAction = action;
     this.submittedCards = CARD_ACTIONS.has(action) ? this.selectedCards() : [];
@@ -284,7 +305,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
       this.socket.clearHints();
       return;
     }
-    this.socket.requestHints(this.selectedCards().map((card) => card.code));
+    this.socket.requestHints(this.selectedCards().map(cardIdentity));
   }
 
   protected async copyInvite(): Promise<void> {
@@ -528,10 +549,10 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   }
 
   private presentTransition(previous: PvPState, next: PvPState): void {
-    const previousCodes = new Set(previous.table_cards.map((card) => card.code));
-    const submitted = new Set(this.submittedCards.map((card) => card.code));
+    const previousCodes = new Set(previous.table_cards.map(cardIdentity));
+    const submitted = new Set(this.submittedCards.map(cardIdentity));
     const remoteCards = next.table_cards.filter(
-      (card) => !previousCodes.has(card.code) && !submitted.has(card.code),
+      (card) => !previousCodes.has(cardIdentity(card)) && !submitted.has(cardIdentity(card)),
     );
     this.cardMotion.play(
       planCardMotions(this.motionSnapshot(previous), this.motionSnapshot(next), {
@@ -569,10 +590,10 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   ): TableSeatPosition | 'discard' | undefined {
     const summary = state.last_bout_summary;
     if (summary === null) return undefined;
-    const nextTableCodes = new Set(state.table_cards.map((card) => card.code));
+    const nextTableCodes = new Set(state.table_cards.map(cardIdentity));
     if (
       previous.table_cards.length === 0 ||
-      previous.table_cards.every((card) => nextTableCodes.has(card.code))
+      previous.table_cards.every((card) => nextTableCodes.has(cardIdentity(card)))
     )
       return undefined;
     if (summary.outcome === 'BITO') return 'discard';

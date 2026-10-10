@@ -1367,6 +1367,39 @@ adds no migration and no Angular surface. Deterministic acceptance includes the 
 36/54/72/108 × 2/3/4 bot matrix plus focused PvP, reconnect, rematch, duplicate-card, Joker,
 privacy, hint, and release-gate tests.
 
+### 15.14 D4 deck-variant product integration release candidate
+
+Angular consumes the backend-owned `deck_variants_enabled` capability. When it is false, bot and
+private-room creation retain the Single Classic request and presentation. When enabled, both
+creator flows expose one accessible profile selector (`36 — Classic` / `54 — Extended`) and one
+secondary physical-deck-count selector (`1` / `2`), derive 36/54/72/108 totals, and recommend
+Extended for three or four players without restricting any combination. Invitees see the immutable
+room configuration and never edit it. A live `FEATURE_NOT_AVAILABLE` response is shown without
+silently replacing the player's selection.
+
+Visible cards retain `code` as face/presentation data, while Angular selection sets, DOM tracking,
+hint highlighting, authoritative actions, table reconciliation, and card motion use D3's physical
+`id`. The code-only fallback exists solely for legacy unique-face Single Classic fixtures and
+payloads. Red and Black Jokers use localized accessible names, normal 25/50 effective-value
+presentation, and the existing selected, disabled, suggested, trump, compact, and reduced-motion
+states. Exposed-Joker trump text uses the authoritative exposed card to describe the red or black
+suit family, and the empty-pile state continues to remove all trump presentation.
+
+Only two-player games mount Hint Mode. Variant hints send and consume physical IDs, so one exact
+duplicate can be highlighted without selecting its visual twin. Bot Play Again uses the D3 session
+restart boundary for every player count and therefore preserves profile, deck count, bot roster,
+names, and seats while replacing match state. PvP rematch remains server-authoritative and retains
+the same immutable room configuration.
+
+The nine-step core tutorial is retained and now identifies Street as a legal initial-attack basis.
+The existing six-step multiplayer guide remains separate. A five-step Deck variants & Jokers guide
+covers profiles, values, Joker trump families, non-wrapping Streets, duplicates, and the shared
+defender cap. First entry into a non-default new game uses the independent local-only key
+`kiba.deckVariantsOnboarding.v1`; restored active sessions do not trigger it. Non-default games
+display the backend policy that profile history, XP, statistics, achievements, rating, and cosmetic
+progression are not affected. The capability remains default off, D4 introduces no schema
+migration or backend gameplay change, and production deployment is reserved for D5.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

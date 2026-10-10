@@ -3,7 +3,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Observable, of, Subject, throwError } from 'rxjs';
-import { GameCard, GameResponse, HintResponse } from '../core/api/game-api.models';
+import { DeckConfig, GameCard, GameResponse, HintResponse } from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
 import { AuthService } from '../core/auth/auth.service';
 import { TranslationService } from '../core/i18n/translation.service';
@@ -46,6 +46,8 @@ const makeGame = (overrides: Partial<GameResponse> = {}): GameResponse => ({
   human_seat: 'one',
   bot_seat: 'two',
   total_players: 2,
+  deck_profile: 'classic',
+  deck_count: 1,
   participants: [
     {
       participant_id: 'human',
@@ -131,8 +133,14 @@ const makeMultiplayerGame = (
 };
 
 interface ApiStub {
-  getCapabilities: ReturnType<typeof vi.fn<() => Observable<{ multiplayer_3_4_enabled: boolean }>>>;
-  createGame: ReturnType<typeof vi.fn<(totalPlayers?: 2 | 3 | 4) => Observable<GameResponse>>>;
+  getCapabilities: ReturnType<
+    typeof vi.fn<
+      () => Observable<{ multiplayer_3_4_enabled: boolean; deck_variants_enabled?: boolean }>
+    >
+  >;
+  createGame: ReturnType<
+    typeof vi.fn<(totalPlayers?: 2 | 3 | 4, deckConfig?: DeckConfig) => Observable<GameResponse>>
+  >;
   getGame: ReturnType<typeof vi.fn<(id: string) => Observable<GameResponse>>>;
   restartGame: ReturnType<typeof vi.fn<(id: string) => Observable<GameResponse>>>;
   getHints: ReturnType<
@@ -153,6 +161,7 @@ describe('GamePageComponent', () => {
     sessionStorage.clear();
     localStorage.removeItem('kiba.hintsEnabled');
     localStorage.removeItem('kiba.multiplayerOnboarding.v1');
+    localStorage.removeItem('kiba.deckVariantsOnboarding.v1');
     api = {
       getCapabilities: vi.fn().mockReturnValue(of({ multiplayer_3_4_enabled: false })),
       createGame: vi.fn(),
@@ -203,7 +212,37 @@ describe('GamePageComponent', () => {
     expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-1');
     expect(element.textContent).toContain('Партия против бота');
     expect(element.textContent).toContain('Ваш ход');
+    expect(element.querySelector('app-deck-config-selector')).toBeNull();
   }, 15_000);
+
+  it('creates the independently selected 108-card bot configuration behind the capability', () => {
+    localStorage.setItem('kiba.deckVariantsOnboarding.v1', 'true');
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: true, deck_variants_enabled: true }),
+    );
+    api.createGame.mockReturnValue(
+      of(makeMultiplayerGame(4, { deck_profile: 'extended', deck_count: 2, draw_pile_count: 80 })),
+    );
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    element.querySelector<HTMLInputElement>('input[name="botPlayerCount"][value="4"]')!.click();
+    element.querySelector<HTMLInputElement>('input[name="deckProfile"][value="extended"]')!.click();
+    element.querySelector<HTMLInputElement>('input[name="deckCount"][value="2"]')!.click();
+    fixture.detectChanges();
+
+    expect(element.textContent).toContain('Всего 108 карт');
+    expect(element.textContent).toContain('Рекомендуется для 3–4 игроков');
+    clickButton('Играть');
+
+    expect(api.createGame).toHaveBeenCalledWith(4, {
+      deck_profile: 'extended',
+      deck_count: 2,
+    });
+    expect(element.textContent).toContain('Расширенная · 2 колоды · 108 карт');
+    expect(element.querySelector('app-hint-panel')).toBeNull();
+  });
 
   it('shows a native total-player selector only when the shared capability is enabled', () => {
     api.getCapabilities.mockReturnValue(of({ multiplayer_3_4_enabled: true }));
@@ -285,7 +324,7 @@ describe('GamePageComponent', () => {
     clickButton('Сыграть ещё');
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Игра на 3–4 игроков сейчас недоступна');
+    expect(text).toContain('Выбранный вариант сейчас недоступен');
     expect(text).toContain('Порядок финиша');
     expect(api.createGame).not.toHaveBeenCalledWith(2);
   });
@@ -356,6 +395,46 @@ describe('GamePageComponent', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('.multiplayer-onboarding'),
     ).toBeNull();
+  });
+
+  it('shows deck onboarding for a fresh non-default game but not a restored session', () => {
+    create(makeGame({ deck_profile: 'extended' }));
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Пробуете другую колоду?');
+    clickButton('Понятно');
+    expect(localStorage.getItem('kiba.deckVariantsOnboarding.v1')).toBe('true');
+
+    fixture.destroy();
+    localStorage.removeItem('kiba.deckVariantsOnboarding.v1');
+    sessionStorage.setItem('kiba.activeBotGameId', 'variant-game');
+    api.getGame.mockReturnValue(
+      of(makeGame({ game_id: 'variant-game', deck_profile: 'extended' })),
+    );
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      'Пробуете другую колоду?',
+    );
+  });
+
+  it('preserves a non-default deck configuration through Play Again', () => {
+    localStorage.setItem('kiba.deckVariantsOnboarding.v1', 'true');
+    const completed = makeGame({
+      phase: 'complete',
+      result: { outcome: 'WIN', winner: 'HUMAN', winner_seat: 'one' },
+      deck_profile: 'extended',
+      deck_count: 2,
+    });
+    const restarted = makeGame({ deck_profile: 'extended', deck_count: 2 });
+    api.restartGame.mockReturnValue(of(restarted));
+    create(completed);
+
+    clickButton('Сыграть ещё');
+
+    expect(api.restartGame).toHaveBeenCalledWith('game-1');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Расширенная · 2 колоды · 108 карт',
+    );
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Игра окончена');
   });
 
   it('requests hints after selection and highlights only server-suggested cards', () => {
@@ -635,7 +714,7 @@ describe('GamePageComponent', () => {
     expect(status.compareDocumentPosition(hand) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   });
 
-  it('selects cards, sends canonical codes, and clears selection after success', () => {
+  it('selects legacy unique-face cards and clears selection after success', () => {
     create();
     api.getHints.mockReturnValue(
       of({
@@ -668,6 +747,85 @@ describe('GamePageComponent', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('.playing-card.suggested'),
     ).toBeNull();
+  });
+
+  it('selects and submits one exact duplicate by physical ID while the other remains', () => {
+    const firstKing = {
+      ...queenDiamonds,
+      id: 'deck-1:KH',
+      code: 'KH',
+      rank: 'K',
+      suit: 'hearts' as const,
+    };
+    const secondKing = { ...firstKing, id: 'deck-2:KH' };
+    const initial = makeGame({
+      deck_profile: 'classic',
+      deck_count: 2,
+      human_hand: [firstKing, secondKing],
+    });
+    const updated = makeGame({
+      deck_profile: 'classic',
+      deck_count: 2,
+      human_hand: [secondKing],
+      table_cards: [firstKing],
+    });
+    api.getHints.mockReturnValue(
+      of({
+        selected_card_ids: ['KH'],
+        suggested_card_ids: [],
+        selected_physical_ids: ['deck-1:KH'],
+        suggested_physical_ids: [],
+        suggested_action_types: ['INITIAL_ATTACK'],
+        combinations: [],
+      }),
+    );
+    api.submitAction.mockReturnValue(of(updated));
+    create(initial);
+
+    const cards = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+      'app-hand .playing-card',
+    );
+    cards[0].click();
+    fixture.detectChanges();
+    expect(cards[0].getAttribute('aria-pressed')).toBe('true');
+    expect(cards[1].getAttribute('aria-pressed')).toBe('false');
+
+    clickButton('Ходить');
+    expect(api.getHints).toHaveBeenCalledWith('game-1', ['deck-1:KH']);
+    expect(api.submitAction).toHaveBeenCalledWith('game-1', 'INITIAL_ATTACK', ['deck-1:KH']);
+    const remaining = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      'app-hand .playing-card',
+    );
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].getAttribute('aria-label')).toContain('K');
+  });
+
+  it('can submit both visually identical physical cards in one selection', () => {
+    const firstKing = {
+      ...queenDiamonds,
+      id: 'deck-1:KH',
+      code: 'KH',
+      rank: 'K',
+      suit: 'hearts' as const,
+    };
+    const secondKing = { ...firstKing, id: 'deck-2:KH' };
+    api.submitAction.mockReturnValue(
+      of(makeGame({ deck_count: 2, human_hand: [], table_cards: [firstKing, secondKing] })),
+    );
+    create(makeGame({ deck_count: 2, human_hand: [firstKing, secondKing] }));
+
+    const cards = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+      'app-hand .playing-card',
+    );
+    cards[0].click();
+    cards[1].click();
+    fixture.detectChanges();
+    clickButton('Ходить');
+
+    expect(api.submitAction).toHaveBeenCalledWith('game-1', 'INITIAL_ATTACK', [
+      'deck-1:KH',
+      'deck-2:KH',
+    ]);
   });
 
   it('keeps the current state and selected cards when the server rejects a move', () => {
@@ -1180,9 +1338,9 @@ describe('GamePageComponent', () => {
     expect(element.querySelector('app-game-table')?.textContent).toContain('Финальный кон');
     expect(element.querySelector('app-game-table')?.textContent).toContain('Атака · 6');
     expect(element.querySelectorAll('app-hand .playing-card')).toHaveLength(1);
-    api.createGame.mockReturnValue(of(makeGame({ game_id: 'game-2' })));
+    api.restartGame.mockReturnValue(of(makeGame({ game_id: 'game-2' })));
     clickButton('Сыграть ещё');
-    expect(api.createGame).toHaveBeenCalledTimes(2);
+    expect(api.restartGame).toHaveBeenCalledWith('game-1');
     expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-2');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Ваш ход');
   });

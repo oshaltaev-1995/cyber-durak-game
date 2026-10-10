@@ -16,6 +16,8 @@ import { Subscription, finalize } from 'rxjs';
 import {
   BotPresentationEvent,
   CARD_ACTIONS,
+  DeckCount,
+  DeckProfile,
   GameCard,
   GameResponse,
   HintResponse,
@@ -28,6 +30,9 @@ import { HintPreferenceService } from '../core/hints/hint-preference.service';
 import { TranslationService } from '../core/i18n/translation.service';
 import { TranslationKey } from '../core/i18n/translations/ru';
 import { MultiplayerOnboardingStore } from '../core/onboarding/multiplayer-onboarding.store';
+import { DeckVariantsOnboardingStore } from '../core/onboarding/deck-variants-onboarding.store';
+import { DeckConfigSelectorComponent } from '../core/deck/deck-config-selector';
+import { cardIdentity, isDefaultDeckConfig } from '../core/deck/deck-config';
 import { deriveMultiplayerPlacements } from '../pvp/multiplayer-placement';
 import { ActionBarComponent } from './components/action-bar/action-bar';
 import { CardMotionOverlayComponent } from './components/card-motion-overlay/card-motion-overlay';
@@ -63,6 +68,7 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   imports: [
     ActionBarComponent,
     CardMotionOverlayComponent,
+    DeckConfigSelectorComponent,
     GameTableComponent,
     HandComponent,
     HintPanelComponent,
@@ -88,6 +94,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   protected readonly auth = inject(AuthService);
   protected readonly i18n = inject(TranslationService);
   private readonly multiplayerOnboarding = inject(MultiplayerOnboardingStore);
+  private readonly deckOnboarding = inject(DeckVariantsOnboardingStore);
 
   protected readonly game = this.session.game;
   protected readonly pending = signal(false);
@@ -99,20 +106,24 @@ export class GamePageComponent implements OnInit, OnDestroy {
   protected readonly restartConfirmation = signal(false);
   protected readonly botPresentation = signal<BotPresentationEvent | null>(null);
   protected readonly multiplayerEnabled = signal(false);
+  protected readonly deckVariantsEnabled = signal(false);
   protected readonly showSetup = signal(false);
   protected readonly selectedPlayers = signal<2 | 3 | 4>(2);
+  protected readonly selectedDeckProfile = signal<DeckProfile>('classic');
+  protected readonly selectedDeckCount = signal<DeckCount>(1);
   protected readonly playerCounts = [2, 3, 4] as const;
   protected readonly onboardingVisible = signal(false);
-  protected readonly selectedCodes = signal<ReadonlySet<string>>(new Set());
+  protected readonly deckOnboardingVisible = signal(false);
+  protected readonly selectedIds = signal<ReadonlySet<string>>(new Set());
   protected readonly hints = signal<HintResponse | null>(null);
   protected readonly hintsLoading = signal(false);
-  protected readonly suggestedCodes = computed<ReadonlySet<string>>(
-    () => new Set(this.hints()?.suggested_card_ids ?? []),
+  protected readonly suggestedIds = computed<ReadonlySet<string>>(
+    () => new Set(this.hints()?.suggested_physical_ids ?? this.hints()?.suggested_card_ids ?? []),
   );
   protected readonly recoveryState = signal<'idle' | 'loading' | 'unavailable' | 'failed'>('idle');
   protected readonly selectedCards = computed<readonly GameCard[]>(() => {
-    const selected = this.selectedCodes();
-    return this.game()?.human_hand.filter((card) => selected.has(card.code)) ?? [];
+    const selected = this.selectedIds();
+    return this.game()?.human_hand.filter((card) => selected.has(cardIdentity(card))) ?? [];
   });
   protected readonly statusText = computed(() => this.getStatusText());
   protected readonly isMultiplayer = computed(() => (this.game()?.total_players ?? 2) > 2);
@@ -245,26 +256,33 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.recoveryState.set('idle');
     this.pending.set(true);
     this.errorKey.set(null);
-    this.api
-      .createGame(totalPlayers)
-      .pipe(finalize(() => this.pending.set(false)))
-      .subscribe({
-        next: (game) => {
-          this.storedSession.save(game.game_id);
-          this.game.set(game);
-          this.selectedPlayers.set(game.total_players);
-          this.selectedCodes.set(new Set());
-          this.presentInitialBotAction(game);
-          this.queueBotStatuses(game.recent_events);
-          if (game.total_players > 2 && !this.multiplayerOnboarding.hasSeen()) {
-            this.onboardingVisible.set(true);
-          }
-        },
-        error: (error: unknown) => {
-          this.showSetup.set(this.multiplayerEnabled());
-          this.errorKey.set(this.messageKeyForError(error));
-        },
-      });
+    const request = this.deckVariantsEnabled()
+      ? this.api.createGame(totalPlayers, {
+          deck_profile: this.selectedDeckProfile(),
+          deck_count: this.selectedDeckCount(),
+        })
+      : this.api.createGame(totalPlayers);
+    request.pipe(finalize(() => this.pending.set(false))).subscribe({
+      next: (game) => {
+        this.storedSession.save(game.game_id);
+        this.game.set(game);
+        this.selectedPlayers.set(game.total_players);
+        this.selectedDeckProfile.set(game.deck_profile);
+        this.selectedDeckCount.set(game.deck_count);
+        this.selectedIds.set(new Set());
+        this.presentInitialBotAction(game);
+        this.queueBotStatuses(game.recent_events);
+        if (!isDefaultDeckConfig(game) && !this.deckOnboarding.hasSeen()) {
+          this.deckOnboardingVisible.set(true);
+        } else if (game.total_players > 2 && !this.multiplayerOnboarding.hasSeen()) {
+          this.onboardingVisible.set(true);
+        }
+      },
+      error: (error: unknown) => {
+        this.showSetup.set(this.multiplayerEnabled() || this.deckVariantsEnabled());
+        this.errorKey.set(this.messageKeyForError(error));
+      },
+    });
   }
 
   protected selectPlayerCount(count: 2 | 3 | 4): void {
@@ -272,13 +290,19 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.errorKey.set(null);
   }
 
+  protected selectDeckProfile(profile: DeckProfile): void {
+    this.selectedDeckProfile.set(profile);
+    this.errorKey.set(null);
+  }
+
+  protected selectDeckCount(count: DeckCount): void {
+    this.selectedDeckCount.set(count);
+    this.errorKey.set(null);
+  }
+
   protected playAgain(): void {
     const game = this.game();
     if (game === null || this.pending()) return;
-    if (game.total_players === 2) {
-      this.startNewGame(2);
-      return;
-    }
     this.cancelPresentation();
     this.cardMotion.clear();
     this.pending.set(true);
@@ -290,7 +314,10 @@ export class GamePageComponent implements OnInit, OnDestroy {
         next: (restarted) => {
           this.storedSession.save(restarted.game_id);
           this.game.set(restarted);
-          this.selectedCodes.set(new Set());
+          this.selectedPlayers.set(restarted.total_players);
+          this.selectedDeckProfile.set(restarted.deck_profile);
+          this.selectedDeckCount.set(restarted.deck_count);
+          this.selectedIds.set(new Set());
           this.presentInitialBotAction(restarted);
           this.queueBotStatuses(restarted.recent_events);
         },
@@ -305,21 +332,26 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.cardMotion.clear();
     this.restartConfirmation.set(false);
     this.onboardingVisible.set(false);
+    this.deckOnboardingVisible.set(false);
     this.storedSession.clear();
     this.game.set(null);
-    this.selectedPlayers.set(2);
-    if (this.multiplayerEnabled()) this.showSetup.set(true);
+    if (this.multiplayerEnabled() || this.deckVariantsEnabled()) this.showSetup.set(true);
     else this.startNewGame(2);
   }
 
   protected confirmNewGame(): void {
     if (this.isMultiplayer()) this.changePlayers();
-    else this.startNewGame(2);
+    else this.startNewGame(this.game()?.total_players ?? 2);
   }
 
   protected dismissOnboarding(): void {
     this.multiplayerOnboarding.markSeen();
     this.onboardingVisible.set(false);
+  }
+
+  protected dismissDeckOnboarding(): void {
+    this.deckOnboarding.markSeen();
+    this.deckOnboardingVisible.set(false);
   }
 
   protected placeLabel(rank: number): string {
@@ -372,16 +404,16 @@ export class GamePageComponent implements OnInit, OnDestroy {
     return this.i18n.t(this.recoveryState() === 'unavailable' ? 'game.start' : 'common.retry');
   }
 
-  protected toggleCard(code: string): void {
+  protected toggleCard(id: string): void {
     if (this.pending()) {
       return;
     }
-    this.selectedCodes.update((current) => {
+    this.selectedIds.update((current) => {
       const updated = new Set(current);
-      if (updated.has(code)) {
-        updated.delete(code);
+      if (updated.has(id)) {
+        updated.delete(id);
       } else {
-        updated.add(code);
+        updated.add(id);
       }
       return updated;
     });
@@ -405,21 +437,15 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.submittedCards = CARD_ACTIONS.has(action) ? [...this.selectedCards()] : [];
     this.pending.set(true);
     this.errorKey.set(null);
-    this.api
-      .submitAction(
-        game.game_id,
-        action,
-        this.selectedCards().map((card) => card.code),
-      )
-      .subscribe({
-        next: (updatedGame) => this.presentUpdatedGame(updatedGame),
-        error: (error: unknown) => {
-          this.submittedAction = null;
-          this.submittedCards = [];
-          this.pending.set(false);
-          this.errorKey.set(this.messageKeyForError(error));
-        },
-      });
+    this.api.submitAction(game.game_id, action, this.selectedCards().map(cardIdentity)).subscribe({
+      next: (updatedGame) => this.presentUpdatedGame(updatedGame),
+      error: (error: unknown) => {
+        this.submittedAction = null;
+        this.submittedCards = [];
+        this.pending.set(false);
+        this.errorKey.set(this.messageKeyForError(error));
+      },
+    });
   }
 
   protected localDecisionContext(game: GameResponse): string | null {
@@ -435,8 +461,8 @@ export class GamePageComponent implements OnInit, OnDestroy {
       game.bout_phase ?? 'ready',
       game.packets.length,
       game.table_cards.length,
-      game.active_packet?.attack_cards.map((card) => card.code).join(',') ?? 'none',
-      game.active_packet?.defense_cards.map((card) => card.code).join(',') ?? 'none',
+      game.active_packet?.attack_cards.map(cardIdentity).join(',') ?? 'none',
+      game.active_packet?.defense_cards.map(cardIdentity).join(',') ?? 'none',
       game.available_actions.join('-'),
     ].join(':');
   }
@@ -535,7 +561,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
       );
     }
     this.game.set(updatedGame);
-    this.selectedCodes.set(new Set());
+    this.selectedIds.set(new Set());
     this.clearHints();
     this.submittedAction = null;
     this.submittedCards = [];
@@ -558,7 +584,9 @@ export class GamePageComponent implements OnInit, OnDestroy {
           this.storedSession.save(game.game_id);
           this.game.set(game);
           this.selectedPlayers.set(game.total_players);
-          this.selectedCodes.set(new Set());
+          this.selectedDeckProfile.set(game.deck_profile);
+          this.selectedDeckCount.set(game.deck_count);
+          this.selectedIds.set(new Set());
           this.recoveryState.set('idle');
         },
         error: (error: unknown) => {
@@ -581,7 +609,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private refreshHints(): void {
     this.clearHints();
     const game = this.game();
-    const selected = this.selectedCards().map((card) => card.code);
+    const selected = this.selectedCards().map(cardIdentity);
     if (
       !this.hintPreference.enabled() ||
       selected.length === 0 ||
@@ -625,9 +653,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
       generation === this.hintRequestGeneration &&
       this.hintPreference.enabled() &&
       this.game()?.game_id === gameId &&
-      this.selectedCards()
-        .map((card) => card.code)
-        .join(',') === selectionKey
+      this.selectedCards().map(cardIdentity).join(',') === selectionKey
     );
   }
 
@@ -712,9 +738,11 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   private newPublicRemoteCards(previous: GameResponse, next: GameResponse): readonly GameCard[] {
-    const existing = new Set(previous.table_cards.map((card) => card.code));
-    const submitted = new Set(this.submittedCards.map((card) => card.code));
-    return next.table_cards.filter((card) => !existing.has(card.code) && !submitted.has(card.code));
+    const existing = new Set(previous.table_cards.map(cardIdentity));
+    const submitted = new Set(this.submittedCards.map(cardIdentity));
+    return next.table_cards.filter(
+      (card) => !existing.has(cardIdentity(card)) && !submitted.has(cardIdentity(card)),
+    );
   }
 
   private resolutionDestination(
@@ -723,10 +751,10 @@ export class GamePageComponent implements OnInit, OnDestroy {
   ): TableSeatPosition | 'discard' | undefined {
     const summary = game.last_bout_summary;
     if (summary === null) return undefined;
-    const nextTableCodes = new Set(game.table_cards.map((card) => card.code));
+    const nextTableCodes = new Set(game.table_cards.map(cardIdentity));
     if (
       previous.table_cards.length === 0 ||
-      previous.table_cards.every((card) => nextTableCodes.has(card.code))
+      previous.table_cards.every((card) => nextTableCodes.has(cardIdentity(card)))
     )
       return undefined;
     if (summary.outcome === 'BITO') return 'discard';
@@ -780,7 +808,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
     if (error instanceof HttpErrorResponse) {
       const body = error.error as { detail?: { code?: string } } | null;
       const code = body?.detail?.code;
-      if (code === 'FEATURE_NOT_AVAILABLE') return 'game.multiplayerUnavailable';
+      if (code === 'FEATURE_NOT_AVAILABLE') return 'game.featureUnavailable';
       if (code !== undefined && ERROR_KEYS[code] !== undefined) {
         return ERROR_KEYS[code];
       }
@@ -795,12 +823,15 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.api.getCapabilities().subscribe({
       next: (capabilities) => {
         this.multiplayerEnabled.set(capabilities.multiplayer_3_4_enabled);
+        this.deckVariantsEnabled.set(capabilities.deck_variants_enabled ?? false);
         if (!freshEntry) return;
-        if (capabilities.multiplayer_3_4_enabled) this.showSetup.set(true);
+        if (capabilities.multiplayer_3_4_enabled || capabilities.deck_variants_enabled)
+          this.showSetup.set(true);
         else this.startNewGame(2);
       },
       error: () => {
         this.multiplayerEnabled.set(false);
+        this.deckVariantsEnabled.set(false);
         if (freshEntry) this.startNewGame(2);
       },
     });

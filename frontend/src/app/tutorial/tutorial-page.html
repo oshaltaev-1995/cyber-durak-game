@@ -13,6 +13,14 @@
     </button>
     <button
       type="button"
+      [class.active]="track() === 'decks'"
+      [attr.aria-pressed]="track() === 'decks'"
+      (click)="selectTrack('decks')"
+    >
+      {{ i18n.t('tutorial.deckVariants') }}
+    </button>
+    <button
+      type="button"
       [class.active]="track() === 'multiplayer'"
       [attr.aria-pressed]="track() === 'multiplayer'"
       (click)="selectTrack('multiplayer')"

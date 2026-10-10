@@ -1,0 +1,48 @@
+<section class="deck-config" [attr.aria-label]="i18n.t('deck.configuration')">
+  <fieldset>
+    <legend>{{ i18n.t('deck.label') }}</legend>
+    <div class="deck-profile-options">
+      @for (option of profiles; track option) {
+        <label [class.selected]="profile() === option">
+          <input
+            type="radio"
+            name="deckProfile"
+            [value]="option"
+            [checked]="profile() === option"
+            (change)="profileChange.emit(option)"
+          />
+          <strong>{{ i18n.t(option === 'classic' ? 'deck.classic' : 'deck.extended') }}</strong>
+          <small>{{
+            i18n.t(option === 'classic' ? 'deck.classicRanks' : 'deck.extendedRanks')
+          }}</small>
+          @if (option === 'extended' && playerCount() > 2) {
+            <em>{{ i18n.t('deck.recommended') }}</em>
+          }
+        </label>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset class="deck-count-fieldset">
+    <legend>{{ i18n.t('deck.decks') }}</legend>
+    <div class="deck-count-options">
+      @for (option of deckCounts; track option) {
+        <label [class.selected]="deckCount() === option">
+          <input
+            type="radio"
+            name="deckCount"
+            [value]="option"
+            [checked]="deckCount() === option"
+            (change)="deckCountChange.emit(option)"
+          />
+          <span>{{ option }}</span>
+        </label>
+      }
+    </div>
+  </fieldset>
+
+  <div class="deck-summary" aria-live="polite">
+    <strong>{{ i18n.t('deck.total', { count: total(), cards: i18n.cardCount(total()) }) }}</strong>
+    <a routerLink="/tutorial" [queryParams]="{ track: 'decks' }">{{ i18n.t('deck.help') }}</a>
+  </div>
+</section>

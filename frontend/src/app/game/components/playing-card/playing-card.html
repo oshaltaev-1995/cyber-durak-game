@@ -1,9 +1,17 @@
 <ng-template #cardFace>
-  <span class="corner" [class]="colorClass()">
-    <strong>{{ card().rank }}</strong>
-    <span>{{ suitSymbol() }}</span>
-  </span>
-  <span class="suit" [class]="colorClass()" aria-hidden="true">{{ suitSymbol() }}</span>
+  @if (isJoker()) {
+    <span class="corner joker-corner" [class]="colorClass()"><strong>J</strong><span>★</span></span>
+    <span class="joker-mark" [class]="colorClass()" aria-hidden="true">JOKER</span>
+    <span class="joker-color" [class]="colorClass()">{{
+      i18n.t(card().joker_color === 'red' ? 'deck.red' : 'deck.black')
+    }}</span>
+  } @else {
+    <span class="corner" [class]="colorClass()">
+      <strong>{{ card().rank }}</strong>
+      <span>{{ suitSymbol() }}</span>
+    </span>
+    <span class="suit" [class]="colorClass()" aria-hidden="true">{{ suitSymbol() }}</span>
+  }
   <span class="value">{{ card().effective_value }}</span>
   @if (card().is_trump) {
     <span class="trump-badge">{{ i18n.t('game.trump') }}</span>

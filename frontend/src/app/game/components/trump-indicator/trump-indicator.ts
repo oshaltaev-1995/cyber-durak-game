@@ -18,9 +18,13 @@ export class TrumpIndicatorComponent {
 
   protected readonly explanation = computed(() => {
     const trump = this.trump();
-    if (!trump.active || trump.trump_suit === null || trump.trump_rank === null) {
+    const source = this.exposedCard();
+    if (!trump.active || source === null) {
       return this.i18n.t('game.noTrump');
     }
+    if (source.joker_color === 'red') return this.i18n.t('game.trumpRedJokerPattern');
+    if (source.joker_color === 'black') return this.i18n.t('game.trumpBlackJokerPattern');
+    if (trump.trump_suit === null || trump.trump_rank === null) return this.i18n.t('game.noTrump');
     return this.i18n.t('game.trumpPattern', {
       suit: SUIT_SYMBOLS[trump.trump_suit],
       rank: trump.trump_rank,

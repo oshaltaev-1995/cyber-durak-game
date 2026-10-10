@@ -96,6 +96,34 @@ button.playing-card:focus-visible {
   font-size: 2rem;
 }
 
+.joker-mark {
+  position: absolute;
+  align-self: center;
+  justify-self: center;
+  font-size: 0.95rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  transform: rotate(-12deg);
+}
+
+.joker-color {
+  position: absolute;
+  top: 57%;
+  justify-self: center;
+  font-size: 0.5rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.compact .joker-mark {
+  font-size: 0.72rem;
+}
+
+.compact .joker-color {
+  font-size: 0.4rem;
+}
+
 .compact .suit {
   font-size: 1.45rem;
 }

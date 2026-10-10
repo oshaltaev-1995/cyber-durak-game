@@ -82,6 +82,20 @@ describe('runtime localization', () => {
     );
   });
 
+  it.each([
+    [1, 'карта'],
+    [2, 'карты'],
+    [5, 'карт'],
+    [11, 'карт'],
+    [21, 'карта'],
+    [54, 'карты'],
+    [72, 'карты'],
+    [108, 'карт'],
+  ])('uses the Russian nominative card-count form for %i', (count, cards) => {
+    localStorage.setItem(KIBA_LOCALE_STORAGE_KEY, 'ru');
+    expect(TestBed.inject(TranslationService).cardCount(count)).toBe(cards);
+  });
+
   it('adds the active locale to API requests', () => {
     localStorage.setItem(KIBA_LOCALE_STORAGE_KEY, 'en');
     TestBed.configureTestingModule({

@@ -16,23 +16,34 @@
           <p class="setup-eyebrow">{{ i18n.t('game.playVsBots') }}</p>
           <h1 id="bot-setup-title">{{ i18n.t('game.playVsBots') }}</h1>
           <p>{{ i18n.t('game.botModeIntro') }}</p>
-          <fieldset class="player-count-selector">
-            <legend>{{ i18n.t('pvp.players') }}</legend>
-            <div>
-              @for (count of playerCounts; track count) {
-                <label [class.selected]="selectedPlayers() === count">
-                  <input
-                    type="radio"
-                    name="botPlayerCount"
-                    [value]="count"
-                    [checked]="selectedPlayers() === count"
-                    (change)="selectPlayerCount(count)"
-                  />
-                  <span>{{ count }}</span>
-                </label>
-              }
-            </div>
-          </fieldset>
+          @if (multiplayerEnabled()) {
+            <fieldset class="player-count-selector">
+              <legend>{{ i18n.t('pvp.players') }}</legend>
+              <div>
+                @for (count of playerCounts; track count) {
+                  <label [class.selected]="selectedPlayers() === count">
+                    <input
+                      type="radio"
+                      name="botPlayerCount"
+                      [value]="count"
+                      [checked]="selectedPlayers() === count"
+                      (change)="selectPlayerCount(count)"
+                    />
+                    <span>{{ count }}</span>
+                  </label>
+                }
+              </div>
+            </fieldset>
+          }
+          @if (deckVariantsEnabled()) {
+            <app-deck-config-selector
+              [profile]="selectedDeckProfile()"
+              [deckCount]="selectedDeckCount()"
+              [playerCount]="selectedPlayers()"
+              (profileChange)="selectDeckProfile($event)"
+              (deckCountChange)="selectDeckCount($event)"
+            />
+          }
           <p class="player-composition">
             {{
               i18n.t(
@@ -45,8 +56,22 @@
               )
             }}
           </p>
+          @if (
+            selectedPlayers() > 2 ||
+            selectedDeckProfile() !== 'classic' ||
+            selectedDeckCount() !== 1
+          ) {
+            <p class="progression-note">
+              {{
+                i18n.t(
+                  selectedDeckProfile() !== 'classic' || selectedDeckCount() !== 1
+                    ? 'deck.noProgress'
+                    : 'pvp.multiplayerNoProgress'
+                )
+              }}
+            </p>
+          }
           @if (selectedPlayers() > 2) {
-            <p class="progression-note">{{ i18n.t('pvp.multiplayerNoProgress') }}</p>
             <a
               class="multiplayer-guide-link"
               routerLink="/tutorial"
@@ -90,6 +115,16 @@
                 : 'game.vsBot'
           )
         }}</span>
+        @if (currentGame.deck_profile !== 'classic' || currentGame.deck_count !== 1) {
+          <span class="variant-label">{{
+            i18n.t(currentGame.deck_count === 1 ? 'deck.activeSingle' : 'deck.activeDouble', {
+              profile: i18n.t(
+                currentGame.deck_profile === 'classic' ? 'deck.classicName' : 'deck.extendedName'
+              ),
+              count: (currentGame.deck_profile === 'classic' ? 36 : 54) * currentGame.deck_count,
+            })
+          }}</span>
+        }
         <button
           #newGameTrigger
           class="new-game"
@@ -133,6 +168,24 @@
         <section class="result-panel" aria-live="polite">
           <span>{{ i18n.t('game.finished') }}</span>
           <h2>{{ resultTitle(currentGame) }}</h2>
+          @if (currentGame.deck_profile !== 'classic' || currentGame.deck_count !== 1) {
+            <p class="result-variant">
+              {{
+                i18n.t(currentGame.deck_count === 1 ? 'deck.activeSingle' : 'deck.activeDouble', {
+                  profile: i18n.t(
+                    currentGame.deck_profile === 'classic'
+                      ? 'deck.classicName'
+                      : 'deck.extendedName'
+                  ),
+                  count:
+                    (currentGame.deck_profile === 'classic' ? 36 : 54) * currentGame.deck_count,
+                })
+              }}
+            </p>
+            @if (currentGame.total_players === 2) {
+              <p class="result-history-note">{{ i18n.t('deck.noProgress') }}</p>
+            }
+          }
           @if (currentGame.total_players > 2 && placements().length > 0) {
             <section class="finish-groups" [attr.aria-label]="i18n.t('pvp.finishOrder')">
               <strong>{{ i18n.t('pvp.finishOrder') }}</strong>
@@ -152,14 +205,27 @@
                 }
               </ol>
             </section>
-            <p class="result-history-note">{{ i18n.t('pvp.multiplayerNoProgress') }}</p>
+            <p class="result-history-note">
+              {{
+                i18n.t(
+                  currentGame.deck_profile !== 'classic' || currentGame.deck_count !== 1
+                    ? 'deck.noProgress'
+                    : 'pvp.multiplayerNoProgress'
+                )
+              }}
+            </p>
           }
           @if (lastBoutText(currentGame); as summary) {
             <p class="last-bout-result">
               <strong>{{ i18n.t('game.lastBout') }}:</strong> {{ summary }}
             </p>
           }
-          @if (currentGame.total_players === 2 && currentGame.result_saved) {
+          @if (
+            currentGame.total_players === 2 &&
+            currentGame.deck_profile === 'classic' &&
+            currentGame.deck_count === 1 &&
+            currentGame.result_saved
+          ) {
             <p class="result-history-note">{{ i18n.t('game.saved') }}</p>
             @if (currentGame.progression_award; as award) {
               <section
@@ -226,7 +292,12 @@
                 i18n.t('profile.cosmetics')
               }}</a>
             </div>
-          } @else if (currentGame.total_players === 2 && !currentGame.account_associated) {
+          } @else if (
+            currentGame.total_players === 2 &&
+            currentGame.deck_profile === 'classic' &&
+            currentGame.deck_count === 1 &&
+            !currentGame.account_associated
+          ) {
             @if (auth.currentUser()) {
               <p class="result-history-note">
                 {{ i18n.t('game.guestStarted') }}
@@ -239,7 +310,11 @@
             <button type="button" [disabled]="pending()" (click)="playAgain()">
               {{ i18n.t('game.playAgain') }}
             </button>
-            @if (currentGame.total_players > 2) {
+            @if (
+              currentGame.total_players > 2 ||
+              currentGame.deck_profile !== 'classic' ||
+              currentGame.deck_count !== 1
+            ) {
               <button
                 type="button"
                 class="secondary"
@@ -291,8 +366,8 @@
       <app-hand
         class="player-hand-region"
         [cards]="currentGame.human_hand"
-        [selectedCodes]="selectedCodes()"
-        [suggestedCodes]="suggestedCodes()"
+        [selectedIds]="selectedIds()"
+        [suggestedIds]="suggestedIds()"
         [disabled]="pending() || currentGame.phase === 'complete' || localFinishedWatching()"
         (cardSelected)="toggleCard($event)"
       />
@@ -361,6 +436,31 @@
               >{{ i18n.t('game.multiplayerGuide') }}</a
             >
             <button type="button" (click)="dismissOnboarding()">{{ i18n.t('game.gotIt') }}</button>
+          </div>
+        </section>
+      </div>
+    }
+    @if (deckOnboardingVisible()) {
+      <div class="restart-backdrop onboarding-backdrop">
+        <section
+          class="multiplayer-onboarding"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="deck-onboarding-title"
+        >
+          <span aria-hidden="true">★</span>
+          <h2 id="deck-onboarding-title">{{ i18n.t('deck.onboardingTitle') }}</h2>
+          <p>{{ i18n.t('deck.onboardingText') }}</p>
+          <div>
+            <a
+              routerLink="/tutorial"
+              [queryParams]="{ track: 'decks' }"
+              (click)="dismissDeckOnboarding()"
+              >{{ i18n.t('deck.guide') }}</a
+            >
+            <button type="button" (click)="dismissDeckOnboarding()">
+              {{ i18n.t('game.gotIt') }}
+            </button>
           </div>
         </section>
       </div>

@@ -36,6 +36,17 @@ describe('GameApiService', () => {
     request.flush(response);
   });
 
+  it('creates exact deck variants without flattening profile and deck count', () => {
+    service.createGame(3, { deck_profile: 'extended', deck_count: 2 }).subscribe();
+    const request = http.expectOne('/api/games');
+    expect(request.request.body).toEqual({
+      total_players: 3,
+      deck_profile: 'extended',
+      deck_count: 2,
+    });
+    request.flush(response);
+  });
+
   it('reads the shared multiplayer capability', () => {
     service
       .getCapabilities()
@@ -62,7 +73,7 @@ describe('GameApiService', () => {
     service.getHints('game-1', ['9C', '9D']).subscribe();
     const request = http.expectOne('/api/games/game-1/hints');
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ selected_card_ids: ['9C', '9D'] });
+    expect(request.request.body).toEqual({ selected_physical_ids: ['9C', '9D'] });
     request.flush({
       selected_card_ids: ['9C', '9D'],
       suggested_card_ids: [],
@@ -71,12 +82,12 @@ describe('GameApiService', () => {
     });
   });
 
-  it('submits card actions with canonical card codes', () => {
+  it('submits card actions with exact physical card IDs', () => {
     service
       .submitAction('game-1', 'DEFEND', ['QS', '6C'])
       .subscribe((game) => expect(game).toBe(response));
     const request = http.expectOne('/api/games/game-1/actions');
-    expect(request.request.body).toEqual({ action: 'DEFEND', cards: ['QS', '6C'] });
+    expect(request.request.body).toEqual({ action: 'DEFEND', card_ids: ['QS', '6C'] });
     request.flush(response);
   });
 

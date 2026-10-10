@@ -1,0 +1,106 @@
+:host {
+  display: block;
+}
+
+.deck-config {
+  display: grid;
+  gap: 0.75rem;
+}
+
+fieldset {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  margin-bottom: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.deck-profile-options,
+.deck-count-options {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.deck-profile-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.deck-count-options {
+  grid-template-columns: repeat(2, minmax(3rem, 5rem));
+}
+
+label {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 3rem;
+  padding: 0.55rem 0.7rem;
+  gap: 0.1rem;
+  align-content: center;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  color: var(--text-muted);
+  background: rgb(3 14 22 / 45%);
+  cursor: pointer;
+}
+
+label.selected {
+  color: var(--text-strong);
+  border-color: var(--accent);
+  background: rgb(73 229 190 / 10%);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+label:focus-within {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+small,
+em {
+  font-size: 0.68rem;
+  font-style: normal;
+}
+
+em {
+  color: var(--accent);
+  font-weight: 750;
+}
+
+.deck-count-options label {
+  min-height: 2.6rem;
+  padding: 0.35rem;
+  place-items: center;
+}
+
+.deck-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.8rem;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.deck-summary a {
+  color: var(--accent);
+}
+
+@media (max-width: 25rem) {
+  .deck-profile-options {
+    grid-template-columns: 1fr;
+  }
+}

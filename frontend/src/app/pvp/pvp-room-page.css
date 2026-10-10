@@ -9,6 +9,13 @@
   background: rgb(7 31 27 / 88%);
   text-align: center;
 }
+
+.variant-label,
+.result-variant {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
 .room-closed {
   display: grid;
   width: min(100%, 34rem);

@@ -3,6 +3,8 @@ import { provideRouter } from '@angular/router';
 import { TranslationService } from '../core/i18n/translation.service';
 import { TutorialPageComponent } from './tutorial-page';
 import {
+  DECK_VARIANT_LESSONS_EN,
+  DECK_VARIANT_LESSONS_RU,
   MULTIPLAYER_LESSONS_EN,
   MULTIPLAYER_LESSONS_RU,
   TUTORIAL_LESSONS_EN,
@@ -86,6 +88,38 @@ describe('TutorialPageComponent', () => {
     expect(allCopy).toContain('4 → 3 → 2');
     expect(allCopy).toContain('Pass ends your attacking phase permanently');
     expect(allCopy).toContain('All attackers share');
+  });
+
+  it('keeps the core at nine steps and teaches initial streets without removing arithmetic', () => {
+    expect(TUTORIAL_LESSONS_RU).toHaveLength(9);
+    expect(TUTORIAL_LESSONS_EN).toHaveLength(9);
+    const copy = [...TUTORIAL_LESSONS_RU, ...TUTORIAL_LESSONS_EN]
+      .flatMap((lesson) => [lesson.lead, ...lesson.points])
+      .join(' ');
+    expect(copy).toContain('6-7-8-9-10');
+    expect(copy).toContain('арифметическую связь');
+    expect(copy).toContain('arithmetic connection');
+  });
+
+  it('offers a five-step EN/RU deck and Joker guide', () => {
+    button('Варианты колоды и Джокеры').click();
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(DECK_VARIANT_LESSONS_RU).toHaveLength(5);
+    expect(DECK_VARIANT_LESSONS_EN).toHaveLength(5);
+    expect(text).toContain('Классика и Расширенная');
+    expect(text).toContain('1 / 5');
+
+    const copy = [...DECK_VARIANT_LESSONS_RU, ...DECK_VARIANT_LESSONS_EN]
+      .flatMap((lesson) => [lesson.title, lesson.lead, ...lesson.points])
+      .join(' ');
+    expect(copy).toContain('Joker follows Ace');
+    expect(copy).toContain('A-Joker-2-3-4 is not a Street');
+    expect(copy).toContain('two Red Jokers and two Black Jokers');
+    expect(copy).toContain('Козырный Джокер стоит 50');
+    expect(copy).not.toContain('RJ');
+    expect(copy).not.toContain('BJ');
   });
 
   it('offers an explicit return only when a recoverable bot game exists', () => {

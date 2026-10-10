@@ -27,6 +27,16 @@
       }
       <div class="game-utilities">
         <span>{{ i18n.t('pvp.privateRoom', { code: game.invite_code }) }}</span>
+        @if (game.deck_profile !== 'classic' || game.deck_count !== 1) {
+          <span class="variant-label">{{
+            i18n.t(game.deck_count === 1 ? 'deck.activeSingle' : 'deck.activeDouble', {
+              profile: i18n.t(
+                game.deck_profile === 'classic' ? 'deck.classicName' : 'deck.extendedName'
+              ),
+              count: (game.deck_profile === 'classic' ? 36 : 54) * game.deck_count,
+            })
+          }}</span>
+        }
         @if (game.room_phase !== 'CLOSED') {
           <button #leaveTrigger class="new-game" type="button" (click)="requestLeave()">
             {{ i18n.t('pvp.exit') }}
@@ -97,6 +107,14 @@
         <section class="waiting-room" aria-live="polite">
           <span class="waiting-icon" aria-hidden="true">↗</span>
           <h1>{{ i18n.t('pvp.roomCreated') }}</h1>
+          <strong>{{
+            i18n.t(game.deck_count === 1 ? 'deck.activeSingle' : 'deck.activeDouble', {
+              profile: i18n.t(
+                game.deck_profile === 'classic' ? 'deck.classicName' : 'deck.extendedName'
+              ),
+              count: (game.deck_profile === 'classic' ? 36 : 54) * game.deck_count,
+            })
+          }}</strong>
           <p>
             {{
               i18n.t('pvp.waitingPlayers', {
@@ -129,8 +147,14 @@
           @if (emptySeatCount() > 0) {
             <small>{{ i18n.t('pvp.waitingRemaining', { count: emptySeatCount() }) }}</small>
           }
-          @if (game.capacity > 2) {
-            <small>{{ i18n.t('pvp.multiplayerNoProgress') }}</small>
+          @if (game.capacity > 2 || game.deck_profile !== 'classic' || game.deck_count !== 1) {
+            <small>{{
+              i18n.t(
+                game.deck_profile !== 'classic' || game.deck_count !== 1
+                  ? 'deck.noProgress'
+                  : 'pvp.multiplayerNoProgress'
+              )
+            }}</small>
           }
           <label
             ><span>{{ i18n.t('pvp.inviteLink') }}</span
@@ -185,6 +209,18 @@
           <section class="result-panel" aria-live="polite">
             <span>{{ i18n.t('game.finished') }}</span>
             <h2>{{ resultTitle() }}</h2>
+            @if (game.deck_profile !== 'classic' || game.deck_count !== 1) {
+              <p class="result-variant">
+                {{
+                  i18n.t(game.deck_count === 1 ? 'deck.activeSingle' : 'deck.activeDouble', {
+                    profile: i18n.t(
+                      game.deck_profile === 'classic' ? 'deck.classicName' : 'deck.extendedName'
+                    ),
+                    count: (game.deck_profile === 'classic' ? 36 : 54) * game.deck_count,
+                  })
+                }}
+              </p>
+            }
             @if (game.capacity > 2 && placements().length > 0) {
               <section class="finish-groups" [attr.aria-label]="i18n.t('pvp.finishOrder')">
                 <strong>{{ i18n.t('pvp.finishOrder') }}</strong>
@@ -203,7 +239,12 @@
                 <strong>{{ i18n.t('game.lastBout') }}:</strong> {{ summary }}
               </p>
             }
-            @if (game.capacity === 2 && game.result_saved) {
+            @if (
+              game.capacity === 2 &&
+              game.deck_profile === 'classic' &&
+              game.deck_count === 1 &&
+              game.result_saved
+            ) {
               <p class="result-history-note">{{ i18n.t('pvp.saved') }}</p>
               @if (game.progression_award; as award) {
                 <section
@@ -264,19 +305,34 @@
                   i18n.t('game.openHistory')
                 }}</a>
               </div>
-            } @else if (game.capacity === 2 && !game.you.authenticated) {
+            } @else if (
+              game.capacity === 2 &&
+              game.deck_profile === 'classic' &&
+              game.deck_count === 1 &&
+              !game.you.authenticated
+            ) {
               <p class="result-history-note">
                 {{ i18n.t('pvp.guestSavedCta') }}
               </p>
               <a class="result-history-link" routerLink="/register">{{
                 i18n.t('game.createAccount')
               }}</a>
-            } @else if (game.capacity === 2) {
+            } @else if (
+              game.capacity === 2 && game.deck_profile === 'classic' && game.deck_count === 1
+            ) {
               <p class="result-history-note">
                 {{ i18n.t('pvp.savePending') }}
               </p>
             } @else {
-              <p class="result-history-note">{{ i18n.t('pvp.multiplayerNoProgress') }}</p>
+              <p class="result-history-note">
+                {{
+                  i18n.t(
+                    game.deck_profile !== 'classic' || game.deck_count !== 1
+                      ? 'deck.noProgress'
+                      : 'pvp.multiplayerNoProgress'
+                  )
+                }}
+              </p>
             }
             <div class="rematch-actions">
               <div class="rematch-primary">
@@ -463,8 +519,8 @@
         <app-hand
           class="player-hand-region"
           [cards]="game.hand"
-          [selectedCodes]="selectedCodes()"
-          [suggestedCodes]="suggestedCodes()"
+          [selectedIds]="selectedIds()"
+          [suggestedIds]="suggestedIds()"
           [disabled]="
             socket.actionPending() ||
             gameplayPaused() ||
@@ -496,6 +552,31 @@
             />
           </div>
         }
+      }
+      @if (deckOnboardingVisible()) {
+        <div class="restart-backdrop onboarding-backdrop">
+          <section
+            class="multiplayer-onboarding"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pvp-deck-onboarding-title"
+          >
+            <span aria-hidden="true">★</span>
+            <h2 id="pvp-deck-onboarding-title">{{ i18n.t('deck.onboardingTitle') }}</h2>
+            <p>{{ i18n.t('deck.onboardingText') }}</p>
+            <div>
+              <a
+                routerLink="/tutorial"
+                [queryParams]="{ track: 'decks' }"
+                (click)="dismissDeckOnboarding()"
+                >{{ i18n.t('deck.guide') }}</a
+              >
+              <button type="button" (click)="dismissDeckOnboarding()">
+                {{ i18n.t('game.gotIt') }}
+              </button>
+            </div>
+          </section>
+        </div>
       }
     </main>
   } @else {

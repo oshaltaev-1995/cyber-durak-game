@@ -30,6 +30,8 @@ const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
   room_phase: 'GAME_ACTIVE',
   version: 1,
   capacity: 2,
+  deck_profile: 'classic',
+  deck_count: 1,
   joined_count: 2,
   seat_order: ['one', 'two'],
   players: [
@@ -179,6 +181,7 @@ describe('PvPRoomPageComponent', () => {
 
   beforeEach(async () => {
     localStorage.removeItem('kiba.hintsEnabled');
+    localStorage.removeItem('kiba.deckVariantsOnboarding.v1');
     socket.state.set(makeState());
     socket.status.set('connected');
     socket.actionError.set(null);
@@ -448,6 +451,27 @@ describe('PvPRoomPageComponent', () => {
     expect(element.querySelectorAll('.waiting-participants li')).toHaveLength(1);
   });
 
+  it('shows the immutable selected variant while the room waits for players', () => {
+    const waiting = makeMultiplayerState(4, 'one', {
+      room_phase: 'WAITING_FOR_OPPONENT',
+      game_phase: null,
+      deck_profile: 'extended',
+      deck_count: 2,
+      joined_count: 2,
+      players: makeMultiplayerState(4).players.slice(0, 2),
+      available_actions: [],
+      required_participant_id: null,
+      required_seat: null,
+    });
+    socket.state.set(waiting);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Расширенная · 2 колоды · 108 карт');
+    expect(element.textContent).toContain('Варианты колоды пока не влияют');
+    expect(element.querySelector('app-deck-config-selector')).toBeNull();
+  });
+
   it('does not start a full client room until the backend phase becomes active', () => {
     const waiting = makeMultiplayerState(3, 'one', {
       room_phase: 'WAITING_FOR_OPPONENT',
@@ -527,7 +551,7 @@ describe('PvPRoomPageComponent', () => {
     expect(credentials.get).toHaveBeenCalledWith('ABC123');
   });
 
-  it('sends selected card codes through the WebSocket without optimistic table changes', () => {
+  it('sends a selected legacy unique-face card without optimistic table changes', () => {
     const cardButton = (fixture.nativeElement as HTMLElement).querySelector(
       'app-hand .playing-card',
     ) as HTMLButtonElement;
@@ -542,6 +566,30 @@ describe('PvPRoomPageComponent', () => {
     expect(socket.sendAction).toHaveBeenCalledWith('INITIAL_ATTACK', ['6C']);
     expect(socket.state()?.packets).toHaveLength(0);
     expect(cardButton.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('selects and sends only the intended physical duplicate through the WebSocket', () => {
+    const firstKing = { ...card, id: 'deck-1:KH', code: 'KH', rank: 'K', suit: 'hearts' as const };
+    const secondKing = { ...firstKing, id: 'deck-2:KH' };
+    socket.state.set(
+      makeState({ deck_count: 2, hand: [firstKing, secondKing], draw_pile_count: 56 }),
+    );
+    fixture.detectChanges();
+
+    const cards = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+      'app-hand .playing-card',
+    );
+    cards[1].click();
+    fixture.detectChanges();
+    expect(cards[0].getAttribute('aria-pressed')).toBe('false');
+    expect(cards[1].getAttribute('aria-pressed')).toBe('true');
+    expect(socket.requestHints).toHaveBeenCalledWith(['deck-2:KH']);
+
+    const action = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Ходить',
+    ) as HTMLButtonElement;
+    action.click();
+    expect(socket.sendAction).toHaveBeenCalledWith('INITIAL_ATTACK', ['deck-2:KH']);
   });
 
   it('does not request hints when the preference is off', () => {
@@ -967,6 +1015,62 @@ describe('PvPRoomPageComponent', () => {
     expect(element.querySelector('.result-panel')).toBeNull();
     expect(element.querySelector('app-game-table')).not.toBeNull();
     vi.useRealTimers();
+  });
+
+  it('preserves the non-default room configuration across an authoritative rematch', () => {
+    vi.useFakeTimers();
+    localStorage.setItem('kiba.deckVariantsOnboarding.v1', 'true');
+    socket.state.set(
+      makeState({
+        room_phase: 'COMPLETE',
+        game_phase: 'complete',
+        version: 7,
+        deck_profile: 'extended',
+        deck_count: 2,
+        result: {
+          outcome: 'DRAW',
+          winner_seat: null,
+          winner_participant_id: null,
+          winner_display_name: null,
+        },
+      }),
+    );
+    fixture.detectChanges();
+    socket.state.set(
+      makeState({
+        version: 8,
+        match_id: 'variant-match-two',
+        deck_profile: 'extended',
+        deck_count: 2,
+      }),
+    );
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Расширенная · 2 колоды · 108 карт');
+    expect(element.querySelector('app-deck-config-selector')).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('shows deck onboarding only when a fresh non-default waiting room becomes active', () => {
+    const waiting = makeState({
+      room_phase: 'WAITING_FOR_OPPONENT',
+      game_phase: null,
+      version: 2,
+      deck_profile: 'extended',
+      joined_count: 1,
+      players: [makeState().players[0]],
+      available_actions: [],
+    });
+    socket.state.set(waiting);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      'Пробуете другую колоду?',
+    );
+
+    socket.state.set(makeState({ version: 3, deck_profile: 'extended' }));
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Пробуете другую колоду?');
   });
 
   it('still surfaces a real opponent disconnect during the rematch transition', () => {

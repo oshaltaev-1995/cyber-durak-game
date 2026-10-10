@@ -27,12 +27,14 @@ describe('HandComponent', () => {
     [10, ['large']],
     [14, ['dense']],
     [18, ['very-dense']],
+    [20, ['very-dense']],
+    [30, ['very-dense']],
   ] as const)(
     'renders %i reachable cards with the adaptive density class',
     async (count, classes) => {
       const fixture = TestBed.createComponent(HandComponent);
       fixture.componentRef.setInput('cards', cards(count));
-      fixture.componentRef.setInput('selectedCodes', new Set<string>());
+      fixture.componentRef.setInput('selectedIds', new Set<string>());
       await fixture.whenStable();
 
       const element = fixture.nativeElement as HTMLElement;
@@ -46,7 +48,7 @@ describe('HandComponent', () => {
   it('keeps every card selectable in a large overlapped hand', async () => {
     const fixture = TestBed.createComponent(HandComponent);
     fixture.componentRef.setInput('cards', cards(14));
-    fixture.componentRef.setInput('selectedCodes', new Set<string>());
+    fixture.componentRef.setInput('selectedIds', new Set<string>());
     const emitted = vi.spyOn(fixture.componentInstance.cardSelected, 'emit');
     await fixture.whenStable();
 
@@ -62,12 +64,47 @@ describe('HandComponent', () => {
   it('highlights suggested cards but keeps selected styling authoritative', async () => {
     const fixture = TestBed.createComponent(HandComponent);
     fixture.componentRef.setInput('cards', cards(3));
-    fixture.componentRef.setInput('selectedCodes', new Set(['6C']));
-    fixture.componentRef.setInput('suggestedCodes', new Set(['6C', '7C']));
+    fixture.componentRef.setInput('selectedIds', new Set(['6C']));
+    fixture.componentRef.setInput('suggestedIds', new Set(['6C', '7C']));
     await fixture.whenStable();
 
     const rendered = (fixture.nativeElement as HTMLElement).querySelectorAll('.playing-card');
     expect(rendered[0].classList).toContain('selected');
+    expect(rendered[0].classList).not.toContain('suggested');
+    expect(rendered[1].classList).toContain('suggested');
+  });
+
+  it('selects exact duplicate faces independently by physical ID', async () => {
+    const duplicates: readonly GameCard[] = [
+      { ...cards(1)[0], id: 'deck-1:KH', code: 'KH', rank: 'K', suit: 'hearts' },
+      { ...cards(1)[0], id: 'deck-2:KH', code: 'KH', rank: 'K', suit: 'hearts' },
+    ];
+    const fixture = TestBed.createComponent(HandComponent);
+    fixture.componentRef.setInput('cards', duplicates);
+    fixture.componentRef.setInput('selectedIds', new Set(['deck-1:KH']));
+    const emitted = vi.spyOn(fixture.componentInstance.cardSelected, 'emit');
+    await fixture.whenStable();
+
+    const rendered = (fixture.nativeElement as HTMLElement).querySelectorAll('.playing-card');
+    expect(rendered).toHaveLength(2);
+    expect(rendered[0].classList).toContain('selected');
+    expect(rendered[1].classList).not.toContain('selected');
+    (rendered[1] as HTMLButtonElement).click();
+    expect(emitted).toHaveBeenCalledWith('deck-2:KH');
+  });
+
+  it('highlights only the physical duplicate named by a hint', async () => {
+    const duplicates: readonly GameCard[] = [
+      { ...cards(1)[0], id: 'deck-1:KH', code: 'KH', rank: 'K', suit: 'hearts' },
+      { ...cards(1)[0], id: 'deck-2:KH', code: 'KH', rank: 'K', suit: 'hearts' },
+    ];
+    const fixture = TestBed.createComponent(HandComponent);
+    fixture.componentRef.setInput('cards', duplicates);
+    fixture.componentRef.setInput('selectedIds', new Set<string>());
+    fixture.componentRef.setInput('suggestedIds', new Set(['deck-2:KH']));
+    await fixture.whenStable();
+
+    const rendered = (fixture.nativeElement as HTMLElement).querySelectorAll('.playing-card');
     expect(rendered[0].classList).not.toContain('suggested');
     expect(rendered[1].classList).toContain('suggested');
   });

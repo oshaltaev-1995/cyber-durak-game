@@ -109,7 +109,10 @@ describe('PvPLobbyPageComponent', () => {
     button.click();
     fixture.detectChanges();
 
-    expect(api.createRoom).toHaveBeenCalledWith('Alice', 2);
+    expect(api.createRoom).toHaveBeenCalledWith('Alice', 2, {
+      deck_profile: 'classic',
+      deck_count: 1,
+    });
     expect(credentials.save).toHaveBeenCalledWith('ABC123', response.credential);
     expect(navigate).toHaveBeenCalledWith(['/pvp/room', 'ABC123']);
     expect(JSON.stringify(navigate.mock.calls)).not.toContain('top-secret');
@@ -132,7 +135,10 @@ describe('PvPLobbyPageComponent', () => {
     button.click();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Account Alice');
-    expect(api.createRoom).toHaveBeenCalledWith(null, 2);
+    expect(api.createRoom).toHaveBeenCalledWith(null, 2, {
+      deck_profile: 'classic',
+      deck_count: 1,
+    });
   });
 
   it('keeps room-size selection hidden while the server feature is off', () => {
@@ -164,7 +170,10 @@ describe('PvPLobbyPageComponent', () => {
     [...element.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('Создать комнату'))
       ?.click();
-    expect(api.createRoom).toHaveBeenCalledWith('', 4);
+    expect(api.createRoom).toHaveBeenCalledWith('', 4, {
+      deck_profile: 'classic',
+      deck_count: 1,
+    });
   });
 
   it('handles a server-side flag change without silently downgrading the room', () => {
@@ -189,7 +198,38 @@ describe('PvPLobbyPageComponent', () => {
       ?.click();
     fixture.detectChanges();
 
-    expect(api.createRoom).toHaveBeenCalledWith('', 4);
-    expect(element.textContent).toContain('Комнаты на 3–4 игроков сейчас недоступны');
+    expect(api.createRoom).toHaveBeenCalledWith('', 4, {
+      deck_profile: 'classic',
+      deck_count: 1,
+    });
+    expect(element.textContent).toContain('Выбранный вариант сейчас недоступен');
+  });
+
+  it('shows profile and deck-count controls only behind the deck capability', () => {
+    fixture.destroy();
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: true, deck_variants_enabled: true }),
+    );
+    api.createRoom.mockReturnValue(
+      of({
+        invite_code: 'VARIANT',
+        credential: { participant_id: 'p1', seat: 'one', reconnect_token: 'secret' },
+      } as PvPRoomJoin),
+    );
+    fixture = TestBed.createComponent(PvPLobbyPageComponent);
+    fixture.detectChanges();
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const element = fixture.nativeElement as HTMLElement;
+    element.querySelector<HTMLInputElement>('input[name="deckProfile"][value="extended"]')!.click();
+    element.querySelector<HTMLInputElement>('input[name="deckCount"][value="2"]')!.click();
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Всего 108 карт');
+    [...element.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('Создать комнату'))
+      ?.click();
+    expect(api.createRoom).toHaveBeenCalledWith('', 2, {
+      deck_profile: 'extended',
+      deck_count: 2,
+    });
   });
 });

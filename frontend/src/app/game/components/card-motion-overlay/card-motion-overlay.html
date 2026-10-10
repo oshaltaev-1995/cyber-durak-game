@@ -26,11 +26,15 @@
         <div class="motion-back"><span>K</span></div>
         <div
           class="motion-face"
-          [class.red]="motion.card?.suit === 'hearts' || motion.card?.suit === 'diamonds'"
+          [class.red]="
+            motion.card?.joker_color === 'red' ||
+            motion.card?.suit === 'hearts' ||
+            motion.card?.suit === 'diamonds'
+          "
         >
           @if (motion.card; as card) {
             <strong>{{ card.rank }}</strong
-            ><span>{{ suitSymbols[card.suit] }}</span>
+            ><span>{{ cardSymbol(card) }}</span>
           }
         </div>
       </div>

@@ -18,7 +18,7 @@
     </div>
     @if (selectedCards().length > 0) {
       <div class="selected-card-list" aria-hidden="true">
-        @for (card of selectedCards(); track card.code; let last = $last) {
+        @for (card of selectedCards(); track identity(card); let last = $last) {
           <span class="selected-card-code">{{ cardLabel(card) }}</span>
           @if (!last) {
             <span class="plus">+</span>

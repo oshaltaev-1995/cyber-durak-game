@@ -40,6 +40,18 @@ describe('PvPApiService', () => {
     creation.flush({});
   });
 
+  it('sends a non-default room configuration without flattening profile and deck count', () => {
+    service.createRoom('Alice', 3, { deck_profile: 'extended', deck_count: 2 }).subscribe();
+    const request = http.expectOne('/api/pvp/rooms');
+    expect(request.request.body).toEqual({
+      nickname: 'Alice',
+      capacity: 3,
+      deck_profile: 'extended',
+      deck_count: 2,
+    });
+    request.flush({});
+  });
+
   it('loads public room status', () => {
     const response = { invite_code: 'ABC123' } as PvPRoomStatus;
     service.getRoom('ABC123').subscribe((value) => expect(value).toBe(response));

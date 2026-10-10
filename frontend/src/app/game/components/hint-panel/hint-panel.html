@@ -21,10 +21,10 @@
     <span class="hint-state">{{ i18n.t('hints.loading') }}</span>
   } @else if (enabled() && combinations().length > 0) {
     <div class="hint-options">
-      @for (hint of combinations(); track hint.action + ':' + hint.card_ids.join(',')) {
+      @for (hint of combinations(); track hint.action + ':' + hintIds(hint).join(',')) {
         <span class="hint-option">
           <b>{{ action(hint.action) }}</b>
-          <span>{{ cardExpression(hint.card_ids) }}</span>
+          <span>{{ cardExpression(hintIds(hint)) }}</span>
           <small>{{ equation(hint) }} · {{ reason(hint.reason) }}</small>
         </span>
       }

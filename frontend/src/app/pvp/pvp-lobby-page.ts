@@ -7,10 +7,12 @@ import { AuthService } from '../core/auth/auth.service';
 import { PvPApiService } from '../core/pvp/pvp-api.service';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
 import { TranslationService } from '../core/i18n/translation.service';
+import { DeckCount, DeckProfile } from '../core/api/game-api.models';
+import { DeckConfigSelectorComponent } from '../core/deck/deck-config-selector';
 
 @Component({
   selector: 'app-pvp-lobby-page',
-  imports: [FormsModule, RouterLink],
+  imports: [DeckConfigSelectorComponent, FormsModule, RouterLink],
   templateUrl: './pvp-lobby-page.html',
   styleUrl: './pvp-lobby-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -25,15 +27,24 @@ export class PvPLobbyPageComponent implements OnInit {
   protected readonly inviteCode = signal('');
   protected readonly pending = signal(false);
   protected readonly multiplayerEnabled = signal(false);
+  protected readonly deckVariantsEnabled = signal(false);
   protected readonly selectedPlayers = signal<2 | 3 | 4>(2);
+  protected readonly selectedDeckProfile = signal<DeckProfile>('classic');
+  protected readonly selectedDeckCount = signal<DeckCount>(1);
   protected readonly playerCounts = [2, 3, 4] as const;
   protected readonly error = signal<string | null>(null);
   protected readonly roomCodeTouched = signal(false);
 
   ngOnInit(): void {
     this.api.getCapabilities().subscribe({
-      next: (capabilities) => this.multiplayerEnabled.set(capabilities.multiplayer_3_4_enabled),
-      error: () => this.multiplayerEnabled.set(false),
+      next: (capabilities) => {
+        this.multiplayerEnabled.set(capabilities.multiplayer_3_4_enabled);
+        this.deckVariantsEnabled.set(capabilities.deck_variants_enabled ?? false);
+      },
+      error: () => {
+        this.multiplayerEnabled.set(false);
+        this.deckVariantsEnabled.set(false);
+      },
     });
   }
 
@@ -45,6 +56,10 @@ export class PvPLobbyPageComponent implements OnInit {
       .createRoom(
         this.auth.currentUser() === null ? this.nickname().trim() : null,
         this.selectedPlayers(),
+        {
+          deck_profile: this.selectedDeckProfile(),
+          deck_count: this.selectedDeckCount(),
+        },
       )
       .pipe(finalize(() => this.pending.set(false)))
       .subscribe({
@@ -69,7 +84,7 @@ export class PvPLobbyPageComponent implements OnInit {
   private errorMessage(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       const code = (error.error as { detail?: { code?: string } })?.detail?.code;
-      if (code === 'FEATURE_NOT_AVAILABLE') return this.i18n.t('pvp.multiplayerUnavailable');
+      if (code === 'FEATURE_NOT_AVAILABLE') return this.i18n.t('game.featureUnavailable');
       if (error.status === 422) return this.i18n.t('pvp.invalidNickname');
     }
     return this.i18n.t('pvp.createFailed');

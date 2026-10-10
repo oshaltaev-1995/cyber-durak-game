@@ -10,12 +10,12 @@
     [class.dense]="cards().length >= 13 && cards().length <= 16"
     [class.very-dense]="cards().length >= 17"
   >
-    @for (card of cards(); track card.code) {
+    @for (card of cards(); track identity(card)) {
       <app-playing-card
         [card]="card"
         [selectable]="true"
-        [selected]="selectedCodes().has(card.code)"
-        [suggested]="suggestedCodes().has(card.code) && !selectedCodes().has(card.code)"
+        [selected]="selectedIds().has(identity(card))"
+        [suggested]="suggestedIds().has(identity(card)) && !selectedIds().has(identity(card))"
         [disabled]="disabled()"
         (cardSelected)="cardSelected.emit($event)"
       />

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, input, output } from '@angu
 import { GameCard } from '../../../core/api/game-api.models';
 import { PlayingCardComponent } from '../playing-card/playing-card';
 import { TranslationService } from '../../../core/i18n/translation.service';
+import { cardIdentity } from '../../../core/deck/deck-config';
 
 @Component({
   selector: 'app-hand',
@@ -13,8 +14,9 @@ import { TranslationService } from '../../../core/i18n/translation.service';
 export class HandComponent {
   protected readonly i18n = inject(TranslationService);
   readonly cards = input.required<readonly GameCard[]>();
-  readonly selectedCodes = input.required<ReadonlySet<string>>();
-  readonly suggestedCodes = input<ReadonlySet<string>>(new Set());
+  readonly selectedIds = input.required<ReadonlySet<string>>();
+  readonly suggestedIds = input<ReadonlySet<string>>(new Set());
   readonly disabled = input(false);
   readonly cardSelected = output<string>();
+  protected readonly identity = cardIdentity;
 }

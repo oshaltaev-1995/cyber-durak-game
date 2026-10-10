@@ -97,6 +97,19 @@ describe('card motion presentation planning', () => {
     expect(bito.filter((motion) => motion.to === 'discard')).toHaveLength(2);
   });
 
+  it('keeps exact visual duplicates as separate motion identities', () => {
+    const first = { ...card('KH'), id: 'deck-1:KH', rank: 'K', suit: 'hearts' as const };
+    const second = { ...card('KH'), id: 'deck-2:KH', rank: 'K', suit: 'hearts' as const };
+    const previous = snapshot({ tableCards: [first, second] });
+    const motions = planCardMotions(previous, snapshot({ tableCards: [] }), {
+      resolvedTo: 'discard',
+    });
+
+    expect(motions).toHaveLength(2);
+    expect(motions.map((motion) => motion.card?.id)).toEqual(['deck-1:KH', 'deck-2:KH']);
+    expect(new Set(motions.map((motion) => motion.id)).size).toBe(2);
+  });
+
   it('stages authoritative refill deltas toward every participant position', () => {
     const previous = snapshot({ localHand: [six], drawPileCount: 4 });
     const next = snapshot({

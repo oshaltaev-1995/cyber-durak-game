@@ -14,6 +14,8 @@ import { PlayingCardComponent } from '../game/components/playing-card/playing-ca
 import {
   MULTIPLAYER_LESSONS_EN,
   MULTIPLAYER_LESSONS_RU,
+  DECK_VARIANT_LESSONS_EN,
+  DECK_VARIANT_LESSONS_RU,
   TUTORIAL_LESSONS_EN,
   TUTORIAL_LESSONS_RU,
 } from './tutorial-data';
@@ -30,8 +32,11 @@ export class TutorialPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly botGameSession = inject(BotGameSessionStore);
   protected readonly hasActiveGame = this.botGameSession.get() !== null;
-  protected readonly track = signal<'core' | 'multiplayer'>('core');
+  protected readonly track = signal<'core' | 'multiplayer' | 'decks'>('core');
   protected readonly lessons = computed(() => {
+    if (this.track() === 'decks') {
+      return this.i18n.locale() === 'ru' ? DECK_VARIANT_LESSONS_RU : DECK_VARIANT_LESSONS_EN;
+    }
     if (this.track() === 'multiplayer') {
       return this.i18n.locale() === 'ru' ? MULTIPLAYER_LESSONS_RU : MULTIPLAYER_LESSONS_EN;
     }
@@ -74,12 +79,11 @@ export class TutorialPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    if (this.route.snapshot.queryParamMap.get('track') === 'multiplayer') {
-      this.track.set('multiplayer');
-    }
+    const requested = this.route.snapshot.queryParamMap.get('track');
+    if (requested === 'multiplayer' || requested === 'decks') this.track.set(requested);
   }
 
-  protected selectTrack(track: 'core' | 'multiplayer'): void {
+  protected selectTrack(track: 'core' | 'multiplayer' | 'decks'): void {
     this.track.set(track);
     this.stepIndex.set(0);
     this.complete.set(false);
@@ -109,7 +113,7 @@ export class TutorialPageComponent implements OnInit {
     const cards = this.selectedPracticalCards();
     if (cards.length === 0) return this.i18n.t('tutorial.practiceEmpty');
     return this.i18n.t('tutorial.practiceSelected', {
-      cards: cards.map(formatCardShort).join(' + '),
+      cards: cards.map((card) => formatCardShort(card)).join(' + '),
       total: this.practicalTotal(),
     });
   }

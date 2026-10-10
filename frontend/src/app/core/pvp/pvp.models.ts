@@ -1,6 +1,8 @@
 import {
   AttackPacket,
   BoutPhase,
+  DeckCount,
+  DeckProfile,
   GameCard,
   GamePhase,
   HumanActionType,
@@ -17,6 +19,7 @@ export type PvPRematchStatus = 'NONE' | 'WAITING' | 'INCOMING' | 'DECLINED';
 
 export interface KibaCapabilities {
   readonly multiplayer_3_4_enabled: boolean;
+  readonly deck_variants_enabled?: boolean;
 }
 
 export interface PvPParticipant {
@@ -53,6 +56,8 @@ export interface PvPState {
   readonly room_phase: PvPRoomPhase;
   readonly version: number;
   readonly capacity: 2 | 3 | 4;
+  readonly deck_profile: DeckProfile;
+  readonly deck_count: DeckCount;
   readonly joined_count: number;
   readonly seat_order: readonly Seat[];
   readonly players: readonly PvPPlayerState[];
@@ -109,6 +114,8 @@ export interface PvPRoomStatus {
   readonly room_phase: PvPRoomPhase;
   readonly version: number;
   readonly capacity: 2 | 3 | 4;
+  readonly deck_profile: DeckProfile;
+  readonly deck_count: DeckCount;
   readonly joined_count: number;
   readonly participants: readonly PvPParticipant[];
 }

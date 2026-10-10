@@ -128,6 +128,13 @@ human plus the remaining computer opponents; mixed human/bot rooms are not part 
 The server capability is default-off, two-player play and progression remain unchanged, and initial
 three/four-player matches do not affect profile history, XP, statistics, achievements, or rating.
 
+The D4 deck-variant release candidate adds a second, independently gated product dimension to bot
+and private-room creation: Classic/Extended rank profiles and one/two physical decks produce
+36/54/72/108-card games. Single Classic remains the default and the deck-variant capability remains
+off until staged rollout. Non-default deck games do not affect profile progression yet. Extended is
+recommended, never required, for three or four players; normal card presentation keeps duplicate
+physical instances visually identical while interactions use their private physical identity.
+
 ---
 
 ## 5. Later product layers
@@ -149,7 +156,6 @@ Only after the core game is proven:
 - richer custom tables and card backs
 - avatars
 - seasonal cosmetics
-- optional 54-card mode
 - alternative rulesets
 
 ---

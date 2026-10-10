@@ -163,7 +163,7 @@ describe('PvPWebSocketService', () => {
       type: 'ACTION',
       version: 4,
       action: 'DEFEND',
-      cards: ['QS'],
+      card_ids: ['QS'],
     });
     expect(socket.sent).toHaveLength(2);
     expect(service.actionPending()).toBe(true);
@@ -185,7 +185,7 @@ describe('PvPWebSocketService', () => {
     expect(first).toMatchObject({
       type: 'HINT_REQUEST',
       version: 4,
-      selected_card_ids: ['9C'],
+      selected_physical_ids: ['9C'],
     });
     service.requestHints(['9C', '9D']);
     const second = JSON.parse(socket.sent.at(-1)!);
@@ -236,7 +236,6 @@ describe('PvPWebSocketService', () => {
     expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({
       version: 4,
       action: 'BITO',
-      cards: [],
     });
   });
 

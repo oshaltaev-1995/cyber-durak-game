@@ -97,4 +97,39 @@ describe('HintPanelComponent', () => {
     expect(text).toContain('Legal combination');
     expect(text).not.toContain('KC');
   });
+
+  it('formats exact duplicate and Joker hints from physical IDs', () => {
+    const variantCards: readonly GameCard[] = [
+      { ...card('KH', 'K', 'hearts', 18), id: 'deck-1:KH' },
+      { ...card('KH', 'K', 'hearts', 18), id: 'deck-2:KH' },
+      {
+        id: 'deck-1:joker:red',
+        code: 'RJ',
+        rank: 'Joker',
+        suit: null,
+        joker_color: 'red',
+        base_value: 25,
+        effective_value: 25,
+        is_trump: false,
+      },
+    ];
+    fixture.componentRef.setInput('cards', variantCards);
+    fixture.componentRef.setInput('combinations', [
+      {
+        action: 'INITIAL_ATTACK',
+        card_ids: ['KH', 'RJ'],
+        added_card_ids: ['RJ'],
+        physical_card_ids: ['deck-2:KH', 'deck-1:joker:red'],
+        added_physical_card_ids: ['deck-1:joker:red'],
+        reason: 'arithmetic_equality',
+        selected_value: 43,
+        target_value: null,
+      },
+    ] satisfies readonly HintCombination[]);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('K♥ + Red Joker');
+    expect(text).not.toContain('RJ');
+  });
 });

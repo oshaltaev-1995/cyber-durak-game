@@ -51,6 +51,17 @@ const card = (
   is_trump: isTrump,
 });
 
+const joker = (color: 'red' | 'black', effectiveValue = 25, isTrump = false): GameCard => ({
+  id: `tutorial-joker-${color}`,
+  code: color === 'red' ? 'RJ' : 'BJ',
+  rank: 'Joker',
+  suit: null,
+  joker_color: color,
+  base_value: 25,
+  effective_value: effectiveValue,
+  is_trump: isTrump,
+});
+
 export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
   {
     id: 'goal',
@@ -111,6 +122,7 @@ export const TUTORIAL_LESSONS_RU: readonly TutorialLesson[] = [
     points: [
       'Карты одного ранга можно играть вместе.',
       'Группы с одинаковой эффективной суммой образуют арифметическую связь.',
+      'Стрит из минимум пяти последовательных разных рангов тоже допустим первым ходом, например 6-7-8-9-10.',
     ],
     cards: [
       card('9C', '9', 'clubs', 9),
@@ -364,6 +376,7 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
     points: [
       'Cards of the same rank may be played together.',
       'Groups with equal effective totals form an arithmetic connection.',
+      'A Street of at least five distinct consecutive ranks is also a valid initial attack, such as 6-7-8-9-10.',
     ],
     cards: [
       card('9C', '9', 'clubs', 9),
@@ -691,5 +704,115 @@ export const MULTIPLAYER_LESSONS_RU: readonly TutorialLesson[] = [
       'Одновременно финишировавшие делят место, поэтому в последней группе может не быть единственного проигравшего.',
     ],
     'В матчах на 3–4 игроков места определяются серверными группами финиша.',
+  ),
+];
+
+export const DECK_VARIANT_LESSONS_EN: readonly TutorialLesson[] = [
+  multiplayerLesson(
+    'decks-profiles',
+    'Classic and Extended',
+    'Classic has 36 cards from 6 through Ace. Extended has 54 cards from 2 through Ace plus a Red and a Black Joker.',
+    [
+      'Both profiles support two, three, or four players.',
+      'Extended is recommended, not required, for 3–4 players.',
+    ],
+  ),
+  {
+    ...multiplayerLesson(
+      'decks-values',
+      'Values',
+      'Cards 2–10 use face value; J = 12, Q = 15, K = 18, A = 20, and Joker = 25.',
+      ['Trump doubles once. A trump Joker is 50.'],
+    ),
+    cards: [card('2C', '2', 'clubs', 2), card('5H', '5', 'hearts', 5), joker('red', 50, true)],
+    equations: ['2 = 2 · 5 = 5 · Joker = 25 or 50'],
+  },
+  {
+    ...multiplayerLesson(
+      'decks-joker-trump',
+      'Joker trumps',
+      'A red suited top makes Red Joker trump; a black suited top makes Black Joker trump.',
+      [
+        'Red Joker on top makes Hearts, Diamonds and Red Joker trump.',
+        'Black Joker on top makes Clubs, Spades and Black Joker trump.',
+        'The opposite-color Joker stays 25.',
+      ],
+    ),
+    cards: [joker('red', 50, true), joker('black')],
+  },
+  multiplayerLesson(
+    'decks-street',
+    'Street',
+    'A Street has at least five distinct consecutive ranks and can be an initial attack or a later throw-in.',
+    [
+      'Extended order ends 10-J-Q-K-A-Joker: Joker follows Ace.',
+      'Streets never wrap; A-Joker-2-3-4 is not a Street.',
+      'Duplicate ranks may join a qualifying Street but do not make it longer.',
+    ],
+  ),
+  multiplayerLesson(
+    'decks-double',
+    'Two decks',
+    'Two decks can contain visually identical cards that remain separate physical cards.',
+    [
+      'No copy number is needed on the face: select each card normally.',
+      'A 108-card game contains two Red Jokers and two Black Jokers.',
+      'Every physical attacking card still counts toward the defender-based attack limit.',
+    ],
+  ),
+];
+
+export const DECK_VARIANT_LESSONS_RU: readonly TutorialLesson[] = [
+  multiplayerLesson(
+    'decks-profiles',
+    'Классика и Расширенная',
+    'В Классике 36 карт от 6 до Туза. В Расширенной — 54 карты от 2 до Туза, Красный и Чёрный Джокеры.',
+    [
+      'Обе колоды доступны для двух, трёх и четырёх игроков.',
+      'Расширенная рекомендуется, но не обязательна, для 3–4 игроков.',
+    ],
+  ),
+  {
+    ...multiplayerLesson(
+      'decks-values',
+      'Значения',
+      'Карты 2–10 стоят по номиналу; J = 12, Q = 15, K = 18, A = 20, Джокер = 25.',
+      ['Козырь удваивается один раз. Козырный Джокер стоит 50.'],
+    ),
+    cards: [card('2C', '2', 'clubs', 2), card('5H', '5', 'hearts', 5), joker('red', 50, true)],
+    equations: ['2 = 2 · 5 = 5 · Джокер = 25 или 50'],
+  },
+  {
+    ...multiplayerLesson(
+      'decks-joker-trump',
+      'Козырные Джокеры',
+      'Красная масть открытой карты делает Красного Джокера козырем, чёрная — Чёрного.',
+      [
+        'Красный Джокер сверху делает козырями червы, бубны и Красного Джокера.',
+        'Чёрный Джокер сверху делает козырями трефы, пики и Чёрного Джокера.',
+        'Джокер противоположного цвета остаётся 25.',
+      ],
+    ),
+    cards: [joker('red', 50, true), joker('black')],
+  },
+  multiplayerLesson(
+    'decks-street',
+    'Стрит',
+    'Стрит содержит минимум пять разных последовательных рангов и может быть первым ходом или последующим подкидыванием.',
+    [
+      'Расширенный порядок заканчивается 10-J-Q-K-A-Джокер: Джокер идёт после Туза.',
+      'Стрит не замыкается: A-Джокер-2-3-4 не является стритом.',
+      'Повторные ранги можно добавить в готовый стрит, но они не увеличивают его длину.',
+    ],
+  ),
+  multiplayerLesson(
+    'decks-double',
+    'Две колоды',
+    'В игре двумя колодами могут быть визуально одинаковые карты, но это отдельные физические карты.',
+    [
+      'Помечать копии номерами на карте не нужно: каждую карту можно выбрать отдельно.',
+      'В 108 картах есть два Красных и два Чёрных Джокера.',
+      'Каждая физическая атакующая карта учитывается в лимите защитника.',
+    ],
   ),
 ];
