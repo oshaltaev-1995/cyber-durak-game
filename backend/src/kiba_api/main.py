@@ -201,7 +201,10 @@ def create_app(
     @application.get("/api/capabilities", tags=["system"])
     def capabilities() -> dict[str, bool]:
         """Expose only safe public product capabilities needed by the client."""
-        return {"multiplayer_3_4_enabled": resolved_settings.multiplayer_3_4_enabled}
+        return {
+            "multiplayer_3_4_enabled": resolved_settings.multiplayer_3_4_enabled,
+            "deck_variants_enabled": resolved_settings.deck_variants_enabled,
+        }
 
     @application.get("/ready", tags=["system"])
     def ready() -> JSONResponse:

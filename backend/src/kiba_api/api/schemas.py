@@ -2,9 +2,12 @@
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from kiba_api.game import DeckProfile
 from kiba_api.sessions import HumanActionType
+
+DeckCount = Annotated[int, Field(strict=True, ge=1, le=2)]
 
 
 class _StrictRequest(BaseModel):
@@ -12,12 +15,21 @@ class _StrictRequest(BaseModel):
 
 
 class HintRequest(_StrictRequest):
-    selected_card_ids: list[str] = Field(default_factory=list)
+    selected_card_ids: list[str] | None = None
+    selected_physical_ids: list[str] | None = None
+
+    @model_validator(mode="after")
+    def references_are_unambiguous(self) -> "HintRequest":
+        if self.selected_card_ids is not None and self.selected_physical_ids is not None:
+            raise ValueError("submit legacy face codes or physical IDs, not both")
+        return self
 
 
 class CreateGameRequest(_StrictRequest):
     total_players: Literal[2, 3, 4] = 2
     human_display_name: str | None = Field(default=None, min_length=1, max_length=40)
+    deck_profile: DeckProfile = DeckProfile.CLASSIC
+    deck_count: DeckCount = 1
 
 
 class RestartGameRequest(_StrictRequest):
@@ -28,6 +40,8 @@ class HintCombinationResponse(BaseModel):
     action: HumanActionType
     card_ids: list[str]
     added_card_ids: list[str]
+    physical_card_ids: list[str]
+    added_physical_card_ids: list[str]
     reason: Literal[
         "single_card",
         "same_rank",
@@ -48,28 +62,40 @@ class HintCombinationResponse(BaseModel):
 class HintResponse(BaseModel):
     selected_card_ids: list[str]
     suggested_card_ids: list[str]
+    selected_physical_ids: list[str]
+    suggested_physical_ids: list[str]
     suggested_action_types: list[HumanActionType]
     combinations: list[HintCombinationResponse]
 
 
-class InitialAttackRequest(_StrictRequest):
+class _CardActionRequest(_StrictRequest):
+    cards: list[str] | None = None
+    card_ids: list[str] | None = None
+
+    @model_validator(mode="after")
+    def references_are_present_and_unambiguous(self) -> "_CardActionRequest":
+        if self.cards is not None and self.card_ids is not None:
+            raise ValueError("submit legacy face codes or physical IDs, not both")
+        selected = self.card_ids if self.card_ids is not None else self.cards
+        if not selected:
+            raise ValueError("card actions require cards")
+        return self
+
+
+class InitialAttackRequest(_CardActionRequest):
     action: Literal[HumanActionType.INITIAL_ATTACK]
-    cards: list[str] = Field(min_length=1)
 
 
-class DefenseRequest(_StrictRequest):
+class DefenseRequest(_CardActionRequest):
     action: Literal[HumanActionType.DEFEND]
-    cards: list[str] = Field(min_length=1)
 
 
-class TransferRequest(_StrictRequest):
+class TransferRequest(_CardActionRequest):
     action: Literal[HumanActionType.TRANSFER]
-    cards: list[str] = Field(min_length=1)
 
 
-class ThrowInRequest(_StrictRequest):
+class ThrowInRequest(_CardActionRequest):
     action: Literal[HumanActionType.THROW_IN]
-    cards: list[str] = Field(min_length=1)
 
 
 class TakeRequest(_StrictRequest):
@@ -92,9 +118,11 @@ HumanActionRequest = Annotated[
 
 
 class CardResponse(BaseModel):
+    id: str
     code: str
     rank: str
-    suit: str
+    suit: str | None
+    joker_color: str | None
     base_value: int
     effective_value: int
     is_trump: bool
@@ -226,6 +254,8 @@ class GameResponse(BaseModel):
     human_seat: str
     bot_seat: str
     total_players: int
+    deck_profile: DeckProfile
+    deck_count: Literal[1, 2]
     participants: list[BotSessionParticipantResponse]
     active_seats: list[str]
     finished_seats: list[str]

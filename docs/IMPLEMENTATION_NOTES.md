@@ -1337,6 +1337,36 @@ matrices. Product adapters, REST card codes, bots, hints, and human PvP remain e
 ×1; no deck selector, persistence migration, frontend activation, or production deployment is
 part of D2.
 
+### 15.13 D3 deck-variant session and protocol integration
+
+The bot and private-room creation boundaries now accept optional `deck_profile` and `deck_count`;
+omission remains CLASSIC ×1. `KIBA_DECK_VARIANTS_ENABLED` is an independent, default-off product
+gate for non-default configurations and is exposed as a safe capability boolean. Existing games may
+finish after a gate change, while bot restart and PvP rematch recheck the gate before creating a new
+match. Session restart and room rematch retain player count, seats, identities, profile, and copy
+count while constructing a fresh deck and shuffle.
+
+Public session and room snapshots carry authoritative profile/count. Visible cards retain their
+legacy display `code` and add a match-scoped exact `id`; Jokers use stable `RJ`/`BJ` codes plus an
+explicit color field. IDs are actionable protocol values, not user-facing copy labels. Remote hands
+remain counts and hidden draw order remains absent. CLASSIC ×1 continues to accept legacy face-code
+actions. Generalized actions use exact physical IDs; mixed reference forms, repeated IDs, hidden or
+foreign cards, and legacy references outside CLASSIC ×1 are rejected before mutation.
+
+The baseline bot context now includes public authoritative `DeckConfig` and its own exact cards,
+without remote hands or future draw order. Candidate generation uses the shared street analyzer for
+CLASSIC/EXTENDED initial and post-response runs, includes terminal Joker rank and physical
+duplicates, and leaves final legality to the engine. Two-player hints work for all configurations,
+retain bounded hand-only search, and add exact physical IDs while three/four-player hints remain
+unavailable.
+
+Persistence remains intentionally narrow: authenticated two-player CLASSIC ×1 uses the existing
+history/progression path, existing three/four-player CLASSIC policy is unchanged, and every
+non-default profile/count skips history, XP, statistics, achievements, rating, and cosmetics. D3
+adds no migration and no Angular surface. Deterministic acceptance includes the complete
+36/54/72/108 × 2/3/4 bot matrix plus focused PvP, reconnect, rematch, duplicate-card, Joker,
+privacy, hint, and release-gate tests.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

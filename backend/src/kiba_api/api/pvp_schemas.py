@@ -6,12 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from kiba_api.api.schemas import (
     CardResponse,
+    DeckCount,
     LastBoutSummaryResponse,
     PacketResponse,
     ProgressionAwardResponse,
     TableArithmeticResponse,
     TrumpResponse,
 )
+from kiba_api.game import DeckProfile
 from kiba_api.sessions import HumanActionType
 
 
@@ -25,6 +27,8 @@ class RoomIdentityRequest(_StrictModel):
 
 class RoomCreateRequest(RoomIdentityRequest):
     capacity: int = Field(default=2, ge=2, le=4)
+    deck_profile: DeckProfile = DeckProfile.CLASSIC
+    deck_count: DeckCount = 1
 
 
 class ParticipantResponse(BaseModel):
@@ -61,6 +65,8 @@ class PvPStateResponse(BaseModel):
     room_phase: str
     version: int
     capacity: int
+    deck_profile: DeckProfile
+    deck_count: Literal[1, 2]
     joined_count: int
     seat_order: list[str]
     players: list[PlayerStateResponse]
@@ -117,6 +123,8 @@ class RoomStatusResponse(BaseModel):
     room_phase: str
     version: int
     capacity: int
+    deck_profile: DeckProfile
+    deck_count: Literal[1, 2]
     joined_count: int
     participants: list[ParticipantResponse]
 
@@ -144,14 +152,22 @@ class WebSocketHintRequestMessage(_StrictModel):
     type: Literal["HINT_REQUEST"]
     request_id: int = Field(ge=0)
     version: int = Field(ge=0)
-    selected_card_ids: list[str] = Field(default_factory=list)
+    selected_card_ids: list[str] | None = None
+    selected_physical_ids: list[str] | None = None
+
+    @model_validator(mode="after")
+    def references_are_unambiguous(self) -> "WebSocketHintRequestMessage":
+        if self.selected_card_ids is not None and self.selected_physical_ids is not None:
+            raise ValueError("submit legacy face codes or physical IDs, not both")
+        return self
 
 
 class WebSocketActionMessage(_StrictModel):
     type: Literal["ACTION"]
     version: int = Field(ge=0)
     action: HumanActionType
-    cards: list[str] = Field(default_factory=list)
+    cards: list[str] | None = None
+    card_ids: list[str] | None = None
 
     @model_validator(mode="after")
     def card_shape_matches_action(self) -> "WebSocketActionMessage":
@@ -161,8 +177,11 @@ class WebSocketActionMessage(_StrictModel):
             HumanActionType.TRANSFER,
             HumanActionType.THROW_IN,
         }
-        if self.action in card_actions and not self.cards:
+        if self.cards is not None and self.card_ids is not None:
+            raise ValueError("submit legacy face codes or physical IDs, not both")
+        selected = self.card_ids if self.card_ids is not None else self.cards
+        if self.action in card_actions and not selected:
             raise ValueError("card actions require cards")
-        if self.action not in card_actions and self.cards:
+        if self.action not in card_actions and selected:
             raise ValueError("this action does not accept cards")
         return self

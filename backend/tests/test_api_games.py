@@ -599,9 +599,11 @@ def test_existing_value_reason_exposes_structured_public_source_card() -> None:
     assert existing_value["expression"] is None
     assert existing_value["source_cards"] == [
         {
+            "id": "deck-1:Q:clubs",
             "code": "QC",
             "rank": "Q",
             "suit": "clubs",
+            "joker_color": None,
             "base_value": 15,
             "effective_value": 15,
             "is_trump": False,

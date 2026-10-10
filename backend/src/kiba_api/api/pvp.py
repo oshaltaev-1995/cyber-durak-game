@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from kiba_api.api.auth import OptionalCurrentUser, is_trusted_origin
-from kiba_api.api.cards import CardCodeError, parse_card_codes
+from kiba_api.api.cards import CardCodeError, parse_card_references
 from kiba_api.api.pvp_schemas import (
     RoomCreateRequest,
     RoomIdentityRequest,
@@ -32,7 +32,7 @@ from kiba_api.api.pvp_serialization import (
 )
 from kiba_api.api.serialization import serialize_move_hints
 from kiba_api.auth import AuthError
-from kiba_api.game import GamePhase
+from kiba_api.game import DEFAULT_DECK_CONFIG, DeckConfig, GamePhase
 from kiba_api.locale import parse_locale
 from kiba_api.pvp import (
     PvPActionError,
@@ -113,10 +113,14 @@ async def create_room(
     """Create a guest-friendly invitation and assign its creator to Seat.ONE."""
     if payload.capacity > 2 and not request.app.state.settings.multiplayer_3_4_enabled:
         raise PvPError(PvPErrorCode.FEATURE_NOT_AVAILABLE)
+    deck_config = DeckConfig(payload.deck_profile, payload.deck_count)
+    if deck_config != DEFAULT_DECK_CONFIG and not request.app.state.settings.deck_variants_enabled:
+        raise PvPError(PvPErrorCode.FEATURE_NOT_AVAILABLE)
     display_name = user.display_name if user is not None else _guest_name(payload.nickname)
     room, participant = service.create_room(
         display_name,
         capacity=payload.capacity,
+        deck_config=deck_config,
         user_id=user.id if user is not None else None,
         preferred_locale=(
             parse_locale(user.preferred_locale)
@@ -281,6 +285,11 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                         and not websocket.app.state.settings.multiplayer_3_4_enabled
                     ):
                         raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
+                    if (
+                        current_room.deck_config != DEFAULT_DECK_CONFIG
+                        and not websocket.app.state.settings.deck_variants_enabled
+                    ):
+                        raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
                     try:
                         websocket.app.state.pvp_action_rate_limiter.check(
                             f"{invite_code}:{participant_id}"
@@ -338,7 +347,12 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                 message: WebSocketHintRequestMessage | None = None
                 try:
                     message = WebSocketHintRequestMessage.model_validate(payload)
-                    cards = parse_card_codes(message.selected_card_ids)
+                    current_room = service.get_room(invite_code)
+                    cards = parse_card_references(
+                        deck_config=current_room.deck_config,
+                        codes=message.selected_card_ids,
+                        card_ids=message.selected_physical_ids,
+                    )
                     room, hints = service.get_hints(
                         invite_code,
                         reconnect_token,
@@ -397,7 +411,12 @@ async def room_websocket(websocket: WebSocket, invite_code: str) -> None:
                         _error_message("ACTION_REJECTED", PvPErrorCode.RATE_LIMITED)
                     )
                     continue
-                cards = parse_card_codes(message.cards)
+                current_room = service.get_room(invite_code)
+                cards = parse_card_references(
+                    deck_config=current_room.deck_config,
+                    codes=message.cards,
+                    card_ids=message.card_ids,
+                )
                 room = service.play_action(
                     invite_code,
                     reconnect_token,

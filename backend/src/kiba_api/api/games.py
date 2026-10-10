@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 
 from kiba_api.api.auth import OptionalCurrentUser
-from kiba_api.api.cards import parse_card_codes
+from kiba_api.api.cards import parse_card_references
 from kiba_api.api.cosmetics import CosmeticDependency
 from kiba_api.api.locale import RequestLocale
 from kiba_api.api.schemas import (
@@ -17,6 +17,7 @@ from kiba_api.api.schemas import (
     RestartGameRequest,
 )
 from kiba_api.api.serialization import serialize_game_session, serialize_move_hints
+from kiba_api.game import DEFAULT_DECK_CONFIG, DeckConfig
 from kiba_api.sessions import (
     GameAppearance,
     GameSessionService,
@@ -48,6 +49,9 @@ def create_game(
     options = payload or CreateGameRequest()
     if options.total_players > 2 and not request.app.state.settings.multiplayer_3_4_enabled:
         raise SessionActionError(SessionErrorCode.FEATURE_NOT_AVAILABLE)
+    deck_config = DeckConfig(options.deck_profile, options.deck_count)
+    if deck_config != DEFAULT_DECK_CONFIG and not request.app.state.settings.deck_variants_enabled:
+        raise SessionActionError(SessionErrorCode.FEATURE_NOT_AVAILABLE)
     user_id = user.id if user is not None else None
     appearance = GameAppearance()
     if user_id is not None:
@@ -65,6 +69,7 @@ def create_game(
             human_display_name=(
                 user.display_name if user is not None else options.human_display_name
             ),
+            deck_config=deck_config,
         ),
         locale,
     )
@@ -97,6 +102,11 @@ def restart_game(
     session = service.get_game(game_id)
     if session.total_players > 2 and not request.app.state.settings.multiplayer_3_4_enabled:
         raise SessionActionError(SessionErrorCode.FEATURE_NOT_AVAILABLE)
+    if (
+        session.state.deck_config != DEFAULT_DECK_CONFIG
+        and not request.app.state.settings.deck_variants_enabled
+    ):
+        raise SessionActionError(SessionErrorCode.FEATURE_NOT_AVAILABLE)
     return serialize_game_session(service.restart_game(game_id), locale)
 
 
@@ -107,7 +117,12 @@ def get_hints(
     service: GameServiceDependency,
 ) -> HintResponse:
     """Return bounded read-only hints without bot cards or draw-pile order."""
-    cards = parse_card_codes(request.selected_card_ids)
+    session = service.get_game(game_id)
+    cards = parse_card_references(
+        deck_config=session.state.deck_config,
+        codes=request.selected_card_ids,
+        card_ids=request.selected_physical_ids,
+    )
     return serialize_move_hints(service.get_hints(game_id, cards))
 
 
@@ -119,6 +134,11 @@ def play_action(
     locale: RequestLocale,
 ) -> GameResponse:
     """Apply one human action and auto-advance all following bot decisions."""
-    cards = parse_card_codes(getattr(action, "cards", []))
+    session = service.get_game(game_id)
+    cards = parse_card_references(
+        deck_config=session.state.deck_config,
+        codes=getattr(action, "cards", None),
+        card_ids=getattr(action, "card_ids", None),
+    )
     session = service.play_human_action(game_id, action.action, cards)
     return serialize_game_session(session, locale)

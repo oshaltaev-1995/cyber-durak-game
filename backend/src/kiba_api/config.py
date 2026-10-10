@@ -76,6 +76,7 @@ class Settings:
     pvp_action_rate_limit_window_seconds: int = 1
     pvp_max_websocket_message_bytes: int = 16_384
     multiplayer_3_4_enabled: bool = False
+    deck_variants_enabled: bool = False
     log_json: bool = False
 
     def __post_init__(self) -> None:
@@ -197,5 +198,6 @@ class Settings:
                 os.getenv("KIBA_PVP_MAX_WEBSOCKET_MESSAGE_BYTES", "16384")
             ),
             multiplayer_3_4_enabled=_as_bool(os.getenv("KIBA_MULTIPLAYER_3_4_ENABLED", "false")),
+            deck_variants_enabled=_as_bool(os.getenv("KIBA_DECK_VARIANTS_ENABLED", "false")),
             log_json=_as_bool(os.getenv("KIBA_LOG_JSON", "false")),
         )

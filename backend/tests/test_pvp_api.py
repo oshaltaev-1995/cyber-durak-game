@@ -140,7 +140,10 @@ def test_public_capability_defaults_off_and_server_rejects_multiplayer_creation(
     four_player = client.post("/api/pvp/rooms", json={"nickname": "Creator", "capacity": 4})
 
     assert capability.status_code == 200
-    assert capability.json() == {"multiplayer_3_4_enabled": False}
+    assert capability.json() == {
+        "multiplayer_3_4_enabled": False,
+        "deck_variants_enabled": False,
+    }
     assert two_player.status_code == 201
     assert two_player.json()["state"]["capacity"] == 2
     assert three_player.status_code == 409
@@ -156,7 +159,10 @@ def test_public_capability_and_multiplayer_creation_when_enabled(database: Datab
         multiplayer_3_4_enabled=True,
     )
     with TestClient(create_app(database=database, settings=settings)) as enabled_client:
-        assert enabled_client.get("/api/capabilities").json() == {"multiplayer_3_4_enabled": True}
+        assert enabled_client.get("/api/capabilities").json() == {
+            "multiplayer_3_4_enabled": True,
+            "deck_variants_enabled": False,
+        }
         for capacity in (2, 3, 4):
             response = enabled_client.post(
                 "/api/pvp/rooms",

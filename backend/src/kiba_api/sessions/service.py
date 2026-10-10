@@ -16,11 +16,13 @@ if TYPE_CHECKING:
     from kiba_api.persistence.progression import ProgressionAward
 
 from kiba_api.game import (
+    DEFAULT_DECK_CONFIG,
     BotAction,
     BotActionError,
     BotActionType,
     BoutState,
     Card,
+    DeckConfig,
     GamePhase,
     GameState,
     Seat,
@@ -344,6 +346,7 @@ _BotTurn = Callable[[GameState, Seat], GameState]
 _CompletionRecorder = Callable[[GameSession], "ProgressionAward | None"]
 _Clock = Callable[[], datetime]
 _MultiplayerGameFactory = Callable[[int], GameState]
+_ConfiguredGameFactory = Callable[[int, DeckConfig], GameState]
 
 
 class GameSessionService:
@@ -355,6 +358,7 @@ class GameSessionService:
         store: InMemoryGameSessionStore | None = None,
         game_factory: _GameFactory = create_new_game,
         multiplayer_game_factory: _MultiplayerGameFactory | None = None,
+        configured_game_factory: _ConfiguredGameFactory | None = None,
         bot_turn: _BotTurn = play_bot_turn,
         bot_action_limit: int = 5_000,
         completion_recorder: _CompletionRecorder | None = None,
@@ -372,6 +376,12 @@ class GameSessionService:
         self._multiplayer_game_factory = multiplayer_game_factory or (
             lambda player_count: create_new_game(player_count=player_count)
         )
+        self._configured_game_factory = configured_game_factory or (
+            lambda player_count, deck_config: create_new_game(
+                player_count=player_count,
+                deck_config=deck_config,
+            )
+        )
         self._bot_turn = bot_turn
         self._bot_action_limit = bot_action_limit
         self._completion_recorder = completion_recorder
@@ -388,13 +398,14 @@ class GameSessionService:
         appearance: GameAppearance = DEFAULT_GAME_APPEARANCE,
         total_players: int = 2,
         human_display_name: str | None = None,
+        deck_config: DeckConfig = DEFAULT_DECK_CONFIG,
     ) -> GameSession:
         """Create one human plus one-to-three canonical bot participants."""
         if isinstance(total_players, bool) or not isinstance(total_players, int):
             raise TypeError("total_players must be an int")
         if not 2 <= total_players <= 4:
             raise ValueError("total_players must be between 2 and 4")
-        initial_state = self._create_game_state(total_players)
+        initial_state = self._create_game_state(total_players, deck_config)
         participants = self._create_participants(
             initial_state.seat_order,
             human_display_name=human_display_name,
@@ -439,7 +450,10 @@ class GameSessionService:
         """Start a fresh same-session match while retaining participant identities."""
         with self._store.locked_record(game_id) as record:
             previous = record.session
-            initial_state = self._create_game_state(previous.total_players)
+            initial_state = self._create_game_state(
+                previous.total_players,
+                previous.state.deck_config,
+            )
             initial_attacker = initial_state.current_attacker
             state, last_bout, recent_events = self._advance_to_human_or_complete(
                 initial_state,
@@ -514,6 +528,7 @@ class GameSessionService:
             or session.completion_persisted
             or self._completion_recorder is None
             or session.total_players != 2
+            or session.state.deck_config != DEFAULT_DECK_CONFIG
         ):
             return
         progression_award = self._completion_recorder(session)
@@ -556,13 +571,19 @@ class GameSessionService:
 
         return state, last_bout, tuple(recent_events)
 
-    def _create_game_state(self, total_players: int) -> GameState:
-        if total_players == 2:
+    def _create_game_state(self, total_players: int, deck_config: DeckConfig) -> GameState:
+        if not isinstance(deck_config, DeckConfig):
+            raise TypeError("deck_config must be a DeckConfig")
+        if deck_config != DEFAULT_DECK_CONFIG:
+            state = self._configured_game_factory(total_players, deck_config)
+        elif total_players == 2:
             state = self._game_factory()
         else:
             state = self._multiplayer_game_factory(total_players)
         if len(state.seat_order) != total_players:
             raise ValueError("game factory returned the wrong player count")
+        if state.deck_config != deck_config:
+            raise ValueError("game factory returned the wrong deck configuration")
         return state
 
     def _create_participants(

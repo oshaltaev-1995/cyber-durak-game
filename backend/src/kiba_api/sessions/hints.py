@@ -21,6 +21,7 @@ from kiba_api.game import (
     analyze_defense,
     analyze_initial_attack,
     analyze_packet_transfer,
+    analyze_rank_run,
     analyze_throw_in,
     get_throw_in_targets,
 )
@@ -201,13 +202,16 @@ def _describe_legal_candidate(
     trump = state.current_trump_state
     if action is HumanActionType.INITIAL_ATTACK:
         analysis = analyze_initial_attack(cards, trump, state.deck_config.profile)
-        reason = {
-            InitialAttackReason.SINGLE_CARD: HintReason.SINGLE_CARD,
-            InitialAttackReason.SAME_RANK: HintReason.SAME_RANK,
-            InitialAttackReason.EQUAL_VALUE_GROUPS: HintReason.ARITHMETIC_EQUALITY,
-            InitialAttackReason.CONNECTED_COMBINATION: HintReason.ARITHMETIC_EQUALITY,
-            InitialAttackReason.RANK_RUN: HintReason.RANK_RUN,
-        }[analysis.reason]
+        if analyze_rank_run((), cards, state.deck_config.profile) is not None:
+            reason = HintReason.RANK_RUN
+        else:
+            reason = {
+                InitialAttackReason.SINGLE_CARD: HintReason.SINGLE_CARD,
+                InitialAttackReason.SAME_RANK: HintReason.SAME_RANK,
+                InitialAttackReason.EQUAL_VALUE_GROUPS: HintReason.ARITHMETIC_EQUALITY,
+                InitialAttackReason.CONNECTED_COMBINATION: HintReason.ARITHMETIC_EQUALITY,
+                InitialAttackReason.RANK_RUN: HintReason.RANK_RUN,
+            }[analysis.reason]
         return HintCombination(
             action,
             cards,

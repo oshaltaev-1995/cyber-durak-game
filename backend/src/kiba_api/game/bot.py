@@ -6,7 +6,7 @@ from enum import StrEnum
 from itertools import combinations
 
 from kiba_api.game.bout import BoutActionError, BoutPhase, Seat
-from kiba_api.game.cards import Card, JokerColor, Rank, Suit, TrumpState
+from kiba_api.game.cards import Card, DeckConfig, JokerColor, Rank, Suit, TrumpState
 from kiba_api.game.game import (
     GameActionError,
     GamePhase,
@@ -20,6 +20,7 @@ from kiba_api.game.game import (
     take_game_bout,
 )
 from kiba_api.game.scoring import get_cards_value, is_trump
+from kiba_api.game.streets import analyze_rank_run
 
 
 class BotActionType(StrEnum):
@@ -112,6 +113,7 @@ class BotDecisionContext:
     """
 
     bot_seat: Seat
+    deck_config: DeckConfig
     phase: GamePhase
     seat_order: tuple[Seat, ...]
     active_seats: tuple[Seat, ...]
@@ -158,6 +160,7 @@ def build_bot_context(state: GameState, bot_seat: Seat) -> BotDecisionContext:
         )
     return BotDecisionContext(
         bot_seat=bot_seat,
+        deck_config=state.deck_config,
         phase=state.phase,
         seat_order=state.seat_order,
         active_seats=state.active_seats,
@@ -245,11 +248,28 @@ def _choose_initial_attack(
     context: BotDecisionContext,
     is_legal: Callable[[BotAction], bool],
 ) -> BotAction:
-    candidates = _bounded_initial_candidates(context.own_hand)
+    bout = context.bout
+    if bout is None:
+        raise ValueError("an initial attack requires an active bout")
+    candidates = {
+        *_bounded_initial_candidates(context.own_hand),
+        *_initial_street_candidates(
+            context.own_hand,
+            context.deck_config,
+            bout.max_attack_card_addition,
+        ),
+    }
     ordered = sorted(
         candidates,
         key=lambda cards: _selection_key(cards, context.trump_state),
     )
+    for candidate in ordered:
+        if analyze_rank_run((), candidate, context.deck_config.profile) is not None and not any(
+            is_trump(card, context.trump_state) for card in candidate
+        ):
+            action = BotAction(BotActionType.INITIAL_ATTACK, candidate)
+            if is_legal(action):
+                return action
     if len(context.seat_order) > 2:
         for candidate in ordered:
             if len(candidate) == 1:
@@ -378,8 +398,7 @@ def _rank_run_candidates(context: BotDecisionContext) -> tuple[tuple[Card, ...],
 
     cards_by_rank: dict[Rank, list[Card]] = {}
     for card in context.own_hand:
-        if card.rank is not Rank.JOKER:
-            cards_by_rank.setdefault(card.rank, []).append(card)
+        cards_by_rank.setdefault(card.rank, []).append(card)
     cheapest_by_rank = {
         rank: min(
             cards,
@@ -392,9 +411,47 @@ def _rank_run_candidates(context: BotDecisionContext) -> tuple[tuple[Card, ...],
     }
     distinct_cards = tuple(cheapest_by_rank.values())
     max_size = min(len(distinct_cards), bout.max_attack_card_addition)
-    candidates: list[tuple[Card, ...]] = []
-    for size in range(1, max_size + 1):
-        candidates.extend(combinations(distinct_cards, size))
+    candidates: set[tuple[Card, ...]] = set()
+    for card in sorted(context.own_hand, key=_card_order_key):
+        candidate = (card,)
+        if analyze_rank_run(bout.table_cards, candidate, context.deck_config.profile) is not None:
+            candidates.add(candidate)
+    for size in range(1, min(max_size, 5) + 1):
+        for candidate in combinations(distinct_cards, size):
+            if (
+                analyze_rank_run(
+                    bout.table_cards,
+                    candidate,
+                    context.deck_config.profile,
+                )
+                is not None
+            ):
+                candidates.add(candidate)
+    return tuple(sorted(candidates, key=lambda cards: tuple(_card_order_key(c) for c in cards)))
+
+
+def _initial_street_candidates(
+    cards: tuple[Card, ...],
+    deck_config: DeckConfig,
+    capacity: int,
+) -> tuple[tuple[Card, ...], ...]:
+    """Return bounded shared-helper-validated initial streets, including duplicates."""
+    ordered = tuple(sorted(cards, key=_card_order_key))
+    candidates: set[tuple[Card, ...]] = set()
+    card_by_rank: dict[Rank, Card] = {}
+    for card in ordered:
+        card_by_rank.setdefault(card.rank, card)
+    distinct_cards = tuple(card_by_rank.values())
+    max_distinct = min(len(distinct_cards), capacity)
+    for size in range(5, max_distinct + 1):
+        for candidate in combinations(distinct_cards, size):
+            if analyze_rank_run((), candidate, deck_config.profile) is None:
+                continue
+            candidates.add(candidate)
+            ranks = {card.rank for card in candidate}
+            with_duplicates = tuple(card for card in ordered if card.rank in ranks)
+            if len(with_duplicates) <= capacity:
+                candidates.add(with_duplicates)
     return tuple(candidates)
 
 
@@ -443,7 +500,7 @@ def _selection_key(
     trump_state: TrumpState,
     *,
     prefer_non_trumps: bool = False,
-) -> tuple[int, int, int, tuple[tuple[int, int, int], ...]]:
+) -> tuple[int, int, int, tuple[tuple[int, int, int, int], ...]]:
     trump_count = sum(is_trump(card, trump_state) for card in cards) if prefer_non_trumps else 0
     return (
         get_cards_value(cards, trump_state),
@@ -458,14 +515,14 @@ _SUIT_ORDER = {suit: index for index, suit in enumerate(Suit)}
 _JOKER_COLOR_ORDER = {color: index for index, color in enumerate(JokerColor)}
 
 
-def _card_order_key(card: Card) -> tuple[int, int, int]:
+def _card_order_key(card: Card) -> tuple[int, int, int, int]:
     suit_order = len(_SUIT_ORDER) if card.suit is None else _SUIT_ORDER[card.suit]
     joker_order = (
         len(_JOKER_COLOR_ORDER)
         if card.joker_color is None
         else _JOKER_COLOR_ORDER[card.joker_color]
     )
-    return _RANK_ORDER[card.rank], suit_order, joker_order
+    return _RANK_ORDER[card.rank], suit_order, joker_order, card.deck_copy
 
 
 def _require_bot_turn(bot_seat: Seat, acting_seat: Seat | None) -> None:

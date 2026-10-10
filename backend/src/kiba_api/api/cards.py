@@ -1,8 +1,18 @@
-"""Stable external card codes for the 36-card REST API."""
+"""Stable display codes and exact physical references for the public API."""
 
 from enum import StrEnum
 
-from kiba_api.game import Card, Rank, Suit, create_36_card_deck
+from kiba_api.game import (
+    DEFAULT_DECK_CONFIG,
+    Card,
+    DeckConfig,
+    DeckProfile,
+    JokerColor,
+    Rank,
+    Suit,
+    create_36_card_deck,
+    create_deck,
+)
 
 _SUIT_CODES = {
     Suit.CLUBS: "C",
@@ -17,6 +27,9 @@ class CardCodeErrorCode(StrEnum):
 
     INVALID_CARD_CODE = "invalid_card_code"
     DUPLICATE_CARD_CODE = "duplicate_card_code"
+    INVALID_CARD_ID = "invalid_card_id"
+    DUPLICATE_CARD_ID = "duplicate_card_id"
+    LEGACY_CARD_REFERENCE_NOT_AVAILABLE = "legacy_card_reference_not_available"
 
 
 class CardCodeError(ValueError):
@@ -28,13 +41,23 @@ class CardCodeError(ValueError):
 
 
 def card_to_code(card: Card) -> str:
-    """Serialize one normal MVP card as rank plus one-letter suit."""
-    if card.rank is Rank.JOKER or card.suit is None:
-        raise ValueError("the Phase 3C1 API supports only normal 36-card deck codes")
+    """Serialize one display identity without encoding its physical deck copy."""
+    if card.rank is Rank.JOKER:
+        if card.joker_color is JokerColor.RED:
+            return "RJ"
+        if card.joker_color is JokerColor.BLACK:
+            return "BJ"
+        raise ValueError("a Joker code requires a Joker color")
+    if card.suit is None:
+        raise ValueError("a normal card code requires a suit")
     return f"{card.rank.value}{_SUIT_CODES[card.suit]}"
 
 
 _CARDS_BY_CODE = {card_to_code(card): card for card in create_36_card_deck()}
+_CARDS_BY_PHYSICAL_ID = {
+    card.physical_id: card
+    for card in create_deck(DeckConfig(profile=DeckProfile.EXTENDED, deck_count=2))
+}
 
 
 def parse_card_codes(codes: list[str]) -> tuple[Card, ...]:
@@ -49,3 +72,33 @@ def parse_card_codes(codes: list[str]) -> tuple[Card, ...]:
             raise CardCodeError(CardCodeErrorCode.INVALID_CARD_CODE)
         cards.append(card)
     return tuple(cards)
+
+
+def parse_card_ids(card_ids: list[str]) -> tuple[Card, ...]:
+    """Parse unique exact physical IDs without inferring ownership."""
+    if len(set(card_ids)) != len(card_ids):
+        raise CardCodeError(CardCodeErrorCode.DUPLICATE_CARD_ID)
+
+    cards: list[Card] = []
+    for card_id in card_ids:
+        card = _CARDS_BY_PHYSICAL_ID.get(card_id)
+        if card is None:
+            raise CardCodeError(CardCodeErrorCode.INVALID_CARD_ID)
+        cards.append(card)
+    return tuple(cards)
+
+
+def parse_card_references(
+    *,
+    deck_config: DeckConfig,
+    codes: list[str] | None,
+    card_ids: list[str] | None,
+) -> tuple[Card, ...]:
+    """Normalize one mutually-exclusive legacy or exact card-reference list."""
+    if card_ids is not None:
+        return parse_card_ids(card_ids)
+    if not codes:
+        return ()
+    if deck_config != DEFAULT_DECK_CONFIG:
+        raise CardCodeError(CardCodeErrorCode.LEGACY_CARD_REFERENCE_NOT_AVAILABLE)
+    return parse_card_codes(codes)

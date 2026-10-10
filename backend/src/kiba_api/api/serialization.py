@@ -56,12 +56,16 @@ def serialize_move_hints(hints: MoveHints) -> HintResponse:
     return HintResponse(
         selected_card_ids=[card_to_code(card) for card in hints.selected_cards],
         suggested_card_ids=[card_to_code(card) for card in hints.suggested_cards],
+        selected_physical_ids=[card.physical_id for card in hints.selected_cards],
+        suggested_physical_ids=[card.physical_id for card in hints.suggested_cards],
         suggested_action_types=list(hints.suggested_actions),
         combinations=[
             HintCombinationResponse(
                 action=combination.action,
                 card_ids=[card_to_code(card) for card in combination.cards],
                 added_card_ids=[card_to_code(card) for card in combination.added_cards],
+                physical_card_ids=[card.physical_id for card in combination.cards],
+                added_physical_card_ids=[card.physical_id for card in combination.added_cards],
                 reason=combination.reason.value,
                 selected_value=combination.selected_value,
                 target_value=combination.target_value,
@@ -130,6 +134,8 @@ def serialize_game_session(session: GameSession, locale: Locale = Locale.RU) -> 
         human_seat=session.human_seat.value,
         bot_seat=session.bot_seat.value,
         total_players=session.total_players,
+        deck_profile=state.deck_config.profile,
+        deck_count=state.deck_config.deck_count,
         participants=[
             BotSessionParticipantResponse(
                 participant_id=participant.participant_id,
@@ -201,12 +207,12 @@ def serialize_game_session(session: GameSession, locale: Locale = Locale.RU) -> 
 
 
 def _serialize_card(card: Card, trump_state: TrumpState) -> CardResponse:
-    if card.suit is None:
-        raise ValueError("Phase 3C1 public state supports only normal 36-card cards")
     return CardResponse(
+        id=card.physical_id,
         code=card_to_code(card),
         rank=card.rank.value,
-        suit=card.suit.value,
+        suit=card.suit.value if card.suit is not None else None,
+        joker_color=card.joker_color.value if card.joker_color is not None else None,
         base_value=get_base_value(card),
         effective_value=get_effective_value(card, trump_state),
         is_trump=is_trump(card, trump_state),
@@ -404,6 +410,6 @@ def _format_fraction(value: Fraction | None) -> str | None:
     return f"{value.numerator}/{value.denominator}"
 
 
-def _presentation_card_key(card: Card) -> tuple[int, int]:
+def _presentation_card_key(card: Card) -> tuple[int, int, int]:
     suit_index = len(_SUIT_ORDER) if card.suit is None else _SUIT_ORDER[card.suit]
-    return suit_index, _RANK_ORDER[card.rank]
+    return suit_index, _RANK_ORDER[card.rank], card.deck_copy

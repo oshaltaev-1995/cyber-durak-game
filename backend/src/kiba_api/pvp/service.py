@@ -18,9 +18,11 @@ if TYPE_CHECKING:
     from kiba_api.persistence.progression import ProgressionAward
 
 from kiba_api.game import (
+    DEFAULT_DECK_CONFIG,
     BoutActionError,
     BoutState,
     Card,
+    DeckConfig,
     GameActionError,
     GamePhase,
     GameState,
@@ -173,6 +175,7 @@ class PvPRoom:
     created_at: datetime
     updated_at: datetime
     capacity: int = 2
+    deck_config: DeckConfig = DEFAULT_DECK_CONFIG
     match_id: str | None = None
     rematch_acceptances: tuple[str, ...] = ()
     rematch_declined_by: str | None = None
@@ -186,6 +189,8 @@ class PvPRoom:
             seat_order = seats_for_player_count(self.capacity)
         except (TypeError, ValueError) as error:
             raise ValueError("room capacity must be between two and four") from error
+        if not isinstance(self.deck_config, DeckConfig):
+            raise TypeError("deck_config must be a DeckConfig")
         if (
             not isinstance(self.participants, tuple)
             or not 1 <= len(self.participants) <= self.capacity
@@ -261,6 +266,8 @@ class PvPRoom:
             self.state is None or self.state.seat_order != seat_order
         ):
             raise ValueError("room capacity and authoritative game seats must match")
+        if self.state is not None and self.state.deck_config != self.deck_config:
+            raise ValueError("room and authoritative game deck configurations must match")
         if self.phase is not PvPRoomPhase.COMPLETE and (
             self.rematch_acceptances or self.rematch_declined_by is not None
         ):
@@ -411,6 +418,7 @@ class InMemoryPvPRoomStore:
 _Clock = Callable[[], datetime]
 _GameFactory = Callable[[], GameState]
 _MultiplayerGameFactory = Callable[[int], GameState]
+_ConfiguredGameFactory = Callable[[int, DeckConfig], GameState]
 _TokenFactory = Callable[[int], str]
 _CompletionRecorder = Callable[[PvPRoom], tuple[PvPParticipantCompletion, ...]]
 
@@ -424,6 +432,7 @@ class PvPRoomService:
         store: InMemoryPvPRoomStore | None = None,
         game_factory: _GameFactory = create_new_game,
         multiplayer_game_factory: _MultiplayerGameFactory | None = None,
+        configured_game_factory: _ConfiguredGameFactory | None = None,
         clock: _Clock = lambda: datetime.now(UTC),
         token_factory: _TokenFactory = secrets.token_urlsafe,
         ttl: RoomTTLPolicy | None = None,
@@ -436,6 +445,12 @@ class PvPRoomService:
             if multiplayer_game_factory is not None
             else lambda player_count: create_new_game(player_count=player_count)
         )
+        self._configured_game_factory = configured_game_factory or (
+            lambda player_count, deck_config: create_new_game(
+                player_count=player_count,
+                deck_config=deck_config,
+            )
+        )
         self._clock = clock
         self._token_factory = token_factory
         self._ttl = ttl or RoomTTLPolicy()
@@ -446,6 +461,7 @@ class PvPRoomService:
         display_name: str,
         *,
         capacity: int = 2,
+        deck_config: DeckConfig = DEFAULT_DECK_CONFIG,
         user_id: UUID | None = None,
         preferred_locale: Locale = Locale.RU,
     ) -> tuple[PvPRoom, PvPParticipant]:
@@ -473,6 +489,7 @@ class PvPRoomService:
             created_at=now,
             updated_at=now,
             capacity=capacity,
+            deck_config=deck_config,
             match_id=None,
         )
         self._store.create(room)
@@ -520,7 +537,7 @@ class PvPRoomService:
                 )
                 return record.room, participant
 
-            state = self._create_game(room.capacity)
+            state = self._create_game(room.capacity, room.deck_config)
             if state.phase is not GamePhase.READY_FOR_BOUT:
                 raise ValueError("PvP game factory must return READY_FOR_BOUT")
             if state.seat_order != seats_for_player_count(room.capacity):
@@ -859,6 +876,7 @@ class PvPRoomService:
             or room.capacity != 2
             or room.completion_results
             or self._completion_recorder is None
+            or room.deck_config != DEFAULT_DECK_CONFIG
         ):
             return
         try:
@@ -880,7 +898,7 @@ class PvPRoomService:
             raise PvPActionError(PvPErrorCode.REMATCH_NOT_AVAILABLE)
 
     def _start_rematch(self, record: _RoomRecord, room: PvPRoom, now: datetime) -> PvPRoom:
-        state = self._create_game(room.capacity)
+        state = self._create_game(room.capacity, room.deck_config)
         if state.phase is not GamePhase.READY_FOR_BOUT:
             raise ValueError("PvP game factory must return READY_FOR_BOUT")
         initial_attacker = state.current_attacker
@@ -904,8 +922,16 @@ class PvPRoomService:
         )
         return record.room
 
-    def _create_game(self, capacity: int) -> GameState:
-        return self._game_factory() if capacity == 2 else self._multiplayer_game_factory(capacity)
+    def _create_game(self, capacity: int, deck_config: DeckConfig) -> GameState:
+        if deck_config != DEFAULT_DECK_CONFIG:
+            state = self._configured_game_factory(capacity, deck_config)
+        else:
+            state = (
+                self._game_factory() if capacity == 2 else self._multiplayer_game_factory(capacity)
+            )
+        if state.deck_config != deck_config:
+            raise ValueError("PvP game factory returned the wrong deck configuration")
+        return state
 
     def _new_match_id(self, previous: str | None) -> str:
         for _attempt in range(20):

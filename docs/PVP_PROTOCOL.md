@@ -6,15 +6,19 @@ three-/four-player product remains disabled by default until staged rollout.
 
 ## Feature capability
 
-`KIBA_MULTIPLAYER_3_4_ENABLED` defaults to `false`. `GET /api/capabilities` exposes only
-`multiplayer_3_4_enabled`. When disabled, public room creation with capacity `3` or `4` is rejected
-as `FEATURE_NOT_AVAILABLE`; omitted capacity and capacity `2` retain their existing behavior. The
-backend check is authoritative, so hiding the Angular selector is not the security boundary.
+`KIBA_MULTIPLAYER_3_4_ENABLED` and `KIBA_DECK_VARIANTS_ENABLED` both default to `false`.
+`GET /api/capabilities` exposes those two booleans and no environment contents. The first gate
+controls capacity `3`/`4`; the second controls every configuration except CLASSIC ×1. The gates are
+independent: for example, two-player EXTENDED requires only the deck gate, while three-player
+EXTENDED requires both. Omitted configuration and explicit CLASSIC ×1 remain accepted when the
+deck gate is off. Rejections use `FEATURE_NOT_AVAILABLE`.
 
 ## Room lifecycle
 
-`POST /api/pvp/rooms` accepts the existing optional `nickname` and an optional `capacity` of `2`,
-`3`, or `4`. Omitting `capacity` preserves the existing two-player behavior. Capacity is immutable.
+`POST /api/pvp/rooms` accepts the existing optional `nickname`, an optional `capacity` of `2`, `3`,
+or `4`, and optional `deck_profile` (`classic`/`extended`) and `deck_count` (`1`/`2`). Omitting the
+new fields means CLASSIC ×1 and preserves existing behavior. Capacity and deck configuration are
+immutable room properties; joiners never choose or replace them.
 The creator receives canonical seat `one`; later joins receive the lowest unoccupied canonical seat.
 The room remains `WAITING_FOR_OPPONENT` until joined count equals capacity and then starts exactly
 one authoritative generalized game with the same seat ring.
@@ -23,6 +27,12 @@ one authoritative generalized game with the same seat ring.
 claim two participant identities in the same waiting room. `GET /api/pvp/rooms/{invite_code}` and
 join/create snapshots add `capacity`, `joined_count`, stable `seat_order`, and ordered public player
 descriptors.
+
+When the room fills, the authoritative `GameState` is created from the room's exact profile and
+copy count. Reconnect returns the same live state and physical card identities. A unanimous
+rematch retains the room configuration while creating a new game object, shuffle, and `match_id`.
+If a live release gate is later disabled, an active match may finish, but a new non-default
+rematch is rejected without changing the completed result.
 
 Before a three- or four-player match starts, explicit `LEAVE` releases that participant's lobby
 seat when another participant remains, emits `PARTICIPANT_LEFT`, and lets a later join claim the
@@ -44,6 +54,12 @@ legality. The room lock and expected `version` preserve atomic application: one 
 increments the version once, while stale, replayed, wrong-turn, or illegal actions do not mutate the
 snapshot.
 
+Card actions accept exactly one reference form. Existing CLASSIC ×1 clients may continue sending
+face codes in `cards` (`JD`, `KS`, `10C`). Generalized clients send exact match-scoped physical IDs
+in `card_ids`. Supplying both forms is invalid. Legacy face references are not accepted outside
+CLASSIC ×1, and an ID is rejected if it is nonexistent, repeated, in another hand, on the table, in
+discard, or in the draw pile. Thus duplicate faces can never resolve to an arbitrary copy.
+
 State changes are broadcast to every connected room participant, but the server serializes a fresh
 private projection for each recipient. Existing message names (`STATE`, `GAME_COMPLETE`,
 `OPPONENT_CONNECTED`, `OPPONENT_DISCONNECTED`, and rejection types) remain unchanged. Connection
@@ -57,45 +73,59 @@ Each `STATE` retains the legacy two-player `you`, `opponent`, `opponent_hand_cou
 are:
 
 - `capacity`, `joined_count`, and canonical `seat_order`;
+- authoritative `deck_profile` and `deck_count`;
 - ordered `players`, with public hand count, connected, active, finished, and `is_self` state;
 - `active_seats`, `finished_seats`, and ordered `finish_groups`;
 - `lead_attacker`, alongside the existing current bout `attacker`, `defender`, and required actor.
 - participant-relative `rematch_status`, ready/total counts, and ordered public participant IDs
   that have accepted the current rematch proposal.
 
-The viewer receives exact cards only for their own hand. Other participants expose counts only.
+Every visible card adds `id` while retaining the existing `code`. Normal codes remain unchanged;
+Jokers use stable non-translated codes `RJ` and `BJ`, `rank: "JOKER"`, nullable `suit`, and explicit
+`joker_color`. The ID is a protocol reference and must not be rendered as a deck-copy label. Two
+visible duplicate faces have the same code and distinct IDs. Own-hand cards, the exposed top card,
+and table cards include IDs. The viewer receives exact cards only for their own hand. Other
+participants expose counts only.
 Future draw-pile cards, private RNG state, reconnect credentials, account IDs, and other secrets are
 never serialized. The already-public exposed top draw card and table/discard metadata remain public.
 
-Two-player completion continues to expose the legacy `WIN`/`DRAW` result and uses the existing
-authenticated match-history/progression recorder. Three- and four-player completion exposes
-canonical ordered finish groups and deliberately has no binary result or persistence write. No
-database schema or migration is involved.
+Two-player CLASSIC ×1 completion continues to expose the legacy `WIN`/`DRAW` result and uses the
+existing authenticated match-history/progression recorder. Three- and four-player completion
+exposes canonical ordered finish groups and retains its no-progression policy. Every non-default
+deck configuration skips history, XP, W/L/D statistics, achievements, rating, and other progression
+for both bot and PvP play. No database schema or migration is involved.
 
 ## Multiplayer product behavior
 
-Hints remain available only for capacity two. A three- or four-player `HINT_REQUEST` is rejected as
+Hints remain available only for capacity two across all four deck configurations. Requests may use
+legacy `selected_card_ids` only for CLASSIC ×1 or exact `selected_physical_ids` generally. Responses
+retain the legacy face-code fields and add exact physical-ID fields for selected, suggested, and
+combination cards. A three- or four-player `HINT_REQUEST` is rejected as
 `FEATURE_NOT_AVAILABLE`. After a terminal result, existing `REMATCH_REQUEST`, `REMATCH_ACCEPT`,
 `REMATCH_DECLINE`, and `REMATCH_CANCEL` messages support every room capacity. A request counts as
 the requester's consent; all original stable-seat participants, including early finishers, must
 accept before a fresh match starts. Decline clears the proposal without changing the completed
 result, requester cancel clears the proposal, duplicate acceptance is idempotent, and disconnect/reconnect
 preserves recorded intent. The rematch keeps room identity, participants, seats and reconnect
-credentials, but creates a fresh `GameState`, shuffle and `match_id`. With the feature capability
-disabled, a new three-/four-player rematch is rejected cleanly.
+credentials and deck configuration, but creates a fresh `GameState`, physical deck, shuffle and
+`match_id`. Relevant live gates are rechecked before the new match starts.
 
 Three-/four-player matches and their rematches deliberately write no history, XP, statistics,
-achievements, or ratings. Two-player exactly-once persistence is unchanged. There are no bots,
-matchmaking, external spectators, or durable active-room storage. Rooms and reconnect credentials
-remain process-local and are lost on backend restart.
+achievements, or ratings. Two-player CLASSIC ×1 exactly-once persistence is unchanged. There are no
+bots, matchmaking, external spectators, or durable active-room storage. Rooms and reconnect
+credentials remain process-local and are lost on backend restart.
 
 ## Test matrix
 
-The backend matrix covers default/invalid 2–4 capacity, waiting/start/full rooms, lowest-free and
-concurrent final-seat assignment, account duplicate prevention, all-seat reconnect, simultaneous
+The backend matrix covers default/invalid 2–4 capacity and deck configuration, waiting/start/full
+rooms, lowest-free and concurrent final-seat assignment, account duplicate prevention, all-seat
+reconnect, simultaneous
 disconnects, cleanup, pre-start and active Exit, private projections for three and four seats,
 nested hidden-card/deck/token checks, valid/wrong/stale/concurrent actions, initial attack, defense,
 wrapped transfer, non-cycling attacker handoff, TAKE, BITO, 4→3→2 finish reduction, simultaneous
 finish groups, feature-gate bypass rejection, real REST/WebSocket broadcasts, unanimous three- and
 four-player rematch, and the existing two-player guest, persistence, hint, rematch, and reconnect
-suites.
+suites. Deck integration additionally covers two-player EXTENDED action/defense/reconnect,
+three-player EXTENDED street/handoff, four-player EXTENDED ×2 with 108-card conservation and
+WebSocket action broadcast, exact duplicate selection, hidden-ID rejection, all-config rematches,
+live-gate rechecks, and non-default persistence exclusion.
