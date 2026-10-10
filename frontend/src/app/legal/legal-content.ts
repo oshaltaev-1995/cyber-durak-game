@@ -38,7 +38,7 @@ const privacyEn: LegalDocument = {
     {
       heading: 'What KIBA is',
       paragraphs: [
-        'KIBA is a browser-based card game available against a bot or in a private two-player room. You may play as a guest. Creating an account is optional and is used to save history and progression.',
+        'KIBA is a browser-based card game available against computer opponents or in private multiplayer rooms for 2–4 players. You may play as a guest. Creating an account is optional and is used to save history and progression.',
       ],
     },
     {
@@ -128,7 +128,7 @@ const privacyRu: LegalDocument = {
     {
       heading: 'Что такое KIBA',
       paragraphs: [
-        'KIBA — браузерная карточная игра против бота или в приватной комнате для двух игроков. Можно играть как гость. Необязательный аккаунт сохраняет историю и прогресс.',
+        'KIBA — браузерная карточная игра против компьютерных соперников или в приватных многопользовательских комнатах для 2–4 игроков. Можно играть как гость. Необязательный аккаунт сохраняет историю и прогресс.',
       ],
     },
     {

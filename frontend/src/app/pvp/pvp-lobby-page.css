@@ -149,6 +149,23 @@ form {
 .progression-note {
   font-size: 0.8rem;
 }
+.capability-status {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+}
+.capability-error {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid rgb(255 119 119 / 42%);
+  border-radius: 0.7rem;
+  color: #ffd5d5;
+  background: rgb(93 21 27 / 48%);
+}
+.capability-error button {
+  justify-self: start;
+}
 .error {
   padding: 0.7rem;
   border: 1px solid rgb(255 119 119 / 42%);

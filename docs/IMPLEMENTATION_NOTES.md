@@ -1400,6 +1400,26 @@ display the backend policy that profile history, XP, statistics, achievements, r
 progression are not affected. The capability remains default off, D4 introduces no schema
 migration or backend gameplay change, and production deployment is reserved for D5.
 
+### 15.15 Post-audit public creator and startup policy
+
+The public `/pvp` creator treats `/api/capabilities` as required configuration rather than
+optimistically rendering the legacy defaults. Room creation stays disabled while capabilities are
+loading and after a failed capability request; retry restores the same form. Once loaded, the
+multiplayer and deck gates remain independent, and the exact selected capacity/profile/deck count
+is sent through the existing additive room-create contract. Invitees continue to receive an
+immutable authoritative room configuration and never mount creator controls.
+
+Fresh `/play` entry has an explicit capability-loading presentation instead of rendering the
+generic start-failure state before the first response. Real create and restore failures remain
+visible. First-use multiplayer/deck onboarding is now a preflight before bot-session creation, so
+no authoritative bot actions can progress beneath either modal; acknowledged users and restored
+sessions bypass that preflight as before.
+
+Unknown Angular routes render a localized branded Not Found page and set `robots` to
+`noindex,follow`. The production static-SPA fallback still returns `index.html` with HTTP 200 for
+unknown document routes; the client-visible state is intentionally corrected without a brittle
+nginx route whitelist. Privacy product-scope copy now describes private rooms for 2–4 players.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

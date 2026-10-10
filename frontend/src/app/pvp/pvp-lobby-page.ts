@@ -26,6 +26,7 @@ export class PvPLobbyPageComponent implements OnInit {
   protected readonly nickname = signal('');
   protected readonly inviteCode = signal('');
   protected readonly pending = signal(false);
+  protected readonly capabilityState = signal<'loading' | 'ready' | 'failed'>('loading');
   protected readonly multiplayerEnabled = signal(false);
   protected readonly deckVariantsEnabled = signal(false);
   protected readonly selectedPlayers = signal<2 | 3 | 4>(2);
@@ -36,20 +37,32 @@ export class PvPLobbyPageComponent implements OnInit {
   protected readonly roomCodeTouched = signal(false);
 
   ngOnInit(): void {
+    this.loadCapabilities();
+  }
+
+  protected retryCapabilities(): void {
+    if (this.capabilityState() === 'loading') return;
+    this.loadCapabilities();
+  }
+
+  private loadCapabilities(): void {
+    this.capabilityState.set('loading');
     this.api.getCapabilities().subscribe({
       next: (capabilities) => {
         this.multiplayerEnabled.set(capabilities.multiplayer_3_4_enabled);
         this.deckVariantsEnabled.set(capabilities.deck_variants_enabled ?? false);
+        this.capabilityState.set('ready');
       },
       error: () => {
         this.multiplayerEnabled.set(false);
         this.deckVariantsEnabled.set(false);
+        this.capabilityState.set('failed');
       },
     });
   }
 
   protected createRoom(): void {
-    if (this.pending()) return;
+    if (this.pending() || this.capabilityState() !== 'ready') return;
     this.pending.set(true);
     this.error.set(null);
     this.api

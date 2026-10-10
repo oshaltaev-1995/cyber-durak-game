@@ -17,6 +17,7 @@ import { RulesPageComponent } from './rules/rules-page';
 import { TutorialPageComponent } from './tutorial/tutorial-page';
 import { PrivacyPageComponent } from './legal/privacy-page';
 import { TermsPageComponent } from './legal/terms-page';
+import { NotFoundPageComponent } from './not-found/not-found-page';
 
 export const routes: Routes = [
   { path: '', component: LandingPageComponent },
@@ -40,5 +41,5 @@ export const routes: Routes = [
     component: AchievementsPageComponent,
   },
   { path: 'profile/cosmetics', component: CosmeticsPageComponent },
-  { path: '**', redirectTo: '' },
+  { path: '**', component: NotFoundPageComponent },
 ];

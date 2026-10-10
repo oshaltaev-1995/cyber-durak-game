@@ -417,53 +417,50 @@
         </section>
       </div>
     }
-    @if (onboardingVisible()) {
-      <div class="restart-backdrop onboarding-backdrop">
-        <section
-          class="multiplayer-onboarding"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="multiplayer-onboarding-title"
-        >
-          <span aria-hidden="true">↻</span>
-          <h2 id="multiplayer-onboarding-title">{{ i18n.t('game.multiplayerOnboardingTitle') }}</h2>
-          <p>{{ i18n.t('game.multiplayerOnboardingText') }}</p>
-          <div>
-            <a
-              routerLink="/tutorial"
-              [queryParams]="{ track: 'multiplayer' }"
-              (click)="dismissOnboarding()"
-              >{{ i18n.t('game.multiplayerGuide') }}</a
-            >
-            <button type="button" (click)="dismissOnboarding()">{{ i18n.t('game.gotIt') }}</button>
-          </div>
-        </section>
-      </div>
-    }
-    @if (deckOnboardingVisible()) {
-      <div class="restart-backdrop onboarding-backdrop">
-        <section
-          class="multiplayer-onboarding"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="deck-onboarding-title"
-        >
-          <span aria-hidden="true">★</span>
-          <h2 id="deck-onboarding-title">{{ i18n.t('deck.onboardingTitle') }}</h2>
-          <p>{{ i18n.t('deck.onboardingText') }}</p>
-          <div>
-            <a
-              routerLink="/tutorial"
-              [queryParams]="{ track: 'decks' }"
-              (click)="dismissDeckOnboarding()"
-              >{{ i18n.t('deck.guide') }}</a
-            >
-            <button type="button" (click)="dismissDeckOnboarding()">
-              {{ i18n.t('game.gotIt') }}
-            </button>
-          </div>
-        </section>
-      </div>
-    }
+  }
+  @if (onboardingVisible()) {
+    <div class="restart-backdrop onboarding-backdrop">
+      <section
+        class="multiplayer-onboarding"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="multiplayer-onboarding-title"
+      >
+        <span aria-hidden="true">↻</span>
+        <h2 id="multiplayer-onboarding-title">{{ i18n.t('game.multiplayerOnboardingTitle') }}</h2>
+        <p>{{ i18n.t('game.multiplayerOnboardingText') }}</p>
+        <div>
+          <a
+            routerLink="/tutorial"
+            [queryParams]="{ track: 'multiplayer' }"
+            (click)="openMultiplayerGuide()"
+            >{{ i18n.t('game.multiplayerGuide') }}</a
+          >
+          <button type="button" (click)="dismissOnboarding()">{{ i18n.t('game.gotIt') }}</button>
+        </div>
+      </section>
+    </div>
+  }
+  @if (deckOnboardingVisible()) {
+    <div class="restart-backdrop onboarding-backdrop">
+      <section
+        class="multiplayer-onboarding"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="deck-onboarding-title"
+      >
+        <span aria-hidden="true">★</span>
+        <h2 id="deck-onboarding-title">{{ i18n.t('deck.onboardingTitle') }}</h2>
+        <p>{{ i18n.t('deck.onboardingText') }}</p>
+        <div>
+          <a routerLink="/tutorial" [queryParams]="{ track: 'decks' }" (click)="openDeckGuide()">{{
+            i18n.t('deck.guide')
+          }}</a>
+          <button type="button" (click)="dismissDeckOnboarding()">
+            {{ i18n.t('game.gotIt') }}
+          </button>
+        </div>
+      </section>
+    </div>
   }
 </div>

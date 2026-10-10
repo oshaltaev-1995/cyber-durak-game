@@ -215,8 +215,49 @@ describe('GamePageComponent', () => {
     expect(element.querySelector('app-deck-config-selector')).toBeNull();
   }, 15_000);
 
+  it('shows a neutral loading state while fresh capabilities are unresolved', () => {
+    const capabilities = new Subject<{
+      multiplayer_3_4_enabled: boolean;
+      deck_variants_enabled?: boolean;
+    }>();
+    api.getCapabilities.mockReturnValue(capabilities);
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.textContent).toContain('Загружаем варианты игры');
+    expect(element.textContent).not.toContain('Не удалось начать игру');
+    expect(api.createGame).not.toHaveBeenCalled();
+
+    capabilities.next({ multiplayer_3_4_enabled: true, deck_variants_enabled: true });
+    capabilities.complete();
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Игра с ботами');
+    expect(element.textContent).not.toContain('Не удалось начать игру');
+  });
+
+  it('keeps a genuine fresh-game creation failure visible after startup completes', () => {
+    api.createGame.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 503,
+            error: { detail: { code: 'internal_error' } },
+          }),
+      ),
+    );
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toContain('Не удалось начать игру');
+    expect(text).toContain('Ход не принят');
+    expect(api.createGame).toHaveBeenCalledOnce();
+  });
+
   it('creates the independently selected 108-card bot configuration behind the capability', () => {
     localStorage.setItem('kiba.deckVariantsOnboarding.v1', 'true');
+    localStorage.setItem('kiba.multiplayerOnboarding.v1', 'true');
     api.getCapabilities.mockReturnValue(
       of({ multiplayer_3_4_enabled: true, deck_variants_enabled: true }),
     );
@@ -245,6 +286,7 @@ describe('GamePageComponent', () => {
   });
 
   it('shows a native total-player selector only when the shared capability is enabled', () => {
+    localStorage.setItem('kiba.multiplayerOnboarding.v1', 'true');
     api.getCapabilities.mockReturnValue(of({ multiplayer_3_4_enabled: true }));
     api.createGame.mockReturnValue(of(makeMultiplayerGame(4)));
     fixture = TestBed.createComponent(GamePageComponent);
@@ -387,10 +429,12 @@ describe('GamePageComponent', () => {
     fixture.detectChanges();
     clickButton('Играть');
 
+    expect(api.createGame).not.toHaveBeenCalled();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Больше игроков — та же KIBA',
     );
     clickButton('Понятно');
+    expect(api.createGame).toHaveBeenCalledWith(3);
     expect(localStorage.getItem('kiba.multiplayerOnboarding.v1')).toBe('true');
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('.multiplayer-onboarding'),
@@ -398,9 +442,25 @@ describe('GamePageComponent', () => {
   });
 
   it('shows deck onboarding for a fresh non-default game but not a restored session', () => {
-    create(makeGame({ deck_profile: 'extended' }));
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: false, deck_variants_enabled: true }),
+    );
+    api.createGame.mockReturnValue(of(makeGame({ deck_profile: 'extended' })));
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLInputElement>('input[name="deckProfile"][value="extended"]')!
+      .click();
+    fixture.detectChanges();
+    clickButton('Играть');
+
+    expect(api.createGame).not.toHaveBeenCalled();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Пробуете другую колоду?');
     clickButton('Понятно');
+    expect(api.createGame).toHaveBeenCalledWith(2, {
+      deck_profile: 'extended',
+      deck_count: 1,
+    });
     expect(localStorage.getItem('kiba.deckVariantsOnboarding.v1')).toBe('true');
 
     fixture.destroy();
@@ -414,6 +474,33 @@ describe('GamePageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
       'Пробуете другую колоду?',
     );
+  });
+
+  it('acknowledges deck and multiplayer onboarding before creating a non-default game', () => {
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: true, deck_variants_enabled: true }),
+    );
+    api.createGame.mockReturnValue(of(makeMultiplayerGame(4, { deck_profile: 'extended' })));
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    element.querySelector<HTMLInputElement>('input[name="botPlayerCount"][value="4"]')!.click();
+    element.querySelector<HTMLInputElement>('input[name="deckProfile"][value="extended"]')!.click();
+    fixture.detectChanges();
+
+    clickButton('Играть');
+    expect(api.createGame).not.toHaveBeenCalled();
+    expect(element.textContent).toContain('Пробуете другую колоду?');
+    clickButton('Понятно');
+    expect(api.createGame).not.toHaveBeenCalled();
+    expect(element.textContent).toContain('Больше игроков — та же KIBA');
+    clickButton('Понятно');
+
+    expect(api.createGame).toHaveBeenCalledWith(4, {
+      deck_profile: 'extended',
+      deck_count: 1,
+    });
+    expect(element.querySelector('.game-board')).not.toBeNull();
   });
 
   it('preserves a non-default deck configuration through Play Again', () => {

@@ -144,4 +144,25 @@ describe('App', () => {
     );
     expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('recoverable-game');
   });
+
+  it('renders an explicit localized Not Found page and marks it noindex', async () => {
+    const fixture = TestBed.createComponent(App);
+    const router = TestBed.inject(Router);
+
+    await router.navigateByUrl('/audit-not-a-real-route');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('h1')?.textContent).toContain('Страница не найдена');
+    expect(element.querySelector('.not-found a[href="/"]')?.textContent).toContain('На главную');
+    expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
+      'noindex,follow',
+    );
+
+    await router.navigateByUrl('/');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(document.head.querySelector('meta[name="robots"]')).toBeNull();
+  });
 });

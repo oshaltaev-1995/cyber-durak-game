@@ -21,7 +21,17 @@
         />
       </label>
     }
-    @if (multiplayerEnabled()) {
+    @if (capabilityState() === 'loading') {
+      <p class="capability-status" role="status">{{ i18n.t('pvp.loadingOptions') }}</p>
+    } @else if (capabilityState() === 'failed') {
+      <div class="capability-error" role="alert">
+        <span>{{ i18n.t('pvp.optionsUnavailable') }}</span>
+        <button type="button" (click)="retryCapabilities()">
+          {{ i18n.t('common.retry') }}
+        </button>
+      </div>
+    }
+    @if (capabilityState() === 'ready' && multiplayerEnabled()) {
       <fieldset class="player-count-selector">
         <legend>{{ i18n.t('pvp.players') }}</legend>
         <div>
@@ -40,7 +50,7 @@
         </div>
       </fieldset>
     }
-    @if (deckVariantsEnabled()) {
+    @if (capabilityState() === 'ready' && deckVariantsEnabled()) {
       <app-deck-config-selector
         [profile]="selectedDeckProfile()"
         [deckCount]="selectedDeckCount()"
@@ -62,7 +72,12 @@
         }}
       </p>
     }
-    <button class="primary" type="button" [disabled]="pending()" (click)="createRoom()">
+    <button
+      class="primary"
+      type="button"
+      [disabled]="pending() || capabilityState() !== 'ready'"
+      (click)="createRoom()"
+    >
       {{ i18n.t(pending() ? 'pvp.creating' : 'pvp.create') }}
     </button>
 

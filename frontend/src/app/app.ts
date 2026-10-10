@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
+import { Meta } from '@angular/platform-browser';
 import { AuthService } from './core/auth/auth.service';
 import { ProfileService } from './core/profile/profile.service';
 import { Locale } from './core/i18n/locale';
@@ -47,6 +48,7 @@ export class App implements OnInit {
   protected readonly profile = inject(ProfileService);
   protected readonly i18n = inject(TranslationService);
   private readonly router = inject(Router);
+  private readonly meta = inject(Meta);
   private readonly currentUrl = signal(this.router.url);
   protected localeSaveError = '';
   protected readonly showLegalFooter = computed(() => {
@@ -62,8 +64,12 @@ export class App implements OnInit {
       });
     effect(() => {
       this.i18n.locale();
-      const match = TITLE_KEYS.find(([path]) => this.currentUrl().startsWith(path));
-      this.i18n.setTitle(match?.[1] ?? 'meta.default');
+      const pathOnly = this.currentUrl().split(/[?#]/, 1)[0];
+      const match = TITLE_KEYS.find(([path]) => pathOnly.startsWith(path));
+      const isNotFound = pathOnly !== '/' && match === undefined;
+      this.i18n.setTitle(isNotFound ? 'meta.notFound' : (match?.[1] ?? 'meta.default'));
+      if (isNotFound) this.meta.updateTag({ name: 'robots', content: 'noindex,follow' });
+      else this.meta.removeTag("name='robots'");
     });
     effect(() => {
       const user = this.auth.currentUser();

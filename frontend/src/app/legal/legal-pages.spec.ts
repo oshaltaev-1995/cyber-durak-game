@@ -25,6 +25,7 @@ describe('legal pages', () => {
     expect(text).toContain('support@cyberdurak.com');
     expect(text).toContain('Your rights');
     expect(text).toContain('Cookies and browser storage');
+    expect(text).toContain('private multiplayer rooms for 2–4 players');
   });
 
   it('renders the English Terms with the important public-beta sections', () => {
@@ -54,6 +55,9 @@ describe('legal pages', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Политика конфиденциальности',
+    );
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'приватных многопользовательских комнатах для 2–4 игроков',
     );
     expect(router.url).toBe('/privacy');
   });

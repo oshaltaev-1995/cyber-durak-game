@@ -107,6 +107,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   protected readonly botPresentation = signal<BotPresentationEvent | null>(null);
   protected readonly multiplayerEnabled = signal(false);
   protected readonly deckVariantsEnabled = signal(false);
+  protected readonly capabilityState = signal<'loading' | 'ready'>('loading');
   protected readonly showSetup = signal(false);
   protected readonly selectedPlayers = signal<2 | 3 | 4>(2);
   protected readonly selectedDeckProfile = signal<DeckProfile>('classic');
@@ -186,6 +187,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private submittedCards: readonly GameCard[] = [];
   private hintSubscription: Subscription | null = null;
   private hintRequestGeneration = 0;
+  private deferredStartPlayers: 2 | 3 | 4 | null = null;
 
   ngOnInit(): void {
     const currentGame = this.game();
@@ -248,6 +250,26 @@ export class GamePageComponent implements OnInit, OnDestroy {
     if (this.pending()) {
       return;
     }
+    if (
+      !isDefaultDeckConfig({
+        deck_profile: this.selectedDeckProfile(),
+        deck_count: this.selectedDeckCount(),
+      }) &&
+      !this.deckOnboarding.hasSeen()
+    ) {
+      this.deferredStartPlayers = totalPlayers;
+      this.deckOnboardingVisible.set(true);
+      return;
+    }
+    if (totalPlayers > 2 && !this.multiplayerOnboarding.hasSeen()) {
+      this.deferredStartPlayers = totalPlayers;
+      this.onboardingVisible.set(true);
+      return;
+    }
+    this.createNewGame(totalPlayers);
+  }
+
+  private createNewGame(totalPlayers: 2 | 3 | 4): void {
     this.cancelPresentation();
     this.clearHints();
     this.cardMotion.clear();
@@ -272,11 +294,6 @@ export class GamePageComponent implements OnInit, OnDestroy {
         this.selectedIds.set(new Set());
         this.presentInitialBotAction(game);
         this.queueBotStatuses(game.recent_events);
-        if (!isDefaultDeckConfig(game) && !this.deckOnboarding.hasSeen()) {
-          this.deckOnboardingVisible.set(true);
-        } else if (game.total_players > 2 && !this.multiplayerOnboarding.hasSeen()) {
-          this.onboardingVisible.set(true);
-        }
       },
       error: (error: unknown) => {
         this.showSetup.set(this.multiplayerEnabled() || this.deckVariantsEnabled());
@@ -347,11 +364,25 @@ export class GamePageComponent implements OnInit, OnDestroy {
   protected dismissOnboarding(): void {
     this.multiplayerOnboarding.markSeen();
     this.onboardingVisible.set(false);
+    this.resumeDeferredStart();
   }
 
   protected dismissDeckOnboarding(): void {
     this.deckOnboarding.markSeen();
     this.deckOnboardingVisible.set(false);
+    this.resumeDeferredStart();
+  }
+
+  protected openMultiplayerGuide(): void {
+    this.multiplayerOnboarding.markSeen();
+    this.onboardingVisible.set(false);
+    this.deferredStartPlayers = null;
+  }
+
+  protected openDeckGuide(): void {
+    this.deckOnboarding.markSeen();
+    this.deckOnboardingVisible.set(false);
+    this.deferredStartPlayers = null;
   }
 
   protected placeLabel(rank: number): string {
@@ -373,6 +404,9 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   protected welcomeTitle(): string {
+    if (this.capabilityState() === 'loading' && this.recoveryState() === 'idle') {
+      return this.i18n.t('game.loadingOptions');
+    }
     if (this.pending()) {
       return this.i18n.t(this.recoveryState() === 'loading' ? 'game.restoring' : 'game.dealing');
     }
@@ -386,6 +420,9 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   protected welcomeDescription(): string {
+    if (this.capabilityState() === 'loading' && this.recoveryState() === 'idle') {
+      return this.i18n.t('game.loadingOptionsDescription');
+    }
     if (this.pending()) {
       return this.i18n.t(
         this.recoveryState() === 'loading' ? 'game.restorePreparing' : 'game.preparingDeck',
@@ -820,10 +857,12 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   private loadCapabilities(freshEntry: boolean): void {
+    this.capabilityState.set('loading');
     this.api.getCapabilities().subscribe({
       next: (capabilities) => {
         this.multiplayerEnabled.set(capabilities.multiplayer_3_4_enabled);
         this.deckVariantsEnabled.set(capabilities.deck_variants_enabled ?? false);
+        this.capabilityState.set('ready');
         if (!freshEntry) return;
         if (capabilities.multiplayer_3_4_enabled || capabilities.deck_variants_enabled)
           this.showSetup.set(true);
@@ -832,9 +871,17 @@ export class GamePageComponent implements OnInit, OnDestroy {
       error: () => {
         this.multiplayerEnabled.set(false);
         this.deckVariantsEnabled.set(false);
+        this.capabilityState.set('ready');
         if (freshEntry) this.startNewGame(2);
       },
     });
+  }
+
+  private resumeDeferredStart(): void {
+    const totalPlayers = this.deferredStartPlayers;
+    if (totalPlayers === null) return;
+    this.deferredStartPlayers = null;
+    this.startNewGame(totalPlayers);
   }
 
   private participantName(seat: GameResponse['required_seat'], game: GameResponse | null): string {

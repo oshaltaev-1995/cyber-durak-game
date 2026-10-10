@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
 import { PvPApiService } from '../core/pvp/pvp-api.service';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
@@ -145,6 +145,33 @@ describe('PvPLobbyPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('fieldset')).toBeNull();
   });
 
+  it('does not expose or submit the legacy creator while capabilities are loading', () => {
+    fixture.destroy();
+    const capabilities = new Subject<{
+      multiplayer_3_4_enabled: boolean;
+      deck_variants_enabled: boolean;
+    }>();
+    api.getCapabilities.mockReturnValue(capabilities);
+    fixture = TestBed.createComponent(PvPLobbyPageComponent);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const createButton = [...element.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Создать комнату'),
+    ) as HTMLButtonElement;
+    expect(element.textContent).toContain('Загружаем доступные настройки комнаты');
+    expect(createButton.disabled).toBe(true);
+    createButton.click();
+    expect(api.createRoom).not.toHaveBeenCalled();
+
+    capabilities.next({ multiplayer_3_4_enabled: true, deck_variants_enabled: true });
+    capabilities.complete();
+    fixture.detectChanges();
+    expect(createButton.disabled).toBe(false);
+    expect(element.querySelectorAll('input[name="playerCount"]')).toHaveLength(3);
+    expect(element.querySelector('app-deck-config-selector')).not.toBeNull();
+  });
+
   it('offers accessible 2/3/4 selection when enabled and submits the selected count', () => {
     fixture.destroy();
     api.getCapabilities.mockReturnValue(of({ multiplayer_3_4_enabled: true }));
@@ -231,5 +258,89 @@ describe('PvPLobbyPageComponent', () => {
       deck_profile: 'extended',
       deck_count: 2,
     });
+  });
+
+  it('keeps players fixed at two while independently enabling deck variants', () => {
+    fixture.destroy();
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: false, deck_variants_enabled: true }),
+    );
+    api.createRoom.mockReturnValue(
+      of({
+        invite_code: 'TWO-VARIANT',
+        credential: { participant_id: 'p1', seat: 'one', reconnect_token: 'secret' },
+      } as PvPRoomJoin),
+    );
+    fixture = TestBed.createComponent(PvPLobbyPageComponent);
+    fixture.detectChanges();
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelectorAll('input[name="playerCount"]')).toHaveLength(0);
+    expect(element.querySelector('app-deck-config-selector')).not.toBeNull();
+    element.querySelector<HTMLInputElement>('input[name="deckProfile"][value="extended"]')!.click();
+    element.querySelector<HTMLInputElement>('input[name="deckCount"][value="2"]')!.click();
+    [...element.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('Создать комнату'))
+      ?.click();
+
+    expect(api.createRoom).toHaveBeenCalledWith('', 2, {
+      deck_profile: 'extended',
+      deck_count: 2,
+    });
+  });
+
+  it('submits the exact player and deck combination when both gates are enabled', () => {
+    fixture.destroy();
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: true, deck_variants_enabled: true }),
+    );
+    api.createRoom.mockReturnValue(
+      of({
+        invite_code: 'FULL-VARIANT',
+        credential: { participant_id: 'p1', seat: 'one', reconnect_token: 'secret' },
+      } as PvPRoomJoin),
+    );
+    fixture = TestBed.createComponent(PvPLobbyPageComponent);
+    fixture.detectChanges();
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const element = fixture.nativeElement as HTMLElement;
+
+    element.querySelector<HTMLInputElement>('input[name="playerCount"][value="4"]')!.click();
+    element.querySelector<HTMLInputElement>('input[name="deckProfile"][value="extended"]')!.click();
+    element.querySelector<HTMLInputElement>('input[name="deckCount"][value="2"]')!.click();
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Всего 108 карт');
+    [...element.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('Создать комнату'))
+      ?.click();
+
+    expect(api.createRoom).toHaveBeenCalledWith('', 4, {
+      deck_profile: 'extended',
+      deck_count: 2,
+    });
+  });
+
+  it('keeps creation blocked after a capability failure and allows a retry', () => {
+    fixture.destroy();
+    api.getCapabilities.mockReset();
+    api.getCapabilities
+      .mockReturnValueOnce(throwError(() => new Error('offline')))
+      .mockReturnValueOnce(of({ multiplayer_3_4_enabled: false, deck_variants_enabled: false }));
+    fixture = TestBed.createComponent(PvPLobbyPageComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const createButton = [...element.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Создать комнату'),
+    ) as HTMLButtonElement;
+
+    expect(element.textContent).toContain('Не удалось загрузить настройки комнаты');
+    expect(createButton.disabled).toBe(true);
+    [...element.querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === 'Повторить')
+      ?.click();
+    fixture.detectChanges();
+    expect(api.getCapabilities).toHaveBeenCalledTimes(2);
+    expect(createButton.disabled).toBe(false);
   });
 });
