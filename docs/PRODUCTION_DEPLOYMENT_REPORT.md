@@ -273,3 +273,53 @@ remained active; backup and both monitor timers remained active; monitor service
 no systemd units were failed. PostgreSQL, Caddy, Husky, Kennel, Amnezia, Docker, firewall, SSH and OS
 packages were not restarted, rebuilt, reconfigured, or upgraded. No release tag was created or
 moved.
+
+## Post-audit P1 frontend correction
+
+P1 deployed exact application commit `cbd8f1b80680de71ec689ce08526f05fbed661a8` over D5 application
+revision `97763da0927bd987f70e8a19016e32b8bd73a9c5`. The patch makes the public PvP creator wait for
+authoritative capabilities before enabling room creation, preserves independently gated player and
+deck selectors, adds an explicit fresh `/play` loading state, defers first-use bot-session creation
+until deck and multiplayer onboarding have both completed, adds a localized client-visible Not Found
+route with `noindex,follow`, and updates the narrow Privacy product-scope sentence to private rooms
+for 2–4 players. The static SPA fallback intentionally continues to return HTTP 200 for unknown
+document routes; no brittle nginx or Caddy route whitelist was introduced.
+
+Local release validation passed frontend lint and formatting, the production build, 363 frontend
+tests in 39 files, social-preview source/built checks, backend lint/formatting, 831 backend tests, and
+`git diff --check`. Real local UI/WebSocket acceptance covered default two-player Classic, a terminal
+two-player Extended match and rematch, a terminal three-player match and unanimous rematch,
+three-player Classic double-deck reconnect, four-player Extended double-deck active play/reconnect,
+five required responsive viewports, selector accessibility, fresh `/play`, first-use onboarding,
+Not Found, and Privacy in English and Russian.
+
+Immediately before deployment, `kiba-backup.service` created and internally verified
+`/var/backups/kiba/kiba-20261010T150933Z.dump` (28,801 bytes, mode `0600`). The exact application
+archive SHA-256 was `f43e82f0ef7cefd149e8923ade0abd9199459bb7879d8e30ead08105d68216c1`.
+The complete prior source tree and the prior frontend image
+`sha256:f27f448ef5b1744053d46baee64a1265341aaa04bb71919257c9204c603f22b0` remain retained for
+rollback. Only `kiba-frontend` was rebuilt and recreated. The accepted frontend image is
+`sha256:ba46672aa4b9d4f3691fdd93fa1b0e7708c5b4b321ec246caec81a29e00c07e0`; backend image
+`sha256:350fcd6716edf725ac7e00e8e9e5c5e30a70338f94c8da3276dd9e095352eb75` and PostgreSQL were
+unchanged. Both capability flags remained `true`; no migration was added or run.
+
+Live public acceptance used the normal `/pvp` creator. A two-player Extended room reached terminal
+state and rematched in place without `completion_pending` or a false disconnect. A three-player
+Classic room started only at 3/3, exercised attacker phases, Pass and finished-seat behavior,
+reached a ranked terminal result, then required 1/3, 2/3 and 3/3 rematch consent before a fresh
+same-room game. A four-player Extended double-deck room showed 1/4 through 4/4 waiting/start states,
+hidden remote hands, attack, defense, clockwise Pass/handoff, and stable-seat reconnect. A clean
+incognito first-use four-player Extended double-deck bot flow showed deck onboarding, then
+multiplayer onboarding, before any game was created; the 108-card game began only after both were
+acknowledged. Two fresh `/play` tabs showed neutral capability loading followed by setup with no
+false error. Hint output, the default two-player Classic room, Tutorial, Rules, both guides, social
+metadata, exact Russian `Вы взяли 1 карту`, client-visible Not Found, and EN/RU Privacy also passed.
+
+Final health showed approximately 2.0 GiB `MemAvailable`, 138.4 MiB resident swap, `si=0`/`so=0`,
+zero current memory PSI, and no kernel OOM evidence. Swap grew by only about 0.3 MiB during the image
+build and then remained stable. Kiba, Husky Tracking and Kennel Operations returned HTTP 200; Kiba
+containers were healthy with zero restarts and `OOMKilled=false`; Docker, Caddy and Amnezia remained
+running; backup and both monitor timers remained active; and both monitor services most recently
+exited successfully. Backend, PostgreSQL, Caddy, Husky, Kennel, Amnezia, Docker runtime, firewall,
+SSH and OS packages were not restarted, rebuilt, reconfigured, or upgraded. No release tag was
+created or moved.
