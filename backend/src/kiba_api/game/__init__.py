@@ -45,7 +45,20 @@ from kiba_api.game.bout import (
     seats_for_player_count,
     take,
 )
-from kiba_api.game.cards import Card, JokerColor, Rank, Suit, TrumpState
+from kiba_api.game.cards import (
+    CLASSIC_RANKS,
+    DEFAULT_DECK_CONFIG,
+    EXTENDED_SUITED_RANKS,
+    Card,
+    DeckConfig,
+    DeckProfile,
+    JokerColor,
+    Rank,
+    Suit,
+    TrumpState,
+    ranks_for_profile,
+    street_ranks_for_profile,
+)
 from kiba_api.game.game import (
     GameActionError,
     GameErrorCode,
@@ -55,6 +68,7 @@ from kiba_api.game.game import (
     GameState,
     allocate_balanced_refill_quotas,
     create_36_card_deck,
+    create_deck,
     create_new_game,
     finish_game_bout,
     play_game_defense,
@@ -83,6 +97,7 @@ from kiba_api.game.scoring import (
     get_effective_value,
     is_trump,
 )
+from kiba_api.game.streets import analyze_rank_run
 from kiba_api.game.transfer import (
     PacketTransferAnalysis,
     PacketTransferMode,
@@ -105,6 +120,10 @@ __all__ = [
     "BotDecisionContext",
     "BotErrorCode",
     "Card",
+    "CLASSIC_RANKS",
+    "DEFAULT_DECK_CONFIG",
+    "DeckConfig",
+    "DeckProfile",
     "DefenseAnalysis",
     "GameActionError",
     "GameErrorCode",
@@ -114,6 +133,7 @@ __all__ = [
     "GameState",
     "InitialAttackAnalysis",
     "InitialAttackReason",
+    "EXTENDED_SUITED_RANKS",
     "JokerColor",
     "Rank",
     "RankRun",
@@ -132,6 +152,7 @@ __all__ = [
     "analyze_defense",
     "analyze_packet_transfer",
     "analyze_rank_run_throw_in",
+    "analyze_rank_run",
     "analyze_transfer",
     "analyze_throw_in",
     "cards_have_same_rank",
@@ -140,6 +161,7 @@ __all__ = [
     "choose_bot_action_from_context",
     "clockwise_after",
     "create_36_card_deck",
+    "create_deck",
     "create_new_game",
     "find_exact_value_subsets",
     "finish_bout",
@@ -165,9 +187,11 @@ __all__ = [
     "play_throw_in",
     "play_transfer",
     "refill_hands",
+    "ranks_for_profile",
     "seats_for_player_count",
     "summarize_table_arithmetic",
     "start_game_bout",
+    "street_ranks_for_profile",
     "take",
     "take_game_bout",
 ]

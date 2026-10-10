@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Self
 
 from kiba_api.game.attack import analyze_initial_attack
-from kiba_api.game.cards import Card, TrumpState
+from kiba_api.game.cards import Card, DeckProfile, TrumpState
 from kiba_api.game.moves import analyze_defense, analyze_throw_in, is_legal_defense
 from kiba_api.game.scoring import get_cards_value
 from kiba_api.game.transfer import analyze_packet_transfer
@@ -215,6 +215,7 @@ class BoutState:
     attacker_order: tuple[Seat, ...]
     closed_attackers: tuple[Seat, ...]
     trump_state: TrumpState
+    deck_profile: DeckProfile
     phase: BoutPhase
     packets: tuple[AttackPacket, ...]
     transfer_open: bool
@@ -229,6 +230,7 @@ class BoutState:
         *,
         attacker: Seat,
         trump_state: TrumpState,
+        deck_profile: DeckProfile = DeckProfile.CLASSIC,
         phase: BoutPhase,
         packets: tuple[AttackPacket, ...],
         transfer_open: bool,
@@ -290,6 +292,7 @@ class BoutState:
             ("attacker_order", attacker_order),
             ("closed_attackers", closed_attackers),
             ("trump_state", trump_state),
+            ("deck_profile", deck_profile),
             ("phase", phase),
             ("packets", packets),
             ("transfer_open", transfer_open),
@@ -349,6 +352,8 @@ class BoutState:
 
         if not isinstance(self.trump_state, TrumpState):
             raise TypeError("trump_state must be a TrumpState")
+        if not isinstance(self.deck_profile, DeckProfile):
+            raise TypeError("deck_profile must be a DeckProfile")
         if not isinstance(self.phase, BoutPhase):
             raise TypeError("phase must be a BoutPhase")
         if not isinstance(self.transfer_open, bool):
@@ -382,6 +387,7 @@ class BoutState:
         *,
         attacker: Seat,
         trump_state: TrumpState,
+        deck_profile: DeckProfile = DeckProfile.CLASSIC,
         seat_one_hand_count: int | None = None,
         seat_two_hand_count: int | None = None,
         seat_order: tuple[Seat, ...] | None = None,
@@ -413,6 +419,7 @@ class BoutState:
             attacker_order=_attacker_order(seat_order, active_seats, attacker, defender),
             closed_attackers=(),
             trump_state=trump_state,
+            deck_profile=deck_profile,
             phase=BoutPhase.WAITING_FOR_INITIAL_ATTACK,
             packets=(),
             transfer_open=True,
@@ -562,7 +569,7 @@ def play_initial_attack(
     selected = tuple(cards)
     _require_cards_available(state, actor, len(selected))
     _require_attack_limit(state, len(selected))
-    if not analyze_initial_attack(selected, state.trump_state).legal:
+    if not analyze_initial_attack(selected, state.trump_state, state.deck_profile).legal:
         raise BoutActionError(BoutErrorCode.ILLEGAL_INITIAL_ATTACK)
 
     packet = AttackPacket(
@@ -699,6 +706,7 @@ def play_throw_in(
         state.table_cards,
         state.direct_anchor_cards,
         state.trump_state,
+        state.deck_profile,
     )
     if not analysis.legal:
         raise BoutActionError(BoutErrorCode.ILLEGAL_THROW_IN)

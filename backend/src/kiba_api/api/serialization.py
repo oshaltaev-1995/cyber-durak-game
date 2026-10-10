@@ -33,6 +33,7 @@ from kiba_api.game import (
     BoutPhase,
     BoutState,
     Card,
+    DeckProfile,
     GameOutcome,
     GamePhase,
     Rank,
@@ -225,6 +226,7 @@ def _serialize_packets(bout: BoutState, trump_state: TrumpState) -> list[PacketR
                 table_before,
                 direct_anchors,
                 trump_state,
+                bout.deck_profile,
             )
         )
         responses.append(_serialize_packet(packet, trump_state, reasons))
@@ -254,12 +256,14 @@ def _serialize_throw_in_reasons(
     table_cards: tuple[Card, ...],
     direct_anchor_cards: tuple[Card, ...],
     trump_state: TrumpState,
+    deck_profile: DeckProfile,
 ) -> list[ThrowInReasonResponse]:
     analysis = analyze_throw_in(
         selected_cards,
         table_cards,
         direct_anchor_cards,
         trump_state,
+        deck_profile,
     )
     summary = summarize_table_arithmetic(table_cards, trump_state)
     table_values = [get_effective_value(card, trump_state) for card in table_cards]

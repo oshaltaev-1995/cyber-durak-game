@@ -200,12 +200,13 @@ def _describe_legal_candidate(
     bout = state.active_bout
     trump = state.current_trump_state
     if action is HumanActionType.INITIAL_ATTACK:
-        analysis = analyze_initial_attack(cards, trump)
+        analysis = analyze_initial_attack(cards, trump, state.deck_config.profile)
         reason = {
             InitialAttackReason.SINGLE_CARD: HintReason.SINGLE_CARD,
             InitialAttackReason.SAME_RANK: HintReason.SAME_RANK,
             InitialAttackReason.EQUAL_VALUE_GROUPS: HintReason.ARITHMETIC_EQUALITY,
             InitialAttackReason.CONNECTED_COMBINATION: HintReason.ARITHMETIC_EQUALITY,
+            InitialAttackReason.RANK_RUN: HintReason.RANK_RUN,
         }[analysis.reason]
         return HintCombination(
             action,
@@ -219,7 +220,9 @@ def _describe_legal_candidate(
     if bout is None:
         raise ValueError("card actions require an active bout")
     if action is HumanActionType.THROW_IN:
-        analysis = analyze_throw_in(cards, bout.table_cards, bout.direct_anchor_cards, trump)
+        analysis = analyze_throw_in(
+            cards, bout.table_cards, bout.direct_anchor_cards, trump, bout.deck_profile
+        )
         throw_reason = next(
             reason for reason in _THROW_IN_REASON_PRIORITY if reason in analysis.reasons
         )

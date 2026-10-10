@@ -1309,6 +1309,34 @@ production setting.
 D2 executable coverage should trace D01–D40 in `MULTIPLAYER_SCENARIOS.md` in addition to retaining
 the existing S01–S48 coverage.
 
+### 15.12 D2 generalized deck and physical-card engine
+
+The immutable domain now carries a typed `DeckConfig`: CLASSIC/EXTENDED rank profiles combined
+with one/two physical deck copies produce exactly 36/54/72/108 cards. Omitting configuration keeps
+the established CLASSIC ×1 behavior. Every `Card` retains its normal display identity while its
+copy number supplies a deterministic physical ID, so exact duplicate faces remain equality-safe
+and independently selectable through hand, table, TAKE, discard, and refill transitions.
+
+EXTENDED cards use explicit red/black Joker colors and the canonical values for ranks 2–5 and
+Joker. The single scoring path implements same-color Joker trump for ordinary exposed cards,
+color-family trump for an exposed Joker, one doubling only, and no trump once the draw pile is
+empty. Initial-attacker selection, defense, transfer, arithmetic totals, exact means, and
+same-rank mechanics continue to consume those authoritative effective values.
+
+One profile-aware, non-wrapping street analyzer serves both initial attacks and post-response
+throw-ins. It requires at least five distinct consecutive logical ranks, treats Joker as the one
+terminal EXTENDED rank after Ace, permits physical duplicates inside the run, and leaves the
+defender-based physical attack cap intact. Street is an additional initial-attack basis; failure
+of the street predicate does not suppress an independent same-rank or arithmetic basis. A
+post-response selection is evaluated from the current physical table and may establish a new
+street basis after the initial window has closed.
+
+`MULTIPLAYER_SCENARIOS.md` cases D01–D40 have direct executable traceability, supplemented by
+configuration/deal, conservation, four-player EXTENDED, duplicate-instance, refill, and endgame
+matrices. Product adapters, REST card codes, bots, hints, and human PvP remain exposed as CLASSIC
+×1; no deck selector, persistence migration, frontend activation, or production deployment is
+part of D2.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

@@ -1,12 +1,24 @@
-"""Immutable card and trump domain values."""
+"""Immutable deck configuration, card, and trump domain values."""
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Final
+
+
+class DeckProfile(StrEnum):
+    """The suited-rank population and linear street order for a Kiba deck."""
+
+    CLASSIC = "classic"
+    EXTENDED = "extended"
 
 
 class Rank(StrEnum):
     """A supported Kiba card rank."""
 
+    TWO = "2"
+    THREE = "3"
+    FOUR = "4"
+    FIVE = "5"
     SIX = "6"
     SEVEN = "7"
     EIGHT = "8"
@@ -35,6 +47,63 @@ class JokerColor(StrEnum):
     BLACK = "black"
 
 
+CLASSIC_RANKS: Final[tuple[Rank, ...]] = (
+    Rank.SIX,
+    Rank.SEVEN,
+    Rank.EIGHT,
+    Rank.NINE,
+    Rank.TEN,
+    Rank.JACK,
+    Rank.QUEEN,
+    Rank.KING,
+    Rank.ACE,
+)
+EXTENDED_SUITED_RANKS: Final[tuple[Rank, ...]] = (
+    Rank.TWO,
+    Rank.THREE,
+    Rank.FOUR,
+    Rank.FIVE,
+    *CLASSIC_RANKS,
+)
+
+
+def ranks_for_profile(profile: DeckProfile) -> tuple[Rank, ...]:
+    """Return the suited ranks present in one physical deck copy."""
+    if not isinstance(profile, DeckProfile):
+        raise TypeError("profile must be a DeckProfile")
+    return CLASSIC_RANKS if profile is DeckProfile.CLASSIC else EXTENDED_SUITED_RANKS
+
+
+def street_ranks_for_profile(profile: DeckProfile) -> tuple[Rank, ...]:
+    """Return the authoritative non-wrapping logical street order."""
+    ranks = ranks_for_profile(profile)
+    return ranks if profile is DeckProfile.CLASSIC else (*ranks, Rank.JOKER)
+
+
+@dataclass(frozen=True, slots=True)
+class DeckConfig:
+    """The two independent dimensions of one canonical deck configuration."""
+
+    profile: DeckProfile = DeckProfile.CLASSIC
+    deck_count: int = 1
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.profile, DeckProfile):
+            raise TypeError("profile must be a DeckProfile")
+        if isinstance(self.deck_count, bool) or not isinstance(self.deck_count, int):
+            raise TypeError("deck_count must be an int")
+        if self.deck_count not in {1, 2}:
+            raise ValueError("deck_count must be 1 or 2")
+
+    @property
+    def card_count(self) -> int:
+        """Return the exact physical population derived from profile and copies."""
+        return (36 if self.profile is DeckProfile.CLASSIC else 54) * self.deck_count
+
+
+DEFAULT_DECK_CONFIG: Final = DeckConfig()
+
+
 @dataclass(frozen=True, slots=True)
 class Card:
     """A valid normal card or colored Joker."""
@@ -42,6 +111,7 @@ class Card:
     rank: Rank
     suit: Suit | None = None
     joker_color: JokerColor | None = None
+    deck_copy: int = 1
 
     def __post_init__(self) -> None:
         if not isinstance(self.rank, Rank):
@@ -50,6 +120,10 @@ class Card:
             raise TypeError("suit must be a Suit or None")
         if self.joker_color is not None and not isinstance(self.joker_color, JokerColor):
             raise TypeError("joker_color must be a JokerColor or None")
+        if isinstance(self.deck_copy, bool) or not isinstance(self.deck_copy, int):
+            raise TypeError("deck_copy must be an int")
+        if self.deck_copy not in {1, 2}:
+            raise ValueError("deck_copy must be 1 or 2")
 
         if self.rank is Rank.JOKER:
             if self.suit is not None:
@@ -62,6 +136,22 @@ class Card:
             raise ValueError("a normal card must have a suit")
         if self.joker_color is not None:
             raise ValueError("a normal card cannot have a Joker color")
+
+    @property
+    def display_identity(self) -> tuple[Rank, Suit | None, JokerColor | None]:
+        """Return the ordinary face identity, intentionally excluding copy number."""
+        return self.rank, self.suit, self.joker_color
+
+    @property
+    def physical_id(self) -> str:
+        """Return a deterministic identity that separates exact visual duplicates."""
+        if self.rank is Rank.JOKER:
+            assert self.joker_color is not None
+            face = f"joker:{self.joker_color.value}"
+        else:
+            assert self.suit is not None
+            face = f"{self.rank.value}:{self.suit.value}"
+        return f"deck-{self.deck_copy}:{face}"
 
 
 @dataclass(frozen=True, slots=True)

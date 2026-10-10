@@ -55,7 +55,7 @@ def king_of_spades_trump() -> TrumpState:
         (normal_card(Rank.KING, Suit.SPADES), True),
         (normal_card(Rank.NINE, Suit.HEARTS), False),
         (joker(JokerColor.RED), False),
-        (joker(JokerColor.BLACK), False),
+        (joker(JokerColor.BLACK), True),
     ],
 )
 def test_normal_source_trump_detection(
@@ -74,7 +74,7 @@ def test_normal_source_trump_detection(
         (normal_card(Rank.SIX, Suit.CLUBS), False),
         (normal_card(Rank.SIX, Suit.SPADES), False),
         (joker(JokerColor.RED), True),
-        (joker(JokerColor.BLACK), True),
+        (joker(JokerColor.BLACK), False),
     ],
 )
 def test_red_joker_trump_detection(card: Card, expected: bool) -> None:
@@ -90,7 +90,7 @@ def test_red_joker_trump_detection(card: Card, expected: bool) -> None:
         (normal_card(Rank.SIX, Suit.SPADES), True),
         (normal_card(Rank.SIX, Suit.HEARTS), False),
         (normal_card(Rank.SIX, Suit.DIAMONDS), False),
-        (joker(JokerColor.RED), True),
+        (joker(JokerColor.RED), False),
         (joker(JokerColor.BLACK), True),
     ],
 )
@@ -134,7 +134,7 @@ def test_inactive_state_has_no_trumps(card: Card) -> None:
         ),
         (joker(JokerColor.RED), TrumpState.no_trump(), 25),
         (
-            joker(JokerColor.BLACK),
+            joker(JokerColor.RED),
             TrumpState.from_source_card(joker(JokerColor.RED)),
             50,
         ),

@@ -46,7 +46,7 @@ def test_empty_initial_attack_is_illegal() -> None:
     assert analysis.legal is False
 
 
-def test_rank_run_does_not_bootstrap_initial_attack_legality() -> None:
+def test_rank_run_is_an_initial_attack_basis() -> None:
     analysis = analyze_initial_attack(
         [
             card(Rank.TEN),
@@ -58,7 +58,7 @@ def test_rank_run_does_not_bootstrap_initial_attack_legality() -> None:
         NO_TRUMP,
     )
 
-    assert analysis.legal is False
+    assert analysis.reason is InitialAttackReason.RANK_RUN
 
 
 @pytest.mark.parametrize("card_count", [2, 3])
@@ -229,7 +229,7 @@ def test_joker_uses_base_value_in_arithmetic_relation() -> None:
 def test_trump_joker_uses_effective_value_in_arithmetic_relation() -> None:
     joker_trump = TrumpState.from_source_card(joker(JokerColor.RED))
     cards = [
-        joker(JokerColor.BLACK),
+        joker(JokerColor.RED),
         card(Rank.ACE),
         card(Rank.KING),
         card(Rank.JACK),

@@ -10,8 +10,9 @@ from kiba_api.game.arithmetic import (
     matches_exact_value,
     summarize_table_arithmetic,
 )
-from kiba_api.game.cards import Card, Rank, TrumpState
+from kiba_api.game.cards import Card, DeckProfile, TrumpState
 from kiba_api.game.scoring import get_cards_value, get_effective_value
+from kiba_api.game.streets import RankRun, analyze_rank_run
 
 
 class ThrowInReason(StrEnum):
@@ -38,16 +39,6 @@ class DefenseAnalysis:
     def legal(self) -> bool:
         """Return whether the selection is both sufficient and irredundant."""
         return self.sufficient and self.irredundant
-
-
-@dataclass(frozen=True, slots=True)
-class RankRun:
-    """One server-confirmed contiguous normal-rank run."""
-
-    start: Rank
-    end: Rank
-    length: int
-    ranks: tuple[Rank, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +135,7 @@ def analyze_throw_in(
     table_cards: Iterable[Card],
     direct_anchor_cards: Iterable[Card],
     trump_state: TrumpState,
+    profile: DeckProfile = DeckProfile.CLASSIC,
 ) -> ThrowInAnalysis:
     """Evaluate a selection against supplied table arithmetic and direct anchors."""
     selected = tuple(selected_cards)
@@ -188,7 +180,7 @@ def analyze_throw_in(
     ):
         reasons.add(ThrowInReason.ARITHMETIC_MEAN)
 
-    rank_run = analyze_rank_run_throw_in(table, selected)
+    rank_run = analyze_rank_run_throw_in(table, selected, profile)
     if rank_run is not None:
         reasons.add(ThrowInReason.RANK_RUN)
 
@@ -199,46 +191,17 @@ def analyze_throw_in(
     )
 
 
-_RUN_RANKS = (
-    Rank.SIX,
-    Rank.SEVEN,
-    Rank.EIGHT,
-    Rank.NINE,
-    Rank.TEN,
-    Rank.JACK,
-    Rank.QUEEN,
-    Rank.KING,
-    Rank.ACE,
-)
-
-
 def analyze_rank_run_throw_in(
     table_cards: Iterable[Card],
     selected_cards: Iterable[Card],
+    profile: DeckProfile = DeckProfile.CLASSIC,
 ) -> RankRun | None:
-    """Find the maximal five-plus rank run containing every selected rank."""
+    """Find a profile-aware five-plus run using table history and selection."""
     table = tuple(table_cards)
     selected = tuple(selected_cards)
-    selected_ranks = {card.rank for card in selected}
-    if not selected or not table or Rank.JOKER in selected_ranks:
+    if not selected or not table:
         return None
-
-    represented_ranks = {card.rank for card in (*table, *selected)}
-    block: list[Rank] = []
-    for rank in (*_RUN_RANKS, None):
-        if rank is not None and rank in represented_ranks:
-            block.append(rank)
-            continue
-        if len(block) >= 5 and selected_ranks <= set(block):
-            ranks = tuple(block)
-            return RankRun(
-                start=ranks[0],
-                end=ranks[-1],
-                length=len(ranks),
-                ranks=ranks,
-            )
-        block = []
-    return None
+    return analyze_rank_run(table, selected, profile)
 
 
 def _anchored_rank_reason(

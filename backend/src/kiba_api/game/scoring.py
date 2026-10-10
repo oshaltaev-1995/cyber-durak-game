@@ -8,6 +8,10 @@ from kiba_api.game.cards import Card, JokerColor, Rank, Suit, TrumpState
 
 _BASE_VALUES: Final[Mapping[Rank, int]] = MappingProxyType(
     {
+        Rank.TWO: 2,
+        Rank.THREE: 3,
+        Rank.FOUR: 4,
+        Rank.FIVE: 5,
         Rank.SIX: 6,
         Rank.SEVEN: 7,
         Rank.EIGHT: 8,
@@ -41,8 +45,17 @@ def is_trump(card: Card, trump_state: TrumpState) -> bool:
 
     if trump_state.joker_color is not None:
         if card.rank is Rank.JOKER:
-            return True
+            return card.joker_color is trump_state.joker_color
         return card.suit in _SUITS_BY_COLOR[trump_state.joker_color]
+
+    if card.rank is Rank.JOKER:
+        assert trump_state.trump_suit is not None
+        exposed_color = (
+            JokerColor.RED
+            if trump_state.trump_suit in _SUITS_BY_COLOR[JokerColor.RED]
+            else JokerColor.BLACK
+        )
+        return card.joker_color is exposed_color
 
     return card.rank is trump_state.trump_rank or card.suit is trump_state.trump_suit
 

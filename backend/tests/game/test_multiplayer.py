@@ -4,6 +4,7 @@ from dataclasses import FrozenInstanceError, replace
 import pytest
 
 from kiba_api.game import (
+    CLASSIC_RANKS,
     AttackPacket,
     BoutActionError,
     BoutErrorCode,
@@ -716,7 +717,7 @@ def test_s27_s31_shared_table_arithmetic() -> None:
 
 def test_s32_s37_balanced_refill() -> None:
     refill_order = (Seat.ONE, Seat.THREE, Seat.TWO)
-    source = tuple(card(rank, Suit.HEARTS) for rank in Rank if rank is not Rank.JOKER)
+    source = tuple(card(rank, Suit.HEARTS) for rank in CLASSIC_RANKS)
     hands = (
         (card(Rank.SIX),) * 4,
         (card(Rank.SEVEN),) * 3,
@@ -934,4 +935,4 @@ def test_card_conservation_and_snapshot_immutability() -> None:
 
 
 def _normal_ranks() -> tuple[Rank, ...]:
-    return tuple(rank for rank in Rank if rank is not Rank.JOKER)
+    return CLASSIC_RANKS

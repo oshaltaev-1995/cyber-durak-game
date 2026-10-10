@@ -94,6 +94,7 @@ def record_accepted_action(
                 bout.table_cards,
                 bout.direct_anchor_cards,
                 bout.trump_state,
+                bout.deck_profile,
             )
             if ThrowInReason.ARITHMETIC_MEAN in analysis.reasons:
                 mean_throw_in_count += 1

@@ -22,21 +22,19 @@ from kiba_api.game.bout import (
     seats_for_player_count,
     take,
 )
-from kiba_api.game.cards import Card, Rank, Suit, TrumpState
+from kiba_api.game.cards import (
+    DEFAULT_DECK_CONFIG,
+    Card,
+    DeckConfig,
+    DeckProfile,
+    JokerColor,
+    Rank,
+    Suit,
+    TrumpState,
+    ranks_for_profile,
+)
 from kiba_api.game.moves import analyze_rank_run_throw_in, get_throw_in_targets
 from kiba_api.game.scoring import get_effective_value, is_trump
-
-_STANDARD_36_RANKS = (
-    Rank.SIX,
-    Rank.SEVEN,
-    Rank.EIGHT,
-    Rank.NINE,
-    Rank.TEN,
-    Rank.JACK,
-    Rank.QUEEN,
-    Rank.KING,
-    Rank.ACE,
-)
 
 
 class _SeatChoiceSource(Protocol):
@@ -112,6 +110,7 @@ class GameState:
     finished_seats: tuple[Seat, ...]
     finish_groups: tuple[tuple[Seat, ...], ...]
     result: GameResult | None
+    deck_config: DeckConfig
 
     def __init__(
         self,
@@ -129,6 +128,7 @@ class GameState:
         hands: tuple[tuple[Card, ...], ...] | None = None,
         finished_seats: tuple[Seat, ...] = (),
         finish_groups: tuple[tuple[Seat, ...], ...] = (),
+        deck_config: DeckConfig = DEFAULT_DECK_CONFIG,
     ) -> None:
         if hands is None:
             if seat_one_hand is None or seat_two_hand is None:
@@ -155,11 +155,14 @@ class GameState:
             ("finished_seats", finished_seats),
             ("finish_groups", finish_groups),
             ("result", result),
+            ("deck_config", deck_config),
         ):
             object.__setattr__(self, name, value)
         self.__post_init__()
 
     def __post_init__(self) -> None:
+        if not isinstance(self.deck_config, DeckConfig):
+            raise TypeError("deck_config must be a DeckConfig")
         expected_order = seats_for_player_count(len(self.seat_order))
         if self.seat_order != expected_order:
             raise ValueError("seat_order must be the canonical stable ring for 2–4 players")
@@ -177,6 +180,8 @@ class GameState:
             raise TypeError("phase must be a GamePhase")
         if self.active_bout is not None and not isinstance(self.active_bout, BoutState):
             raise TypeError("active_bout must be a BoutState or None")
+        for card in self.all_cards:
+            _validate_card_for_config(card, self.deck_config)
         if self.bout_starting_attacker is not None and not isinstance(
             self.bout_starting_attacker,
             Seat,
@@ -216,6 +221,8 @@ class GameState:
             raise ValueError("active bout must preserve the match seat ring")
         if self.active_bout.active_seats != self.active_seats:
             raise ValueError("active bout must preserve the active-seat snapshot")
+        if self.active_bout.deck_profile is not self.deck_config.profile:
+            raise ValueError("active bout must preserve the match deck profile")
         _require_hand_count_invariant(self, self.active_bout)
 
     def _validate_finish_state(self) -> None:
@@ -290,6 +297,7 @@ class GameState:
         *,
         initial_attacker: Seat,
         player_count: int = 2,
+        deck_config: DeckConfig = DEFAULT_DECK_CONFIG,
     ) -> Self:
         """Deal seven cards per seat round-robin from an ordered standard deck."""
         try:
@@ -299,7 +307,7 @@ class GameState:
         if not isinstance(initial_attacker, Seat) or initial_attacker not in seat_order:
             raise TypeError("initial_attacker must be a seated Seat")
         ordered_deck = tuple(draw_pile)
-        _validate_standard_deck(ordered_deck)
+        _validate_configured_deck(ordered_deck, deck_config)
         dealt_count = 7 * player_count
         hands = tuple(ordered_deck[index:dealt_count:player_count] for index in range(player_count))
         return cls(
@@ -308,6 +316,7 @@ class GameState:
             draw_pile=ordered_deck[dealt_count:],
             discard_pile=(),
             current_attacker=initial_attacker,
+            deck_config=deck_config,
         )
 
     @property
@@ -355,20 +364,45 @@ class GameState:
         )
 
 
+def create_deck(deck_config: DeckConfig = DEFAULT_DECK_CONFIG) -> tuple[Card, ...]:
+    """Create one deterministic canonical physical deck population."""
+    if not isinstance(deck_config, DeckConfig):
+        raise TypeError("deck_config must be a DeckConfig")
+    cards: list[Card] = []
+    for deck_copy in range(1, deck_config.deck_count + 1):
+        cards.extend(
+            Card(rank=rank, suit=suit, deck_copy=deck_copy)
+            for suit in Suit
+            for rank in ranks_for_profile(deck_config.profile)
+        )
+        if deck_config.profile is DeckProfile.EXTENDED:
+            cards.extend(
+                Card(rank=Rank.JOKER, joker_color=color, deck_copy=deck_copy)
+                for color in JokerColor
+            )
+    return tuple(cards)
+
+
 def create_36_card_deck() -> tuple[Card, ...]:
-    """Create clubs through spades, each ordered from Six through Ace."""
-    return tuple(Card(rank=rank, suit=suit) for suit in Suit for rank in _STANDARD_36_RANKS)
+    """Create the backwards-compatible Single Classic deck."""
+    return create_deck()
 
 
-def create_new_game(rng: random.Random | None = None, *, player_count: int = 2) -> GameState:
-    """Shuffle and deal a fresh canonical 2–4 player game."""
+def create_new_game(
+    rng: random.Random | None = None,
+    *,
+    player_count: int = 2,
+    deck_config: DeckConfig = DEFAULT_DECK_CONFIG,
+) -> GameState:
+    """Shuffle and deal a fresh configured 2–4 player game."""
     random_source = rng if rng is not None else random.Random()
-    shuffled_deck = list(create_36_card_deck())
+    shuffled_deck = list(create_deck(deck_config))
     random_source.shuffle(shuffled_deck)
     dealt_state = GameState.deal(
         shuffled_deck,
         initial_attacker=Seat.ONE,
         player_count=player_count,
+        deck_config=deck_config,
     )
     initial_attacker = _determine_initial_attacker(
         dealt_state.hands,
@@ -430,6 +464,7 @@ def start_game_bout(state: GameState) -> GameState:
         active_seats=state.active_seats,
         hand_counts=tuple(len(hand) for hand in state.hands),
         trump_state=state.current_trump_state,
+        deck_profile=state.deck_config.profile,
     )
     return replace(
         state,
@@ -575,12 +610,11 @@ def _has_legal_throw_in(hand: tuple[Card, ...], bout: BoutState) -> bool:
 
     representative_by_rank: dict[Rank, Card] = {}
     for card in hand:
-        if card.rank is not Rank.JOKER:
-            representative_by_rank.setdefault(card.rank, card)
+        representative_by_rank.setdefault(card.rank, card)
     representatives = tuple(representative_by_rank.values())
     for size in range(1, min(max_cards, len(representatives)) + 1):
         if any(
-            analyze_rank_run_throw_in(bout.table_cards, selected) is not None
+            analyze_rank_run_throw_in(bout.table_cards, selected, bout.deck_profile) is not None
             for selected in combinations(representatives, size)
         ):
             return True
@@ -634,6 +668,7 @@ def _resolve_completed_bout(
             finished_seats=finished_seats,
             finish_groups=finish_groups,
             result=result,
+            deck_config=state.deck_config,
         )
 
     intended_lead = bout.next_attacker
@@ -651,6 +686,7 @@ def _resolve_completed_bout(
         phase=GamePhase.READY_FOR_BOUT,
         finished_seats=finished_seats,
         finish_groups=finish_groups,
+        deck_config=state.deck_config,
     )
 
 
@@ -830,12 +866,25 @@ def _remove_cards(hand: tuple[Card, ...], selected: tuple[Card, ...]) -> tuple[C
     return tuple(remaining_hand)
 
 
-def _validate_standard_deck(deck: tuple[Card, ...]) -> None:
-    standard_deck = create_36_card_deck()
-    if len(deck) != len(standard_deck) or Counter(deck) != Counter(standard_deck):
+def _validate_configured_deck(deck: tuple[Card, ...], deck_config: DeckConfig) -> None:
+    if not isinstance(deck_config, DeckConfig):
+        raise TypeError("deck_config must be a DeckConfig")
+    configured_deck = create_deck(deck_config)
+    if len(deck) != len(configured_deck) or Counter(deck) != Counter(configured_deck):
         raise GameActionError(GameErrorCode.INVALID_DECK)
 
 
 def _validate_card_tuple(name: str, value: tuple[Card, ...]) -> None:
     if not isinstance(value, tuple) or not all(isinstance(card, Card) for card in value):
         raise TypeError(f"{name} must be a tuple of Card values")
+
+
+def _validate_card_for_config(card: Card, deck_config: DeckConfig) -> None:
+    if card.deck_copy > deck_config.deck_count:
+        raise ValueError("card deck_copy exceeds the configured deck count")
+    if card.rank is Rank.JOKER:
+        if deck_config.profile is not DeckProfile.EXTENDED:
+            raise ValueError("Classic games cannot contain Jokers")
+        return
+    if card.rank not in ranks_for_profile(deck_config.profile):
+        raise ValueError("card rank is not available in the configured profile")

@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiba_api.game.arithmetic import cards_have_same_rank
-from kiba_api.game.cards import Card, TrumpState
+from kiba_api.game.cards import Card, DeckProfile, TrumpState
 from kiba_api.game.scoring import get_effective_value
+from kiba_api.game.streets import analyze_rank_run
 
 
 class InitialAttackReason(StrEnum):
@@ -17,6 +18,7 @@ class InitialAttackReason(StrEnum):
     SAME_RANK = "same_rank"
     EQUAL_VALUE_GROUPS = "equal_value_groups"
     CONNECTED_COMBINATION = "connected_combination"
+    RANK_RUN = "rank_run"
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +37,7 @@ class InitialAttackAnalysis:
 def analyze_initial_attack(
     selected_cards: Iterable[Card],
     trump_state: TrumpState,
+    profile: DeckProfile = DeckProfile.CLASSIC,
 ) -> InitialAttackAnalysis:
     """Analyze one initial attack without table-total or arithmetic-mean rules."""
     cards = tuple(selected_cards)
@@ -70,8 +73,10 @@ def analyze_initial_attack(
             strict=True,
         )
     )
+    if _is_connected(combined_relations):
+        return InitialAttackAnalysis(values, InitialAttackReason.CONNECTED_COMBINATION)
     reason = (
-        InitialAttackReason.CONNECTED_COMBINATION if _is_connected(combined_relations) else None
+        InitialAttackReason.RANK_RUN if analyze_rank_run((), cards, profile) is not None else None
     )
     return InitialAttackAnalysis(effective_values=values, reason=reason)
 
@@ -79,9 +84,10 @@ def analyze_initial_attack(
 def is_legal_initial_attack(
     selected_cards: Iterable[Card],
     trump_state: TrumpState,
+    profile: DeckProfile = DeckProfile.CLASSIC,
 ) -> bool:
     """Return initial-attack legality by delegating to the explanatory analysis."""
-    return analyze_initial_attack(selected_cards, trump_state).legal
+    return analyze_initial_attack(selected_cards, trump_state, profile).legal
 
 
 def _get_same_rank_relations(cards: tuple[Card, ...]) -> tuple[int, ...]:
