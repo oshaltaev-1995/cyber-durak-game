@@ -210,6 +210,110 @@ def test_human_action_runs_bot_defender_once_and_keeps_other_hands_private() -> 
     assert "BotDecisionContext" not in encoded
 
 
+def test_human_transfer_to_bot_runs_bot_response_and_stops_at_human() -> None:
+    king = Card(Rank.KING, Suit.CLUBS)
+    nines = (Card(Rank.NINE, Suit.CLUBS), Card(Rank.NINE, Suit.DIAMONDS))
+
+    def factory(_count: int) -> GameState:
+        return GameState(
+            hands=(
+                (king, Card(Rank.SIX, Suit.HEARTS)),
+                (*nines, Card(Rank.SEVEN, Suit.HEARTS)),
+                (
+                    Card(Rank.ACE, Suit.CLUBS),
+                    Card(Rank.QUEEN, Suit.DIAMONDS),
+                    Card(Rank.EIGHT, Suit.SPADES),
+                ),
+            ),
+            current_attacker=Seat.ONE,
+        )
+
+    service = PvPRoomService(multiplayer_game_factory=factory, name_rng=random.Random(3))
+    room, humans = _fill_mixed(service, 3, 2)
+    room = service.play_action(
+        room.invite_code,
+        humans[0].reconnect_token,
+        HumanActionType.INITIAL_ATTACK,
+        (king,),
+        expected_version=room.version,
+    )
+    room = service.play_action(
+        room.invite_code,
+        humans[1].reconnect_token,
+        HumanActionType.TRANSFER,
+        nines,
+        expected_version=room.version,
+    )
+
+    assert room.recent_events
+    assert all(event.actor_seat is Seat.THREE for event in room.recent_events)
+    assert room.state is not None
+    assert room.state.phase is GamePhase.COMPLETE or acting_seat(room.state) in {
+        Seat.ONE,
+        Seat.TWO,
+    }
+
+
+def test_two_bot_transfer_chain_stops_at_human_defender() -> None:
+    initial_king = Card(Rank.KING, Suit.CLUBS)
+    first_transfer = (
+        Card(Rank.NINE, Suit.CLUBS),
+        Card(Rank.NINE, Suit.DIAMONDS),
+    )
+    second_transfer = (
+        Card(Rank.JACK, Suit.CLUBS),
+        Card(Rank.JACK, Suit.DIAMONDS),
+        Card(Rank.SIX, Suit.CLUBS),
+        Card(Rank.SIX, Suit.DIAMONDS),
+    )
+    final_defender = (
+        Card(Rank.ACE, Suit.CLUBS),
+        Card(Rank.ACE, Suit.DIAMONDS),
+        Card(Rank.KING, Suit.HEARTS),
+        Card(Rank.SEVEN, Suit.CLUBS),
+        Card(Rank.SEVEN, Suit.DIAMONDS),
+        Card(Rank.EIGHT, Suit.CLUBS),
+        Card(Rank.EIGHT, Suit.DIAMONDS),
+    )
+    attacker_hand = (
+        initial_king,
+        *(Card(Rank.QUEEN, suit) for suit in Suit),
+        Card(Rank.ACE, Suit.HEARTS),
+        Card(Rank.ACE, Suit.SPADES),
+        Card(Rank.KING, Suit.DIAMONDS),
+        Card(Rank.KING, Suit.SPADES),
+        *(Card(Rank.TEN, suit) for suit in Suit),
+    )
+
+    def factory(_count: int) -> GameState:
+        return GameState(
+            hands=(final_defender, attacker_hand, first_transfer, second_transfer),
+            current_attacker=Seat.TWO,
+        )
+
+    service = PvPRoomService(multiplayer_game_factory=factory, name_rng=random.Random(4))
+    room, humans = _fill_mixed(service, 4, 2)
+    room = service.play_action(
+        room.invite_code,
+        humans[1].reconnect_token,
+        HumanActionType.INITIAL_ATTACK,
+        (initial_king,),
+        expected_version=room.version,
+    )
+
+    assert [event.type.value for event in room.recent_events[:2]] == [
+        "BOT_TRANSFER",
+        "BOT_TRANSFER",
+    ]
+    assert [event.actor_seat for event in room.recent_events[:2]] == [
+        Seat.THREE,
+        Seat.FOUR,
+    ]
+    assert room.state is not None and room.state.active_bout is not None
+    assert room.state.active_bout.defender is Seat.ONE
+    assert acting_seat(room.state) is Seat.ONE
+
+
 def test_bot_credentials_and_votes_do_not_exist() -> None:
     service = _service()
     room, _humans = _fill_mixed(service, 4, 2)
