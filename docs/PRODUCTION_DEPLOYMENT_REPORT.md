@@ -181,3 +181,95 @@ browser-console warnings or errors. Kiba, Husky Tracking and Kennel Operations r
 the built and live social metadata remained intact. Final host health showed approximately 2.0 GiB
 available RAM, 134.6 MiB swap with idle swap I/O, zero current memory PSI, no OOM evidence, and no
 failed systemd units.
+
+## D5 staged deck-variant rollout (2026-10-10)
+
+D5 deployed exact release-candidate application commit
+`97763da0927bd987f70e8a19016e32b8bd73a9c5` over application revision
+`a8f9230bca58a74e395f6e33b85bb0be3e697c94`. Local release validation used the repository's bundled
+Node runtime and passed frontend lint, formatting, the production build, 355 frontend tests, backend
+lint/formatting, 831 backend tests, and `git diff --check`. No migration was present or run.
+
+Before replacement, `kiba-backup.service` created and verified
+`/var/backups/kiba/kiba-20261010T131107Z.dump` (28,802 bytes, mode `0600`). The previous source,
+protected environment, Compose inspection data, and prior backend/frontend images were retained for
+rollback. The exact RC archive checksum was
+`05d1610075293681a93105b819ad9e66d14b8c56e7769344d8df2edbc72233ce`.
+
+The accepted production images are:
+
+- backend: `sha256:350fcd6716edf725ac7e00e8e9e5c5e30a70338f94c8da3276dd9e095352eb75`;
+- frontend: `sha256:f27f448ef5b1744053d46baee64a1265341aaa04bb71919257c9204c603f22b0`.
+
+Stage A deployed the RC with `KIBA_MULTIPLAYER_3_4_ENABLED=true` and
+`KIBA_DECK_VARIANTS_ENABLED=false`. Only the Kiba backend and frontend were recreated; the
+PostgreSQL container identity and start time were unchanged. Public capabilities, UI and direct API
+checks confirmed Classic ×1 remained the only available configuration and all three non-default
+configurations were rejected with the established feature-unavailable response. Live acceptance
+covered two-, three- and four-player bot/PvP starts, Hint Mode, bot transfer cascades, three-player
+Pass, attack/defense, reconnect, a complete two-player PvP match, and accepted same-room rematch.
+Deck controls remained hidden. Raw social metadata, the v2 preview image, and exact Russian TAKE
+copy remained intact. Representative browser consoles contained no warning, error, or CSP entries.
+
+After the Stage A gate passed, Stage B appended only
+`KIBA_DECK_VARIANTS_ENABLED=true` to the root-owned mode-`0600` production environment. The
+protected pre-Stage-B environment is retained. Only the backend was recreated to consume the flag;
+its image did not change. The frontend and PostgreSQL container identities remained unchanged, and
+the public capability reported both multiplayer and deck variants enabled.
+
+Live Stage B acceptance covered all four configurations and initial card conservation totals:
+
+- Extended ×1 exposed ranks 2–5, human-readable Red/Black Joker cards, two-player Hint output, and
+  normal bot/PvP play. A real private match reached terminal state, reconnected, and accepted a
+  rematch in the same room with the same seats/configuration, fresh cards, no `completion_pending`,
+  and no false disconnect flash.
+- Classic ×2 started a three-player bot game with two independently selectable visual `6♣`
+  instances; selecting one left the other unselected. Bot transfer/cascade behavior remained live,
+  and the three-player Hint control stayed absent.
+- A real four-player Extended ×2 108-card bot match completed end-to-end twice. It exercised named
+  bots, ranks 2–5, Pass, bot transfers/cascades, finished seats, ranked 4→3→2 completion, and no
+  progression claim. `Play again` preserved player count, names, seats, profile and deck count while
+  starting a fresh deal; `Change players` returned to configuration.
+- A three-player Classic ×2 private room displayed immutable configuration to joiners, started only
+  at exact capacity, preserved hidden hands, accepted attack/defense and non-cycling Pass, and
+  recovered through reconnect with configuration unchanged. Three- and four-player variant games
+  exposed no Hint control.
+
+The live Joker smoke rendered accessible `Red Joker, value 25` and `Black Joker, value 25` labels,
+showed both colors in double-deck play, and exposed no physical IDs as user content. An ordinary
+black top with an opposite-color Red Joker confirmed the latter remained 25. A naturally occurring
+trump-Joker value 50 or exposed-Joker trump family was not encountered live; those cases remain
+covered by the deterministic D2/D3/D4 suite. A suitable five-rank starting hand did not occur during
+reasonable live testing, so initial-Street acceptance was not tested live and remains covered by
+the deterministic RC integration suite.
+
+An authenticated two-player Extended ×1 bot match completed in production. Before/after profile
+comparison showed unchanged XP, aggregate statistics, achievements, cosmetics and history count;
+no progression/history/statistics mutation was added. Classic ×1 persistence remained covered by
+the passing persistence integration suite and a non-mutating live regression smoke, avoiding an
+unnecessary extra production-statistics mutation.
+
+Public Rules covered 36/54/72/108 cards, values 2–5, Joker 25/50, color trump relationships, Joker
+after Ace, non-wrapping initial/post-response Streets, duplicate physical cards, double decks, and
+the defender cap. The core tutorial remained nine steps and now teaches both arithmetic and initial
+Street legality; the multiplayer guide remained six steps; the five-step deck/Joker guide worked in
+English and Russian. Fresh-context non-default onboarding appeared once, linked to the deck guide,
+dismissed successfully, and did not reappear on the next non-default game. Russian totals rendered
+as `36 карт`, `54 карты`, `72 карты`, and `108 карт`; live TAKE copy rendered
+`Вы взяли 1 карту`.
+
+Responsive 108-card production smoke passed at 1440×900, 1366×768, 1280×800, 390×844, and
+430×932 with no page-level horizontal overflow, three opponent seats present, the local hand usable,
+and the action control visible. A completed mobile-width game retained a usable 30-card post-TAKE
+hand. Keyboard operation selected both the Extended profile and two-deck count; selected states,
+Joker accessible names, duplicate-card independence, card roles, guide navigation, and textual
+recommendation passed accessibility smoke.
+
+Final production health showed the exact RC revision, both capabilities enabled, healthy backend,
+frontend and PostgreSQL containers with zero restarts and `OOMKilled=false`, approximately 2.0 GiB
+`MemAvailable`, 138 MiB resident swap with `si=0`/`so=0`, zero current memory PSI, and no kernel OOM
+evidence. Kiba, Husky Tracking and Kennel Operations returned HTTP 200. Docker, Caddy and Amnezia
+remained active; backup and both monitor timers remained active; monitor services reported success;
+no systemd units were failed. PostgreSQL, Caddy, Husky, Kennel, Amnezia, Docker, firewall, SSH and OS
+packages were not restarted, rebuilt, reconfigured, or upgraded. No release tag was created or
+moved.
