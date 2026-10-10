@@ -35,7 +35,7 @@ from kiba_api.game import (
 )
 from kiba_api.game.bot import _initial_street_candidates, _rank_run_candidates
 from kiba_api.main import create_app
-from kiba_api.pvp import PvPRoomPhase, PvPRoomService
+from kiba_api.pvp import PvPParticipantCompletion, PvPRoomPhase, PvPRoomService
 from kiba_api.sessions import GameSessionService, HumanActionType, acting_seat, get_move_hints
 
 ORIGIN = "http://testserver"
@@ -686,6 +686,15 @@ def test_four_player_extended_double_room_has_108_cards_and_broadcasts_exact_act
 
 @pytest.mark.parametrize("config", ALL_CONFIGS)
 def test_two_player_pvp_rematch_preserves_deck_configuration(config: DeckConfig) -> None:
+    persistence_calls: list[str | None] = []
+
+    def record_completion(room):
+        persistence_calls.append(room.match_id)
+        return tuple(
+            PvPParticipantCompletion(participant.participant_id, False)
+            for participant in room.participants
+        )
+
     def tiny(_count: int, actual: DeckConfig) -> GameState:
         return GameState(
             hands=((card(Rank.SIX),), (card(Rank.SEVEN),)),
@@ -694,9 +703,15 @@ def test_two_player_pvp_rematch_preserves_deck_configuration(config: DeckConfig)
             deck_config=actual,
         )
 
-    service = PvPRoomService(configured_game_factory=tiny)
+    service = PvPRoomService(
+        configured_game_factory=tiny,
+        completion_recorder=record_completion,
+    )
     if config == DEFAULT_DECK_CONFIG:
-        service = PvPRoomService(game_factory=lambda: tiny(2, config))
+        service = PvPRoomService(
+            game_factory=lambda: tiny(2, config),
+            completion_recorder=record_completion,
+        )
     room, creator = service.create_room("Creator", deck_config=config)
     room, joiner = service.join_room(room.invite_code, "Friend")
     room = service.play_action(
@@ -714,27 +729,41 @@ def test_two_player_pvp_rematch_preserves_deck_configuration(config: DeckConfig)
     )
     assert room.phase is PvPRoomPhase.COMPLETE
     previous_match_id = room.match_id
-    room = service.request_rematch(
+    previous_card_object_ids = {id(value) for value in room.state.all_cards}
+    requested = service.request_rematch(
         room.invite_code,
         creator.reconnect_token,
         match_id=previous_match_id or "",
         expected_version=room.version,
     )
+    assert requested.phase is PvPRoomPhase.COMPLETE
+    assert requested.rematch_acceptances == (creator.participant_id,)
+    if config == DEFAULT_DECK_CONFIG:
+        assert persistence_calls == [previous_match_id]
+        assert requested.completion_results
+    else:
+        assert persistence_calls == []
+        assert requested.completion_results == ()
     room = service.request_rematch(
         room.invite_code,
         joiner.reconnect_token,
         match_id=previous_match_id or "",
-        expected_version=room.version,
+        expected_version=requested.version,
     )
 
     assert room.phase is PvPRoomPhase.GAME_ACTIVE
     assert room.deck_config == config
     assert room.state is not None and room.state.deck_config == config
     assert room.match_id != previous_match_id
+    assert previous_card_object_ids.isdisjoint(id(value) for value in room.state.all_cards)
     assert tuple(value.seat for value in room.participants) == (Seat.ONE, Seat.TWO)
+    assert persistence_calls == ([previous_match_id] if config == DEFAULT_DECK_CONFIG else [])
 
 
-def test_variant_pvp_rematch_rechecks_live_feature_gate_without_corrupting_result() -> None:
+def test_non_default_pvp_rematch_intent_survives_reconnect_without_persistence() -> None:
+    config = DeckConfig(DeckProfile.EXTENDED, 1)
+    persistence_calls: list[object] = []
+
     def tiny(_count: int, actual: DeckConfig) -> GameState:
         return GameState(
             hands=((card(Rank.SIX),), (card(Rank.SEVEN),)),
@@ -743,7 +772,71 @@ def test_variant_pvp_rematch_rechecks_live_feature_gate_without_corrupting_resul
             deck_config=actual,
         )
 
-    service = PvPRoomService(configured_game_factory=tiny)
+    service = PvPRoomService(
+        configured_game_factory=tiny,
+        completion_recorder=lambda room: persistence_calls.append(room) or (),
+    )
+    room, creator = service.create_room("Creator", deck_config=config)
+    room, joiner = service.join_room(room.invite_code, "Friend")
+    room = service.play_action(
+        room.invite_code,
+        creator.reconnect_token,
+        HumanActionType.INITIAL_ATTACK,
+        (card(Rank.SIX),),
+        expected_version=room.version,
+    )
+    room = service.play_action(
+        room.invite_code,
+        joiner.reconnect_token,
+        HumanActionType.TAKE,
+        expected_version=room.version,
+    )
+    assert room.match_id is not None
+    service.connect(room.invite_code, creator.reconnect_token, "creator-socket")
+    service.connect(room.invite_code, joiner.reconnect_token, "joiner-socket")
+
+    requested = service.request_rematch(
+        room.invite_code,
+        creator.reconnect_token,
+        match_id=room.match_id,
+        expected_version=room.version,
+    )
+    service.disconnect(room.invite_code, creator.participant_id, "creator-socket")
+    reconnected = service.connect(
+        room.invite_code,
+        creator.reconnect_token,
+        "creator-reconnected",
+    )
+    restarted = service.request_rematch(
+        room.invite_code,
+        joiner.reconnect_token,
+        match_id=room.match_id,
+        expected_version=requested.version,
+    )
+
+    assert reconnected.participant.seat is creator.seat
+    assert reconnected.room.rematch_acceptances == (creator.participant_id,)
+    assert restarted.phase is PvPRoomPhase.GAME_ACTIVE
+    assert restarted.deck_config == config
+    assert restarted.match_id != room.match_id
+    assert persistence_calls == []
+
+
+def test_variant_pvp_rematch_rechecks_live_feature_gate_without_corrupting_result() -> None:
+    persistence_calls: list[object] = []
+
+    def tiny(_count: int, actual: DeckConfig) -> GameState:
+        return GameState(
+            hands=((card(Rank.SIX),), (card(Rank.SEVEN),)),
+            draw_pile=(),
+            current_attacker=Seat.ONE,
+            deck_config=actual,
+        )
+
+    service = PvPRoomService(
+        configured_game_factory=tiny,
+        completion_recorder=lambda room: persistence_calls.append(room) or (),
+    )
     settings = enabled_settings()
     with TestClient(create_app(settings=settings, pvp_service=service)) as client:
         creator = client.post(
@@ -790,7 +883,9 @@ def test_variant_pvp_rematch_rechecks_live_feature_gate_without_corrupting_resul
 
     assert rejected["type"] == "REMATCH_REJECTED"
     assert rejected["error"]["code"] == "REMATCH_NOT_AVAILABLE"
+    assert rejected["error"]["domain_code"] is None
     assert service.get_room(room.invite_code).state is completed_state
+    assert persistence_calls == []
 
 
 def test_three_player_variant_rematch_preserves_config_seats_and_fresh_card_objects() -> None:
@@ -902,6 +997,25 @@ def test_non_default_bot_and_pvp_completion_skip_persistence_callbacks(
     assert session.completion_persisted is False
     assert room.phase is PvPRoomPhase.COMPLETE
     assert room.completion_results == ()
+    assert bot_calls == pvp_calls == []
+
+    previous_match_id = room.match_id
+    requested = pvp_service.request_rematch(
+        room.invite_code,
+        creator.reconnect_token,
+        match_id=previous_match_id or "",
+        expected_version=room.version,
+    )
+    restarted = pvp_service.request_rematch(
+        room.invite_code,
+        joiner.reconnect_token,
+        match_id=previous_match_id or "",
+        expected_version=requested.version,
+    )
+
+    assert restarted.phase is PvPRoomPhase.GAME_ACTIVE
+    assert restarted.match_id != previous_match_id
+    assert restarted.deck_config == config
     assert bot_calls == pvp_calls == []
 
 

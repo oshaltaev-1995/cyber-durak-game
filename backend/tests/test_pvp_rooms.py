@@ -388,6 +388,60 @@ def test_rematch_consent_is_relative_and_starts_fresh_game_in_same_room() -> Non
     assert completions == [old_match_id]
 
 
+def test_classic_rematch_waits_only_while_required_completion_is_pending() -> None:
+    persistence_settled = False
+    persistence_attempts: list[str | None] = []
+
+    def record(room):
+        persistence_attempts.append(room.match_id)
+        if not persistence_settled:
+            return ()
+        return tuple(
+            PvPParticipantCompletion(participant.participant_id, False)
+            for participant in room.participants
+        )
+
+    service = PvPRoomService(
+        game_factory=tiny_game,
+        token_factory=TokenFactory(),
+        completion_recorder=record,
+    )
+    complete, creator, joiner = complete_tiny_room(service)
+    assert complete.match_id is not None
+    assert complete.completion_results == ()
+
+    with pytest.raises(PvPActionError) as pending:
+        service.request_rematch(
+            complete.invite_code,
+            creator.reconnect_token,
+            match_id=complete.match_id,
+            expected_version=complete.version,
+        )
+
+    assert pending.value.code is PvPErrorCode.REMATCH_NOT_AVAILABLE
+    assert pending.value.domain_code == "completion_pending"
+    assert service.get_room(complete.invite_code).rematch_acceptances == ()
+
+    persistence_settled = True
+    requested = service.request_rematch(
+        complete.invite_code,
+        creator.reconnect_token,
+        match_id=complete.match_id,
+        expected_version=complete.version,
+    )
+    restarted = service.request_rematch(
+        complete.invite_code,
+        joiner.reconnect_token,
+        match_id=complete.match_id,
+        expected_version=requested.version,
+    )
+
+    assert requested.completion_results
+    assert restarted.phase is PvPRoomPhase.GAME_ACTIVE
+    assert restarted.match_id != complete.match_id
+    assert persistence_attempts.count(complete.match_id) >= 2
+
+
 def test_rematch_uses_the_canonical_fresh_36_card_bootstrap() -> None:
     rng = random.Random(90210)
     created: list[GameState] = []

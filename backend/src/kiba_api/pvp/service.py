@@ -308,6 +308,11 @@ class PvPRoom:
         )
 
 
+def _uses_completion_persistence(room: PvPRoom) -> bool:
+    """Return whether this room participates in binary profile persistence."""
+    return room.capacity == 2 and room.deck_config == DEFAULT_DECK_CONFIG
+
+
 @dataclass(frozen=True, slots=True)
 class RoomConnection:
     """Connection registration metadata used by the WebSocket boundary."""
@@ -687,7 +692,7 @@ class PvPRoomService:
             self._persist_completed_room(record)
             room = record.room
             if (
-                room.capacity == 2
+                _uses_completion_persistence(room)
                 and self._completion_recorder is not None
                 and not room.completion_results
             ):
@@ -873,10 +878,9 @@ class PvPRoomService:
         room = record.room
         if (
             room.phase is not PvPRoomPhase.COMPLETE
-            or room.capacity != 2
+            or not _uses_completion_persistence(room)
             or room.completion_results
             or self._completion_recorder is None
-            or room.deck_config != DEFAULT_DECK_CONFIG
         ):
             return
         try:
