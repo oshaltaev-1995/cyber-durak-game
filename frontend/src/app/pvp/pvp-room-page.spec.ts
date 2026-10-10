@@ -30,9 +30,12 @@ const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
   room_phase: 'GAME_ACTIVE',
   version: 1,
   capacity: 2,
+  human_players: 2,
+  bot_count: 0,
   deck_profile: 'classic',
   deck_count: 1,
   joined_count: 2,
+  human_joined_count: 2,
   seat_order: ['one', 'two'],
   players: [
     {
@@ -41,6 +44,7 @@ const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
       display_name: 'Alice with a long name',
       connected: true,
       authenticated: false,
+      is_bot: false,
       is_self: true,
       hand_count: 1,
       active: true,
@@ -52,6 +56,7 @@ const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
       display_name: 'Bob',
       connected: true,
       authenticated: false,
+      is_bot: false,
       is_self: false,
       hand_count: 7,
       active: true,
@@ -68,6 +73,7 @@ const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
     display_name: 'Alice with a long name',
     connected: true,
     authenticated: false,
+    is_bot: false,
   },
   opponent: {
     participant_id: 'p2',
@@ -75,6 +81,7 @@ const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
     display_name: 'Bob',
     connected: true,
     authenticated: false,
+    is_bot: false,
   },
   game_phase: 'bout_active',
   result: null,
@@ -105,6 +112,7 @@ const makeState = (overrides: Partial<PvPState> = {}): PvPState => ({
   required_participant_id: 'p1',
   required_seat: 'one',
   available_actions: ['INITIAL_ATTACK'],
+  recent_events: [],
   ...overrides,
 });
 
@@ -120,6 +128,7 @@ const makeMultiplayerState = (
     display_name: ['Alice', 'Bob', 'Cara', 'Dmitri'][index],
     connected: true,
     authenticated: false,
+    is_bot: false,
     is_self: seat === viewerSeat,
     hand_count: seat === viewerSeat ? 2 : index + 5,
     active: true,
@@ -128,7 +137,10 @@ const makeMultiplayerState = (
   const viewer = players.find((player) => player.seat === viewerSeat)!;
   return makeState({
     capacity,
+    human_players: capacity,
+    bot_count: 0,
     joined_count: capacity,
+    human_joined_count: capacity,
     seat_order: seatOrder,
     players,
     active_seats: seatOrder,
@@ -138,6 +150,7 @@ const makeMultiplayerState = (
       display_name: viewer.display_name,
       connected: viewer.connected,
       authenticated: viewer.authenticated,
+      is_bot: false,
     },
     opponent: null,
     opponent_hand_count: null,
@@ -149,6 +162,36 @@ const makeMultiplayerState = (
     required_seat: 'one',
     ...overrides,
   });
+};
+
+const makeMixedState = (
+  capacity: 3 | 4,
+  humanPlayers: 2 | 3,
+  overrides: Partial<PvPState> = {},
+): PvPState => {
+  const base = makeMultiplayerState(capacity);
+  const botNames = ['Milo', 'Nika'];
+  let botIndex = 0;
+  const players = base.players.map((player, index) => {
+    const isBot = index >= humanPlayers;
+    return {
+      ...player,
+      participant_id: isBot ? `bot-${player.seat}` : player.participant_id,
+      display_name: isBot ? botNames[botIndex++] : player.display_name,
+      is_bot: isBot,
+      is_self: index === 0,
+    };
+  });
+  return {
+    ...base,
+    human_players: humanPlayers,
+    bot_count: capacity - humanPlayers,
+    joined_count: humanPlayers,
+    human_joined_count: humanPlayers,
+    players,
+    you: { ...base.you, is_bot: false },
+    ...overrides,
+  };
 };
 
 describe('PvPRoomPageComponent', () => {
@@ -321,6 +364,171 @@ describe('PvPRoomPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('app-game-table')).not.toBeNull();
   });
 
+  it.each([
+    [3, 2, '1 / 2', 'Ждём ещё 1 человека'],
+    [4, 2, '1 / 2', 'Ждём ещё 1 человека'],
+    [4, 3, '1 / 3', 'Ждём ещё 2 человек'],
+  ] as const)(
+    'renders capacity-%s mixed waiting seats using %s-human capacity',
+    (capacity, humanPlayers, joinedText, remainingText) => {
+      const full = makeMixedState(capacity, humanPlayers);
+      socket.state.set({
+        ...full,
+        room_phase: 'WAITING_FOR_OPPONENT',
+        game_phase: null,
+        joined_count: 1,
+        human_joined_count: 1,
+        players: full.players.filter((player) => player.is_bot || player.seat === 'one'),
+        available_actions: [],
+        required_participant_id: null,
+        required_seat: null,
+      });
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.textContent).toContain(joinedText);
+      expect(element.textContent).toContain(remainingText);
+      expect(element.querySelectorAll('.waiting-participants li')).toHaveLength(capacity);
+      expect(element.querySelectorAll('.waiting-bot-badge')).toHaveLength(capacity - humanPlayers);
+      expect(element.textContent).toContain('Свободное место для человека');
+      expect(element.textContent).not.toContain('MiloОтключён');
+    },
+  );
+
+  it('renders mixed humans and bots by seat without treating bots as disconnected', () => {
+    const mixed = makeMixedState(4, 2);
+    socket.state.set({
+      ...mixed,
+      players: mixed.players.map((player) =>
+        player.seat === 'two' || player.is_bot ? { ...player, connected: false } : player,
+      ),
+      available_actions: ['INITIAL_ATTACK'],
+    });
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect([...element.querySelectorAll('.seat-name')].map((node) => node.textContent)).toEqual([
+      'Bob',
+      'Milo',
+      'Nika',
+    ]);
+    expect(element.querySelectorAll('.seat-badge')[1].textContent).toContain('🤖');
+    expect(element.querySelectorAll('.seat-badge')[2].textContent).toContain('🤖');
+    expect(element.querySelectorAll('.opponent-zone .is-disconnected')).toHaveLength(1);
+    expect(element.querySelectorAll('[aria-label*="Компьютерный соперник"]')).toHaveLength(2);
+    expect(element.querySelector('app-hint-panel')).toBeNull();
+  });
+
+  it('shows the authoritative bot actor and presents bot recent events from its physical seat', () => {
+    vi.useFakeTimers();
+    try {
+      const mixed = makeMixedState(4, 2, {
+        required_participant_id: 'bot-three',
+        required_seat: 'three',
+        available_actions: [],
+      });
+      socket.state.set(mixed);
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milo думает');
+
+      socket.state.set({
+        ...mixed,
+        version: 2,
+        table_cards: [card],
+        recent_events: [
+          {
+            type: 'BOT_INITIAL_ATTACK',
+            actor: 'BOT',
+            actor_seat: 'three',
+            card_count: 1,
+            value: 6,
+            target: null,
+          },
+        ],
+        required_participant_id: 'p1',
+        required_seat: 'one',
+        available_actions: ['DEFEND'],
+      });
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.textContent).toContain('Milo атакует');
+      expect(element.querySelector('.motion-card.from-top.to-table')).not.toBeNull();
+      vi.advanceTimersByTime(520);
+      fixture.detectChanges();
+      expect(element.textContent).toContain('Нужно покрыть больше');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps finished human and bot seats stable while the mixed match continues', () => {
+    const mixed = makeMixedState(4, 2);
+    socket.state.set({
+      ...mixed,
+      active_seats: ['two', 'four'],
+      finished_seats: ['one', 'three'],
+      finish_groups: [['one'], ['three']],
+      players: mixed.players.map((player) =>
+        player.seat === 'one' || player.seat === 'three'
+          ? { ...player, active: false, finished: true, hand_count: 0 }
+          : player,
+      ),
+      available_actions: [],
+      required_participant_id: 'p2',
+      required_seat: 'two',
+    });
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.local-player-row')?.classList).toContain('is-finished');
+    expect(element.querySelector('.position-top')?.classList).toContain('is-finished');
+    expect(element.querySelector('.position-top .seat-count')?.textContent).toContain('0 карт');
+    expect(element.querySelector('.position-top')?.classList).not.toContain('is-disconnected');
+    expect(element.textContent).toContain('Вы финишировали — партия продолжается');
+  });
+
+  it('renders the latest terminal all-bot-remainder result without team language', () => {
+    const mixed = makeMixedState(4, 2);
+    socket.state.set({
+      ...mixed,
+      version: 7,
+      room_phase: 'COMPLETE',
+      game_phase: 'complete',
+      active_seats: [],
+      finished_seats: ['one', 'two', 'three', 'four'],
+      finish_groups: [['one'], ['three'], ['four'], ['two']],
+      players: mixed.players.map((player) => ({
+        ...player,
+        active: false,
+        finished: true,
+        hand_count: 0,
+      })),
+      available_actions: [],
+      required_participant_id: null,
+      required_seat: null,
+      recent_events: [
+        {
+          type: 'BOT_BITO',
+          actor: 'BOT',
+          actor_seat: 'four',
+          card_count: 0,
+          value: null,
+          target: null,
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.result-panel')).not.toBeNull();
+    expect(element.querySelectorAll('.result-bot-badge')).toHaveLength(2);
+    expect(element.textContent).toContain('Milo');
+    expect(element.textContent).toContain('Nika');
+    expect(element.textContent).not.toContain('Люди победили');
+    expect(element.textContent).not.toContain('команда');
+  });
+
   it('renders multiple disconnected participants independently and pauses local controls', () => {
     const state = makeMultiplayerState(4);
     socket.state.set({
@@ -426,11 +634,100 @@ describe('PvPRoomPageComponent', () => {
     expect(socket.cancelRematch).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    [2, 1, 'Готовы: 1 / 2'],
+    [3, 2, 'Готовы: 2 / 3'],
+  ] as const)(
+    'uses the H1 human-only rematch denominator for %s humans',
+    (humanPlayers, readyCount, expected) => {
+      const mixed = makeMixedState(4, humanPlayers);
+      const readyHumans = mixed.players
+        .filter((player) => !player.is_bot)
+        .slice(0, readyCount)
+        .map((player) => player.participant_id);
+      socket.state.set({
+        ...mixed,
+        room_phase: 'COMPLETE',
+        game_phase: 'complete',
+        active_seats: [],
+        finished_seats: ['one', 'two', 'three', 'four'],
+        finish_groups: [['one'], ['two'], ['three'], ['four']],
+        available_actions: [],
+        required_participant_id: null,
+        required_seat: null,
+        rematch_status: 'WAITING',
+        rematch_ready_count: readyCount,
+        rematch_total_count: humanPlayers,
+        rematch_requester_participant_id: 'p1',
+        rematch_ready_participant_ids: readyHumans,
+      });
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.textContent).toContain(expected);
+      expect(element.querySelectorAll('.rematch-participants li')).toHaveLength(4);
+      expect(element.querySelectorAll('.rematch-participants li small')).toHaveLength(4);
+      expect(element.querySelector('.rematch-participants')?.textContent).toContain(
+        'бот · готов автоматически',
+      );
+      expect(element.textContent).not.toContain(`Готовы: ${readyCount} / 4`);
+    },
+  );
+
+  it('starts a mixed rematch from authoritative state with stable seats, bots, and deck config', () => {
+    vi.useFakeTimers();
+    try {
+      const completed = makeMixedState(4, 2, {
+        room_phase: 'COMPLETE',
+        game_phase: 'complete',
+        version: 7,
+        deck_profile: 'extended',
+        deck_count: 2,
+        active_seats: [],
+        finished_seats: ['one', 'two', 'three', 'four'],
+        finish_groups: [['one'], ['three'], ['four'], ['two']],
+        available_actions: [],
+        required_participant_id: null,
+        required_seat: null,
+        rematch_ready_count: 1,
+        rematch_total_count: 2,
+      });
+      socket.state.set(completed);
+      fixture.detectChanges();
+      const names = completed.players.map((player) => player.display_name);
+
+      socket.state.set(
+        makeMixedState(4, 2, {
+          version: 8,
+          match_id: 'mixed-rematch-two',
+          deck_profile: 'extended',
+          deck_count: 2,
+        }),
+      );
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.textContent).toContain('Начинаем новую партию');
+      expect(element.textContent).not.toContain('Соперник отключился');
+      expect(socket.state()?.players.map((player) => player.display_name)).toEqual(names);
+      expect(socket.state()?.players.map((player) => player.seat)).toEqual([
+        'one',
+        'two',
+        'three',
+        'four',
+      ]);
+      expect(element.textContent).toContain('Расширенная · 2 колоды · 108 карт');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('renders a pre-start multiplayer room and releases a departed participant slot', () => {
     const waiting = makeMultiplayerState(4, 'one', {
       room_phase: 'WAITING_FOR_OPPONENT',
       game_phase: null,
       joined_count: 2,
+      human_joined_count: 2,
       players: makeMultiplayerState(4).players.slice(0, 2),
       available_actions: [],
       required_participant_id: null,
@@ -444,7 +741,13 @@ describe('PvPRoomPageComponent', () => {
     expect(element.textContent).toContain('Матчи на 3–4 игроков пока не влияют');
     expect(element.querySelectorAll('.waiting-participants li')).toHaveLength(2);
 
-    socket.state.set({ ...waiting, version: 2, joined_count: 1, players: [waiting.players[0]] });
+    socket.state.set({
+      ...waiting,
+      version: 2,
+      joined_count: 1,
+      human_joined_count: 1,
+      players: [waiting.players[0]],
+    });
     fixture.detectChanges();
     element = fixture.nativeElement as HTMLElement;
     expect(element.textContent).toContain('1 / 4 игроков');
@@ -458,6 +761,7 @@ describe('PvPRoomPageComponent', () => {
       deck_profile: 'extended',
       deck_count: 2,
       joined_count: 2,
+      human_joined_count: 2,
       players: makeMultiplayerState(4).players.slice(0, 2),
       available_actions: [],
       required_participant_id: null,
@@ -649,6 +953,7 @@ describe('PvPRoomPageComponent', () => {
       makeState({
         room_phase: 'WAITING_FOR_OPPONENT',
         joined_count: 1,
+        human_joined_count: 1,
         players: [makeState().players[0]],
         opponent: null,
         opponent_hand_count: null,
@@ -719,6 +1024,7 @@ describe('PvPRoomPageComponent', () => {
       makeState({
         room_phase: 'WAITING_FOR_OPPONENT',
         joined_count: 1,
+        human_joined_count: 1,
         players: [makeState().players[0]],
         opponent: null,
         opponent_hand_count: null,
@@ -1059,6 +1365,7 @@ describe('PvPRoomPageComponent', () => {
       version: 2,
       deck_profile: 'extended',
       joined_count: 1,
+      human_joined_count: 1,
       players: [makeState().players[0]],
       available_actions: [],
     });

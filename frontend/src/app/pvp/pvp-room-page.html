@@ -107,6 +107,15 @@
         <section class="waiting-room" aria-live="polite">
           <span class="waiting-icon" aria-hidden="true">↗</span>
           <h1>{{ i18n.t('pvp.roomCreated') }}</h1>
+          @if (game.bot_count > 0) {
+            <strong class="room-composition">{{
+              i18n.t('pvp.roomComposition', {
+                total: game.capacity,
+                humans: game.human_players,
+                bots: game.bot_count,
+              })
+            }}</strong>
+          }
           <strong>{{
             i18n.t(game.deck_count === 1 ? 'deck.activeSingle' : 'deck.activeDouble', {
               profile: i18n.t(
@@ -117,8 +126,9 @@
           }}</strong>
           <p>
             {{
-              i18n.t('pvp.waitingPlayers', {
-                joined: game.joined_count,
+              i18n.t(game.bot_count > 0 ? 'pvp.humanWaiting' : 'pvp.waitingPlayers', {
+                joined: game.bot_count > 0 ? game.human_joined_count : game.joined_count,
+                required: game.human_players,
                 capacity: game.capacity,
               })
             }}
@@ -126,26 +136,49 @@
           <ul
             class="waiting-participants"
             [attr.aria-label]="
-              i18n.t('pvp.waitingPlayers', {
-                joined: game.joined_count,
+              i18n.t(game.bot_count > 0 ? 'pvp.humanWaiting' : 'pvp.waitingPlayers', {
+                joined: game.bot_count > 0 ? game.human_joined_count : game.joined_count,
+                required: game.human_players,
                 capacity: game.capacity,
               })
             "
           >
-            @for (player of waitingPlayers(); track player.participant_id) {
+            @for (seat of waitingSeats(); track seat.seat; let index = $index) {
               <li>
-                <span class="waiting-player-badge" aria-hidden="true"
-                  >P{{ game.seat_order.indexOf(player.seat) + 1 }}</span
-                >
-                <strong>{{ player.display_name }}</strong>
-                <small>{{
-                  player.connected ? i18n.t('pvp.connected') : i18n.t('pvp.disconnectedPlayer')
-                }}</small>
+                <span class="waiting-player-badge" aria-hidden="true">P{{ index + 1 }}</span>
+                @if (seat.participant; as player) {
+                  @if (player.is_bot) {
+                    <strong
+                      >{{ player.display_name }}
+                      <span
+                        class="waiting-bot-badge"
+                        [attr.aria-label]="i18n.t('pvp.botParticipant')"
+                        >🤖</span
+                      ></strong
+                    >
+                    <small>{{ i18n.t('pvp.botSeatReserved') }}</small>
+                  } @else {
+                    <strong>{{ player.display_name }}</strong>
+                    <small>{{
+                      i18n.t(player.connected ? 'pvp.connected' : 'pvp.disconnectedPlayer')
+                    }}</small>
+                  }
+                } @else {
+                  <strong>{{ i18n.t('pvp.waitingForPlayer') }}</strong>
+                  <small>{{ i18n.t('pvp.openHumanSeat') }}</small>
+                }
               </li>
             }
           </ul>
           @if (emptySeatCount() > 0) {
-            <small>{{ i18n.t('pvp.waitingRemaining', { count: emptySeatCount() }) }}</small>
+            <small>{{
+              game.bot_count > 0
+                ? i18n.t(
+                    emptySeatCount() === 1 ? 'pvp.waitingPerson.one' : 'pvp.waitingPerson.many',
+                    { count: emptySeatCount() }
+                  )
+                : i18n.t('pvp.waitingRemaining', { count: emptySeatCount() })
+            }}</small>
           }
           @if (game.capacity > 2 || game.deck_profile !== 'classic' || game.deck_count !== 1) {
             <small>{{
@@ -229,6 +262,13 @@
                     <li [class.local-placement]="placement.participant?.is_self">
                       <strong>{{ placeLabel(placement.rank) }}</strong>
                       <span>{{ placement.participant?.display_name }}</span>
+                      @if (placement.participant?.is_bot) {
+                        <span
+                          class="result-bot-badge"
+                          [attr.aria-label]="i18n.t('game.botAccessible')"
+                          >🤖</span
+                        >
+                      }
                     </li>
                   }
                 </ol>
@@ -341,7 +381,7 @@
                     {{
                       i18n.t('pvp.rematchReady', {
                         ready: game.rematch_ready_count ?? 0,
-                        total: game.rematch_total_count ?? game.capacity,
+                        total: game.rematch_total_count ?? game.human_players,
                       })
                     }}
                   </p>
@@ -350,24 +390,28 @@
                     [attr.aria-label]="
                       i18n.t('pvp.rematchReady', {
                         ready: game.rematch_ready_count ?? 0,
-                        total: game.rematch_total_count ?? game.capacity,
+                        total: game.rematch_total_count ?? game.human_players,
                       })
                     "
                   >
                     @for (player of game.players; track player.participant_id) {
                       <li>
                         <span>{{ player.display_name }}</span>
-                        <small>
-                          {{
-                            i18n.t(
-                              (game.rematch_ready_participant_ids ?? []).includes(
-                                player.participant_id
+                        @if (player.is_bot) {
+                          <small>{{ i18n.t('pvp.rematchBotReady') }}</small>
+                        } @else {
+                          <small>
+                            {{
+                              i18n.t(
+                                (game.rematch_ready_participant_ids ?? []).includes(
+                                  player.participant_id
+                                )
+                                  ? 'pvp.rematchParticipantReady'
+                                  : 'pvp.rematchParticipantWaiting'
                               )
-                                ? 'pvp.rematchParticipantReady'
-                                : 'pvp.rematchParticipantWaiting'
-                            )
-                          }}
-                        </small>
+                            }}
+                          </small>
+                        }
                       </li>
                     }
                   </ul>

@@ -106,22 +106,22 @@ form {
 .identity-note strong {
   color: var(--text-strong);
 }
-.player-count-selector {
+.count-selector {
   padding: 0;
   border: 0;
 }
-.player-count-selector legend {
+.count-selector legend {
   margin-bottom: 0.5rem;
   color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 700;
 }
-.player-count-selector > div {
+.count-selector > div {
   display: grid;
   grid-template-columns: repeat(3, minmax(3.5rem, 1fr));
   gap: 0.5rem;
 }
-.player-count-selector label {
+.count-selector label {
   position: relative;
   display: grid;
   min-height: 2.75rem;
@@ -130,21 +130,72 @@ form {
   border-radius: 0.7rem;
   cursor: pointer;
 }
-.player-count-selector label.selected {
+.count-selector label.selected {
   color: var(--text-strong);
   border-color: var(--accent);
   background: rgb(73 229 190 / 10%);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
-.player-count-selector input {
+.count-selector input {
   position: absolute;
   width: 1px;
   min-height: 1px;
   opacity: 0;
 }
-.player-count-selector label:focus-within {
+.count-selector label:focus-within {
   outline: 3px solid #fff;
   outline-offset: 3px;
+}
+.human-count-selector > div {
+  grid-template-columns: repeat(auto-fit, minmax(3.5rem, 1fr));
+}
+.bot-summary {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgb(73 229 190 / 24%);
+  border-radius: 0.7rem;
+  color: var(--text-strong);
+  background: rgb(73 229 190 / 8%);
+  font-size: 0.82rem;
+  font-weight: 720;
+}
+.mixed-help {
+  font-size: 0.76rem;
+}
+.room-composition {
+  color: var(--accent);
+}
+.waiting-participants {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 0.4rem;
+  list-style: none;
+}
+.waiting-participants li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 0.65rem;
+  background: rgb(255 255 255 / 3%);
+  text-align: left;
+}
+.waiting-participants small {
+  color: var(--text-muted);
+  text-align: right;
+}
+.waiting-player-badge {
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  place-items: center;
+  border-radius: 50%;
+  color: #09231e;
+  background: #79b9a8;
+  font-size: 0.58rem;
+  font-weight: 850;
 }
 .progression-note {
   font-size: 0.8rem;

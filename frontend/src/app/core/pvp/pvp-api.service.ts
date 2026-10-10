@@ -16,11 +16,13 @@ export class PvPApiService {
     nickname: string | null,
     capacity: 2 | 3 | 4 = 2,
     deckConfig: DeckConfig = { deck_profile: 'classic', deck_count: 1 },
+    humanPlayers: 2 | 3 | 4 = capacity,
   ): Observable<PvPRoomJoin> {
     const defaultDeck = deckConfig.deck_profile === 'classic' && deckConfig.deck_count === 1;
     return this.http.post<PvPRoomJoin>('/api/pvp/rooms', {
       nickname,
       capacity,
+      ...(humanPlayers === capacity ? {} : { human_players: humanPlayers }),
       ...(defaultDeck ? {} : deckConfig),
     });
   }

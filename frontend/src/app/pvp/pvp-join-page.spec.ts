@@ -14,9 +14,12 @@ const waitingRoom: PvPRoomStatus = {
   room_phase: 'WAITING_FOR_OPPONENT',
   version: 0,
   capacity: 2,
+  human_players: 2,
+  bot_count: 0,
   deck_profile: 'classic',
   deck_count: 1,
   joined_count: 1,
+  human_joined_count: 1,
   participants: [
     {
       participant_id: 'p1',
@@ -24,6 +27,7 @@ const waitingRoom: PvPRoomStatus = {
       display_name: 'Alice',
       connected: true,
       authenticated: false,
+      is_bot: false,
     },
   ],
 };
@@ -110,7 +114,15 @@ describe('PvPJoinPageComponent', () => {
   });
 
   it('shows remaining capacity for a joinable multiplayer room', async () => {
-    api.getRoom.mockReturnValue(of({ ...waitingRoom, capacity: 4, joined_count: 2 }));
+    api.getRoom.mockReturnValue(
+      of({
+        ...waitingRoom,
+        capacity: 4,
+        human_players: 4,
+        joined_count: 2,
+        human_joined_count: 2,
+      }),
+    );
     await create();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
@@ -131,6 +143,51 @@ describe('PvPJoinPageComponent', () => {
     expect(element.textContent).toContain('Варианты колоды пока не влияют');
     expect(element.querySelector('input[name="deckProfile"]')).toBeNull();
     expect(element.querySelector('input[name="deckCount"]')).toBeNull();
+  });
+
+  it('shows immutable mixed composition, reserved bots, and only open human capacity', async () => {
+    api.getRoom.mockReturnValue(
+      of({
+        ...waitingRoom,
+        capacity: 4,
+        human_players: 2,
+        bot_count: 2,
+        joined_count: 1,
+        human_joined_count: 1,
+        deck_profile: 'extended',
+        deck_count: 2,
+        participants: [
+          waitingRoom.participants[0],
+          {
+            participant_id: 'bot-three',
+            seat: 'three',
+            display_name: 'Milo',
+            connected: true,
+            authenticated: false,
+            is_bot: true,
+          },
+          {
+            participant_id: 'bot-four',
+            seat: 'four',
+            display_name: 'Nika',
+            connected: true,
+            authenticated: false,
+            is_bot: true,
+          },
+        ],
+      }),
+    );
+    await create();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Игроков: 4 · людей: 2 · ботов: 2');
+    expect(element.textContent).toContain('Ждём ещё 1 человека');
+    expect(element.textContent).toContain('Milo');
+    expect(element.textContent).toContain('Nika');
+    expect(element.textContent).toContain('Компьютерный игрок · готов');
+    expect(element.textContent).not.toContain('Отключён');
+    expect(element.querySelectorAll('.waiting-participants li')).toHaveLength(4);
+    expect(element.querySelector('input[name="humanPlayerCount"]')).toBeNull();
   });
 
   it('shows a full room without a join action', async () => {

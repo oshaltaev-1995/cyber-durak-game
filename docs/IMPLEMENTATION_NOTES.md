@@ -1452,6 +1452,32 @@ history/progression path; all-human two-player CLASSIC ×1 persistence remains u
 process-local backend/protocol addition with no migration, Angular change, canon change, or
 production activation.
 
+### 15.17 H2 mixed-room product integration
+
+The public `/pvp` creator consumes the independent `mixed_rooms_enabled` capability. With the gate
+off, its existing all-human behavior and request shape are unchanged. With the gate on, a three- or
+four-seat room adds one accessible **Human players** selector; it defaults to the total seat count,
+keeps an all-human selection all-human when capacity changes, and otherwise preserves or clamps the
+explicit human count to `2..capacity`. Bot count is derived, never selected independently. Only a
+mixed request sends `human_players`; server rejection is surfaced without changing the selection.
+
+Waiting and join views use the authoritative `human_players`, `human_joined_count`, `bot_count`,
+participant type, and canonical seats. Empty rows represent only joinable human seats. Reserved
+bots retain backend names and seats and are presented as ready computer players, never as
+disconnected socket owners. The active room reuses the existing relative-seat table, hidden remote
+hands, role/finished markers, and card-motion system. Bot event summaries use `actor_seat` for
+left/top/right motion and short localized action status; authoritative state always wins over the
+presentation queue. Hints remain a total-capacity rule and therefore stay absent in every
+three/four-player mixed room.
+
+Results rank humans and bots individually with no team language. Rematch readiness uses the
+backend-projected human-only denominator; bot rows are explicitly ready automatically and never
+receive consent controls. A fresh authoritative rematch preserves capacity, human count, names,
+seats, bot identities, and deck configuration without a false disconnect transition. Mixed rooms
+use the existing no-progression policy. The feature remains default off, and H2 adds no gameplay,
+database, infrastructure, legal-policy, or production change; activation and deployment remain H3
+work.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

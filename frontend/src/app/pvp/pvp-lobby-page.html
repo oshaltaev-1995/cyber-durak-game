@@ -32,7 +32,7 @@
       </div>
     }
     @if (capabilityState() === 'ready' && multiplayerEnabled()) {
-      <fieldset class="player-count-selector">
+      <fieldset class="player-count-selector count-selector">
         <legend>{{ i18n.t('pvp.players') }}</legend>
         <div>
           @for (count of playerCounts; track count) {
@@ -42,13 +42,42 @@
                 name="playerCount"
                 [value]="count"
                 [checked]="selectedPlayers() === count"
-                (change)="selectedPlayers.set(count)"
+                (change)="selectPlayerCount(count)"
               />
               <span>{{ count }}</span>
             </label>
           }
         </div>
       </fieldset>
+    }
+    @if (capabilityState() === 'ready' && mixedRoomsEnabled() && selectedPlayers() > 2) {
+      <fieldset class="human-count-selector count-selector">
+        <legend>{{ i18n.t('pvp.humanPlayers') }}</legend>
+        <div>
+          @for (count of humanPlayerCounts(); track count) {
+            <label [class.selected]="selectedHumanPlayers() === count">
+              <input
+                type="radio"
+                name="humanPlayerCount"
+                [value]="count"
+                [checked]="selectedHumanPlayers() === count"
+                (change)="selectedHumanPlayers.set(count)"
+              />
+              <span>{{ count }}</span>
+            </label>
+          }
+        </div>
+      </fieldset>
+      @if (botCount() > 0) {
+        <p class="bot-summary" role="status">
+          {{
+            i18n.t(botCount() === 1 ? 'pvp.botJoins.one' : 'pvp.botJoins.many', {
+              count: botCount(),
+            })
+          }}
+        </p>
+      }
+      <p class="mixed-help">{{ i18n.t('pvp.mixedHelp') }}</p>
     }
     @if (capabilityState() === 'ready' && deckVariantsEnabled()) {
       <app-deck-config-selector

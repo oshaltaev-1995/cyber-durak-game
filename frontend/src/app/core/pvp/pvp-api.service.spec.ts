@@ -52,6 +52,24 @@ describe('PvPApiService', () => {
     request.flush({});
   });
 
+  it('sends the exact human count only for a mixed room', () => {
+    service.createRoom('Alice', 4, { deck_profile: 'extended', deck_count: 2 }, 2).subscribe();
+    const request = http.expectOne('/api/pvp/rooms');
+    expect(request.request.body).toEqual({
+      nickname: 'Alice',
+      capacity: 4,
+      human_players: 2,
+      deck_profile: 'extended',
+      deck_count: 2,
+    });
+    request.flush({});
+
+    service.createRoom('Alice', 4, { deck_profile: 'classic', deck_count: 1 }, 4).subscribe();
+    const allHuman = http.expectOne('/api/pvp/rooms');
+    expect(allHuman.request.body).toEqual({ nickname: 'Alice', capacity: 4 });
+    allHuman.flush({});
+  });
+
   it('loads public room status', () => {
     const response = { invite_code: 'ABC123' } as PvPRoomStatus;
     service.getRoom('ABC123').subscribe((value) => expect(value).toBe(response));

@@ -484,7 +484,7 @@ export class PvPWebSocketService {
     const state = this.state();
     if (
       state === null ||
-      !state.players.some((player) => player.participant_id === participantId)
+      !state.players.some((player) => player.participant_id === participantId && !player.is_bot)
     ) {
       return;
     }
@@ -502,7 +502,13 @@ export class PvPWebSocketService {
     const state = this.state();
     if (state === null || state.room_phase !== 'WAITING_FOR_OPPONENT') return;
     const players = state.players.filter((player) => player.participant_id !== participantId);
-    this.state.set({ ...state, players, joined_count: players.length });
+    const humanJoinedCount = players.filter((player) => !player.is_bot).length;
+    this.state.set({
+      ...state,
+      players,
+      joined_count: humanJoinedCount,
+      human_joined_count: humanJoinedCount,
+    });
   }
 
   private setOpponentDisconnected(): void {

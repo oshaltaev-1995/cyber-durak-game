@@ -1,5 +1,6 @@
 import {
   AttackPacket,
+  BotPresentationEvent,
   BoutPhase,
   DeckCount,
   DeckProfile,
@@ -20,6 +21,7 @@ export type PvPRematchStatus = 'NONE' | 'WAITING' | 'INCOMING' | 'DECLINED';
 export interface KibaCapabilities {
   readonly multiplayer_3_4_enabled: boolean;
   readonly deck_variants_enabled?: boolean;
+  readonly mixed_rooms_enabled?: boolean;
 }
 
 export interface PvPParticipant {
@@ -28,6 +30,7 @@ export interface PvPParticipant {
   readonly display_name: string;
   readonly connected: boolean;
   readonly authenticated: boolean;
+  readonly is_bot: boolean;
 }
 
 export interface PvPPlayerState extends PvPParticipant {
@@ -56,9 +59,12 @@ export interface PvPState {
   readonly room_phase: PvPRoomPhase;
   readonly version: number;
   readonly capacity: 2 | 3 | 4;
+  readonly human_players: 2 | 3 | 4;
+  readonly bot_count: number;
   readonly deck_profile: DeckProfile;
   readonly deck_count: DeckCount;
   readonly joined_count: number;
+  readonly human_joined_count: number;
   readonly seat_order: readonly Seat[];
   readonly players: readonly PvPPlayerState[];
   readonly active_seats: readonly Seat[];
@@ -100,6 +106,7 @@ export interface PvPState {
   readonly required_participant_id: string | null;
   readonly required_seat: Seat | null;
   readonly available_actions: readonly HumanActionType[];
+  readonly recent_events: readonly BotPresentationEvent[];
 }
 
 export interface PvPRoomJoin {
@@ -114,9 +121,12 @@ export interface PvPRoomStatus {
   readonly room_phase: PvPRoomPhase;
   readonly version: number;
   readonly capacity: 2 | 3 | 4;
+  readonly human_players: 2 | 3 | 4;
+  readonly bot_count: number;
   readonly deck_profile: DeckProfile;
   readonly deck_count: DeckCount;
   readonly joined_count: number;
+  readonly human_joined_count: number;
   readonly participants: readonly PvPParticipant[];
 }
 

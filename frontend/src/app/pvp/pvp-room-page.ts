@@ -12,7 +12,12 @@ import {
   signal,
 } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CARD_ACTIONS, GameCard, HumanActionType } from '../core/api/game-api.models';
+import {
+  BotPresentationEvent,
+  CARD_ACTIONS,
+  GameCard,
+  HumanActionType,
+} from '../core/api/game-api.models';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
 import { PvPWebSocketService } from '../core/pvp/pvp-websocket.service';
 import { HintPreferenceService } from '../core/hints/hint-preference.service';
@@ -41,6 +46,7 @@ import {
 } from '../game/presentation/table-seat.models';
 import { PvPPlayerState, PvPState } from '../core/pvp/pvp.models';
 import { deriveMultiplayerPlacements } from './multiplayer-placement';
+import { waitingRoomSeats } from './waiting-room-presentation';
 
 const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   WRONG_TURN: 'error.wrong_turn',
@@ -123,7 +129,12 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     const state = this.state();
     const activeRemoteDisconnected =
       state?.players.some(
-        (player) => !player.is_self && player.active && !player.finished && !player.connected,
+        (player) =>
+          !player.is_bot &&
+          !player.is_self &&
+          player.active &&
+          !player.finished &&
+          !player.connected,
       ) ?? false;
     return (
       state?.room_phase === 'CLOSED' ||
@@ -152,8 +163,9 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
         ) as RemoteTableSeatPosition,
         displayName: player.display_name,
         cardCount: player.hand_count ?? 0,
-        badge: `P${state.seat_order.indexOf(player.seat) + 1}`,
-        connected: player.connected,
+        badge: player.is_bot ? '🤖' : `P${state.seat_order.indexOf(player.seat) + 1}`,
+        isBot: player.is_bot,
+        connected: player.is_bot ? undefined : player.connected,
         active: player.active,
         finished: player.finished,
         currentAttacker: state.attacker === player.seat,
@@ -162,10 +174,20 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
         required: state.required_seat === player.seat,
       }));
   });
-  protected readonly waitingPlayers = computed(() => this.state()?.players ?? []);
+  protected readonly waitingSeats = computed(() => {
+    const state = this.state();
+    if (state === null) return [];
+    const seats = waitingRoomSeats(
+      state.capacity,
+      state.human_players,
+      state.players,
+      state.seat_order,
+    );
+    return state.bot_count > 0 ? seats : seats.filter((seat) => seat.participant !== null);
+  });
   protected readonly emptySeatCount = computed(() => {
     const state = this.state();
-    return state === null ? 0 : Math.max(0, state.capacity - state.joined_count);
+    return state === null ? 0 : Math.max(0, state.human_players - state.human_joined_count);
   });
   protected readonly placements = computed(() => {
     const state = this.state();
@@ -179,6 +201,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     const state = this.state();
     return state?.game_phase !== 'complete' && this.localPlayer()?.finished === true;
   });
+  protected readonly botPresentation = signal<BotPresentationEvent | null>(null);
 
   protected placeLabel(rank: number): string {
     const safeRank = Math.min(4, Math.max(1, rank)) as 1 | 2 | 3 | 4;
@@ -190,11 +213,14 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   private submittedAction: HumanActionType | null = null;
   private submittedCards: readonly GameCard[] = [];
   private rematchTransitionTimer: ReturnType<typeof setTimeout> | null = null;
+  private presentationTimer: ReturnType<typeof setTimeout> | null = null;
+  private presentationQueue: BotPresentationEvent[] = [];
 
   constructor() {
     effect(() => {
       const current = this.state();
       if (current !== null) {
+        const initialState = this.previousState === null;
         const enteredFreshVariant =
           this.previousState?.room_phase === 'WAITING_FOR_OPPONENT' &&
           current.room_phase === 'GAME_ACTIVE' &&
@@ -204,8 +230,12 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
             this.previousState?.game_phase === 'complete' &&
             current.room_phase === 'GAME_ACTIVE' &&
             current.match_id !== this.previousState.match_id;
-          if (startsRematch) this.presentRematchStart();
-          else if (this.previousState !== null) this.presentTransition(this.previousState, current);
+          if (startsRematch) {
+            this.presentRematchStart(current);
+          } else {
+            if (this.previousState !== null) this.presentTransition(this.previousState, current);
+            this.queueBotStatuses(current.recent_events);
+          }
           this.selectedIds.set(new Set());
         } else {
           const ownedIds = new Set(current.hand.map(cardIdentity));
@@ -214,6 +244,9 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
           );
         }
         this.lastVersion = Math.max(this.lastVersion, current.version);
+        if (initialState && current.recent_events.length > 0) {
+          this.queueBotStatuses(current.recent_events);
+        }
         this.previousState = current;
         if (enteredFreshVariant && !this.deckOnboarding.hasSeen()) {
           this.deckOnboardingVisible.set(true);
@@ -258,6 +291,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.rematchTransitionTimer !== null) clearTimeout(this.rematchTransitionTimer);
     this.cardMotion.clear();
+    this.cancelPresentation();
     this.socket.disconnect();
   }
 
@@ -505,8 +539,9 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     this.socket.leaveRoom();
   }
 
-  private presentRematchStart(): void {
+  private presentRematchStart(state: PvPState): void {
     this.cardMotion.clear();
+    this.cancelPresentation();
     this.submittedAction = null;
     this.submittedCards = [];
     if (this.rematchTransitionTimer !== null) clearTimeout(this.rematchTransitionTimer);
@@ -514,10 +549,38 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     this.rematchTransitionTimer = setTimeout(() => {
       this.rematchTransitionTimer = null;
       this.startingRematch.set(false);
+      this.presentInitialBotActions(state);
+      this.queueBotStatuses(state.recent_events);
     }, 650);
   }
 
+  private presentInitialBotActions(state: PvPState): void {
+    const playedCount = this.remotePlayedCount(state.recent_events);
+    if (playedCount === 0) return;
+    const current = this.motionSnapshot(state);
+    const previousRemoteHands = { ...current.remoteHands };
+    for (const event of state.recent_events) {
+      if (
+        !['BOT_INITIAL_ATTACK', 'BOT_DEFEND', 'BOT_TRANSFER', 'BOT_THROW_IN'].includes(event.type)
+      ) {
+        continue;
+      }
+      const position = this.positionForSeat(event.actor_seat ?? null, state) ?? 'top';
+      previousRemoteHands[position] = (previousRemoteHands[position] ?? 0) + event.card_count;
+    }
+    const visibleCards = state.table_cards.slice(0, playedCount);
+    this.cardMotion.play(
+      planCardMotions({ ...current, remoteHands: previousRemoteHands, tableCards: [] }, current, {
+        remoteCardCount: playedCount,
+        remotePlayedCards: visibleCards,
+        remotePlays: this.remotePlayBatches(state, state, visibleCards),
+      }),
+    );
+  }
+
   private getStatusText(): string {
+    const event = this.botPresentation();
+    if (event !== null) return this.botEventText(event);
     const state = this.state();
     if (this.startingRematch()) return this.i18n.t('pvp.rematchStarting');
     if (this.socket.status() === 'connecting') return this.i18n.t('pvp.connecting');
@@ -554,6 +617,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     const remoteCards = next.table_cards.filter(
       (card) => !previousCodes.has(cardIdentity(card)) && !submitted.has(cardIdentity(card)),
     );
+    const remotePlays = this.remotePlayBatches(previous, next, remoteCards);
     this.cardMotion.play(
       planCardMotions(this.motionSnapshot(previous), this.motionSnapshot(next), {
         localAction: this.submittedAction ?? undefined,
@@ -561,6 +625,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
         remoteCardCount: remoteCards.length,
         remotePlayedCards: remoteCards,
         remoteFrom: this.remoteActionSource(previous),
+        remotePlays,
         resolvedTo: this.resolutionDestination(previous, next),
       }),
     );
@@ -606,6 +671,124 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     return position === 'bottom' ? undefined : position;
   }
 
+  private remotePlayBatches(
+    previous: PvPState,
+    next: PvPState,
+    cards: readonly GameCard[],
+  ): readonly {
+    readonly from: RemoteTableSeatPosition;
+    readonly count: number;
+    readonly cards: readonly GameCard[];
+  }[] {
+    const cardEvents = next.recent_events.filter((event) =>
+      ['BOT_INITIAL_ATTACK', 'BOT_DEFEND', 'BOT_TRANSFER', 'BOT_THROW_IN'].includes(event.type),
+    );
+    const botCardCount = cardEvents.reduce((total, event) => total + event.card_count, 0);
+    const batches: {
+      from: RemoteTableSeatPosition;
+      count: number;
+      cards: readonly GameCard[];
+    }[] = [];
+    let cardIndex = 0;
+    const humanCardCount = Math.max(0, cards.length - botCardCount);
+    const humanSource = this.remoteActionSource(previous);
+    if (humanCardCount > 0 && humanSource !== undefined) {
+      batches.push({
+        from: humanSource,
+        count: humanCardCount,
+        cards: cards.slice(0, humanCardCount),
+      });
+      cardIndex = humanCardCount;
+    }
+    for (const event of cardEvents) {
+      const source =
+        event.actor_seat === null || event.actor_seat === undefined
+          ? undefined
+          : this.positionForSeat(event.actor_seat, next);
+      batches.push({
+        from: source ?? 'top',
+        count: event.card_count,
+        cards: cards.slice(cardIndex, cardIndex + event.card_count),
+      });
+      cardIndex += event.card_count;
+    }
+    if (batches.length === 0 && cards.length > 0) {
+      batches.push({
+        from: humanSource ?? 'top',
+        count: cards.length,
+        cards,
+      });
+    }
+    return batches;
+  }
+
+  private remotePlayedCount(events: readonly BotPresentationEvent[]): number {
+    return events
+      .filter((event) =>
+        ['BOT_INITIAL_ATTACK', 'BOT_DEFEND', 'BOT_TRANSFER', 'BOT_THROW_IN'].includes(event.type),
+      )
+      .reduce((total, event) => total + event.card_count, 0);
+  }
+
+  private positionForSeat(
+    seat: PvPState['required_seat'],
+    state: PvPState,
+  ): RemoteTableSeatPosition | undefined {
+    if (seat === null || seat === state.you.seat) return undefined;
+    const position = relativeSeatPosition(state.seat_order, state.you.seat, seat);
+    return position === 'bottom' ? undefined : position;
+  }
+
+  private queueBotStatuses(events: readonly BotPresentationEvent[]): void {
+    if (events.length === 0) return;
+    this.cancelPresentation();
+    this.presentationQueue = [...events].slice(-6);
+    this.showNextBotStatus();
+  }
+
+  private showNextBotStatus(): void {
+    const event = this.presentationQueue.shift() ?? null;
+    if (event === null) {
+      this.botPresentation.set(null);
+      return;
+    }
+    this.botPresentation.set(event);
+    this.presentationTimer = setTimeout(() => {
+      this.presentationTimer = null;
+      this.showNextBotStatus();
+    }, 520);
+  }
+
+  private cancelPresentation(): void {
+    if (this.presentationTimer !== null) clearTimeout(this.presentationTimer);
+    this.presentationTimer = null;
+    this.presentationQueue = [];
+    this.botPresentation.set(null);
+  }
+
+  private botEventText(event: BotPresentationEvent): string {
+    const state = this.state();
+    const name =
+      state?.players.find((player) => player.seat === event.actor_seat)?.display_name ??
+      this.i18n.t('game.bot');
+    const key: Record<BotPresentationEvent['type'], TranslationKey> = {
+      BOT_INITIAL_ATTACK: 'game.botNamedAttacks',
+      BOT_DEFEND: 'game.botNamedDefends',
+      BOT_TRANSFER: 'game.botNamedTransfers',
+      BOT_THROW_IN: 'game.botNamedThrows',
+      BOT_TAKE: 'game.botNamedTakes',
+      BOT_BITO: 'game.botNamedPasses',
+    };
+    return this.i18n.t(key[event.type], {
+      name,
+      count: event.card_count,
+      cards:
+        event.type === 'BOT_TAKE'
+          ? this.i18n.takeCardCount(event.card_count)
+          : this.i18n.cardCount(event.card_count),
+    });
+  }
+
   private roleLabels(state: PvPState, player: PvPPlayerState): readonly string[] {
     const labels: string[] = [];
     if (state.defender === player.seat) labels.push(this.i18n.t('pvp.defender'));
@@ -615,7 +798,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     }
     if (state.required_seat === player.seat) labels.push(this.i18n.t('pvp.currentTurn'));
     if (player.finished) labels.push(this.i18n.t('pvp.finishedPlayer'));
-    if (!player.connected) labels.push(this.i18n.t('pvp.disconnectedPlayer'));
+    if (!player.is_bot && !player.connected) labels.push(this.i18n.t('pvp.disconnectedPlayer'));
     return labels;
   }
 }

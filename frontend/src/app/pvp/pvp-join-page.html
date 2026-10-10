@@ -9,6 +9,15 @@
           {{ i18n.t('pvp.roomFrom', { name: room.participants[0].display_name }) }}
         </h1>
         <strong>{{ i18n.t('pvp.roomSize', { count: room.capacity }) }}</strong>
+        @if (room.bot_count > 0) {
+          <strong class="room-composition">{{
+            i18n.t('pvp.roomComposition', {
+              total: room.capacity,
+              humans: room.human_players,
+              bots: room.bot_count,
+            })
+          }}</strong>
+        }
         <strong class="room-deck-config">{{
           i18n.t(room.deck_count === 1 ? 'deck.activeSingle' : 'deck.activeDouble', {
             profile: i18n.t(
@@ -30,12 +39,47 @@
         }
         <p>
           {{
-            i18n.t(room.capacity === 2 ? 'pvp.secondSeatFree' : 'pvp.seatsAvailable', {
-              joined: room.joined_count,
-              capacity: room.capacity,
-            })
+            room.bot_count > 0
+              ? room.human_players === 2 && room.human_joined_count === 1
+                ? i18n.t('pvp.waitingPerson.one')
+                : i18n.t('pvp.seatsAvailable', {
+                    joined: room.human_joined_count,
+                    capacity: room.human_players,
+                  })
+              : i18n.t(room.capacity === 2 ? 'pvp.secondSeatFree' : 'pvp.seatsAvailable', {
+                  joined: room.joined_count,
+                  capacity: room.capacity,
+                })
           }}
         </p>
+        @if (room.bot_count > 0) {
+          <ul
+            class="waiting-participants"
+            [attr.aria-label]="
+              i18n.t('pvp.humanWaiting', {
+                joined: room.human_joined_count,
+                required: room.human_players,
+              })
+            "
+          >
+            @for (seat of waitingSeats(); track seat.seat; let index = $index) {
+              <li>
+                <span class="waiting-player-badge" aria-hidden="true">P{{ index + 1 }}</span>
+                @if (seat.participant; as player) {
+                  <strong>{{ player.display_name }}</strong>
+                  <small>{{
+                    player.is_bot
+                      ? i18n.t('pvp.botSeatReserved')
+                      : i18n.t(player.connected ? 'pvp.connected' : 'pvp.disconnectedPlayer')
+                  }}</small>
+                } @else {
+                  <strong>{{ i18n.t('pvp.waitingForPlayer') }}</strong>
+                  <small>{{ i18n.t('pvp.openHumanSeat') }}</small>
+                }
+              </li>
+            }
+          </ul>
+        }
         @if (auth.currentUser(); as user) {
           <div class="identity-note">
             {{ i18n.t('pvp.enterAs') }} <strong>{{ user.display_name }}</strong>

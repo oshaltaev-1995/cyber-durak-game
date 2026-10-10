@@ -203,9 +203,120 @@ describe('PvPLobbyPageComponent', () => {
     });
   });
 
+  it('offers mixed human counts only behind the gate and defaults every table to all-human', () => {
+    fixture.destroy();
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: true, mixed_rooms_enabled: true }),
+    );
+    fixture = TestBed.createComponent(PvPLobbyPageComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelectorAll('input[name="humanPlayerCount"]')).toHaveLength(0);
+    element.querySelector<HTMLInputElement>('input[name="playerCount"][value="3"]')!.click();
+    fixture.detectChanges();
+    let humanRadios = element.querySelectorAll<HTMLInputElement>('input[name="humanPlayerCount"]');
+    expect([...humanRadios].map((radio) => radio.value)).toEqual(['2', '3']);
+    expect(humanRadios[1].checked).toBe(true);
+
+    element.querySelector<HTMLInputElement>('input[name="playerCount"][value="4"]')!.click();
+    fixture.detectChanges();
+    humanRadios = element.querySelectorAll<HTMLInputElement>('input[name="humanPlayerCount"]');
+    expect([...humanRadios].map((radio) => radio.value)).toEqual(['2', '3', '4']);
+    expect(humanRadios[2].checked).toBe(true);
+    expect(element.textContent).not.toContain('0 ботов');
+  });
+
+  it('preserves an explicit mixed human count as total players change and derives bot copy', () => {
+    fixture.destroy();
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: true, mixed_rooms_enabled: true }),
+    );
+    fixture = TestBed.createComponent(PvPLobbyPageComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    element.querySelector<HTMLInputElement>('input[name="playerCount"][value="4"]')!.click();
+    fixture.detectChanges();
+    element.querySelector<HTMLInputElement>('input[name="humanPlayerCount"][value="2"]')!.click();
+    fixture.detectChanges();
+    expect(element.textContent).toContain('2 бота присоединятся автоматически');
+
+    element.querySelector<HTMLInputElement>('input[name="playerCount"][value="3"]')!.click();
+    fixture.detectChanges();
+    expect(
+      element.querySelector<HTMLInputElement>('input[name="humanPlayerCount"][value="2"]')?.checked,
+    ).toBe(true);
+    expect(element.textContent).toContain('1 бот присоединится автоматически');
+
+    element.querySelector<HTMLInputElement>('input[name="playerCount"][value="2"]')!.click();
+    fixture.detectChanges();
+    expect(element.querySelectorAll('input[name="humanPlayerCount"]')).toHaveLength(0);
+    expect(element.textContent).not.toContain('присоединится автоматически');
+  });
+
+  it('submits exact mixed composition with deck config and never adds the field to all-human', () => {
+    fixture.destroy();
+    api.getCapabilities.mockReturnValue(
+      of({
+        multiplayer_3_4_enabled: true,
+        deck_variants_enabled: true,
+        mixed_rooms_enabled: true,
+      }),
+    );
+    api.createRoom.mockReturnValue(
+      of({
+        invite_code: 'MIXED4',
+        credential: { participant_id: 'p1', seat: 'one', reconnect_token: 'secret' },
+      } as PvPRoomJoin),
+    );
+    fixture = TestBed.createComponent(PvPLobbyPageComponent);
+    fixture.detectChanges();
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const element = fixture.nativeElement as HTMLElement;
+
+    element.querySelector<HTMLInputElement>('input[name="playerCount"][value="4"]')!.click();
+    fixture.detectChanges();
+    element.querySelector<HTMLInputElement>('input[name="humanPlayerCount"][value="2"]')!.click();
+    element.querySelector<HTMLInputElement>('input[name="deckProfile"][value="extended"]')!.click();
+    element.querySelector<HTMLInputElement>('input[name="deckCount"][value="2"]')!.click();
+    [...element.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('Создать комнату'))
+      ?.click();
+
+    expect(api.createRoom).toHaveBeenCalledWith(
+      '',
+      4,
+      { deck_profile: 'extended', deck_count: 2 },
+      2,
+    );
+  });
+
+  it('localizes mixed-room help and bot summary in English', () => {
+    fixture.destroy();
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: true, mixed_rooms_enabled: true }),
+    );
+    fixture = TestBed.createComponent(PvPLobbyPageComponent);
+    TestBed.inject(TranslationService).setLocale('en');
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    element.querySelector<HTMLInputElement>('input[name="playerCount"][value="3"]')!.click();
+    fixture.detectChanges();
+    element.querySelector<HTMLInputElement>('input[name="humanPlayerCount"][value="2"]')!.click();
+    fixture.detectChanges();
+
+    expect(element.textContent).toContain('Human players');
+    expect(element.textContent).toContain('1 bot will join automatically');
+    expect(element.textContent).toContain('there are no teams');
+    TestBed.inject(TranslationService).setLocale('ru');
+  });
+
   it('handles a server-side flag change without silently downgrading the room', () => {
     fixture.destroy();
-    api.getCapabilities.mockReturnValue(of({ multiplayer_3_4_enabled: true }));
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: true, mixed_rooms_enabled: true }),
+    );
     api.createRoom.mockReturnValue(
       throwError(
         () =>
@@ -220,15 +331,23 @@ describe('PvPLobbyPageComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     element.querySelectorAll<HTMLInputElement>('input[name="playerCount"]')[2].click();
     fixture.detectChanges();
+    element.querySelector<HTMLInputElement>('input[name="humanPlayerCount"][value="2"]')!.click();
+    fixture.detectChanges();
     [...element.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('Создать комнату'))
       ?.click();
     fixture.detectChanges();
 
-    expect(api.createRoom).toHaveBeenCalledWith('', 4, {
-      deck_profile: 'classic',
-      deck_count: 1,
-    });
+    expect(api.createRoom).toHaveBeenCalledWith(
+      '',
+      4,
+      { deck_profile: 'classic', deck_count: 1 },
+      2,
+    );
+    expect(
+      element.querySelector<HTMLInputElement>('input[name="humanPlayerCount"][value="2"]')?.checked,
+    ).toBe(true);
+    expect(element.textContent).toContain('2 бота присоединятся автоматически');
     expect(element.textContent).toContain('Выбранный вариант сейчас недоступен');
   });
 

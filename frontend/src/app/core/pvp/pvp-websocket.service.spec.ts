@@ -51,7 +51,10 @@ const state = (version: number, opponent: PvPState['opponent'] = null): PvPState
     rematch_status: 'NONE',
     version,
     capacity: 2,
+    human_players: 2,
+    bot_count: 0,
     joined_count: opponent === null ? 1 : 2,
+    human_joined_count: opponent === null ? 1 : 2,
     seat_order: ['one', 'two'],
     players: [
       {
@@ -60,6 +63,7 @@ const state = (version: number, opponent: PvPState['opponent'] = null): PvPState
         display_name: 'Alice',
         connected: true,
         authenticated: false,
+        is_bot: false,
         is_self: true,
         hand_count: 6,
         active: true,
@@ -89,6 +93,7 @@ const opponent = (connected: boolean): NonNullable<PvPState['opponent']> => ({
   display_name: 'Bob',
   connected,
   authenticated: false,
+  is_bot: false,
 });
 
 const multiplayerState = (version: number): PvPState => {
@@ -96,7 +101,9 @@ const multiplayerState = (version: number): PvPState => {
   return {
     ...base,
     capacity: 4,
+    human_players: 4,
     joined_count: 4,
+    human_joined_count: 4,
     seat_order: ['one', 'two', 'three', 'four'],
     players: (['one', 'two', 'three', 'four'] as const).map((seat, index) => ({
       participant_id: `p${index + 1}`,
@@ -104,6 +111,7 @@ const multiplayerState = (version: number): PvPState => {
       display_name: `Player ${index + 1}`,
       connected: true,
       authenticated: false,
+      is_bot: false,
       is_self: index === 0,
       hand_count: 6,
       active: true,
@@ -116,6 +124,7 @@ const multiplayerState = (version: number): PvPState => {
       display_name: 'Player 1',
       connected: true,
       authenticated: false,
+      is_bot: false,
     },
     opponent: null,
     opponent_hand_count: null,

@@ -9,6 +9,11 @@ import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
 import { TranslationService } from '../core/i18n/translation.service';
 import { DeckCount, DeckProfile } from '../core/api/game-api.models';
 import { DeckConfigSelectorComponent } from '../core/deck/deck-config-selector';
+import {
+  RoomPlayerCount,
+  humanPlayerOptions,
+  nextHumanPlayerCount,
+} from './mixed-room-composition';
 
 @Component({
   selector: 'app-pvp-lobby-page',
@@ -29,7 +34,9 @@ export class PvPLobbyPageComponent implements OnInit {
   protected readonly capabilityState = signal<'loading' | 'ready' | 'failed'>('loading');
   protected readonly multiplayerEnabled = signal(false);
   protected readonly deckVariantsEnabled = signal(false);
+  protected readonly mixedRoomsEnabled = signal(false);
   protected readonly selectedPlayers = signal<2 | 3 | 4>(2);
+  protected readonly selectedHumanPlayers = signal<2 | 3 | 4>(2);
   protected readonly selectedDeckProfile = signal<DeckProfile>('classic');
   protected readonly selectedDeckCount = signal<DeckCount>(1);
   protected readonly playerCounts = [2, 3, 4] as const;
@@ -51,11 +58,13 @@ export class PvPLobbyPageComponent implements OnInit {
       next: (capabilities) => {
         this.multiplayerEnabled.set(capabilities.multiplayer_3_4_enabled);
         this.deckVariantsEnabled.set(capabilities.deck_variants_enabled ?? false);
+        this.mixedRoomsEnabled.set(capabilities.mixed_rooms_enabled ?? false);
         this.capabilityState.set('ready');
       },
       error: () => {
         this.multiplayerEnabled.set(false);
         this.deckVariantsEnabled.set(false);
+        this.mixedRoomsEnabled.set(false);
         this.capabilityState.set('failed');
       },
     });
@@ -65,23 +74,38 @@ export class PvPLobbyPageComponent implements OnInit {
     if (this.pending() || this.capabilityState() !== 'ready') return;
     this.pending.set(true);
     this.error.set(null);
-    this.api
-      .createRoom(
-        this.auth.currentUser() === null ? this.nickname().trim() : null,
-        this.selectedPlayers(),
-        {
-          deck_profile: this.selectedDeckProfile(),
-          deck_count: this.selectedDeckCount(),
-        },
-      )
-      .pipe(finalize(() => this.pending.set(false)))
-      .subscribe({
-        next: (response) => {
-          this.credentials.save(response.invite_code, response.credential);
-          void this.router.navigate(['/pvp/room', response.invite_code]);
-        },
-        error: (error: unknown) => this.error.set(this.errorMessage(error)),
-      });
+    const nickname = this.auth.currentUser() === null ? this.nickname().trim() : null;
+    const capacity = this.selectedPlayers();
+    const deckConfig = {
+      deck_profile: this.selectedDeckProfile(),
+      deck_count: this.selectedDeckCount(),
+    } as const;
+    const request =
+      this.mixedRoomsEnabled() && this.selectedHumanPlayers() < capacity
+        ? this.api.createRoom(nickname, capacity, deckConfig, this.selectedHumanPlayers())
+        : this.api.createRoom(nickname, capacity, deckConfig);
+    request.pipe(finalize(() => this.pending.set(false))).subscribe({
+      next: (response) => {
+        this.credentials.save(response.invite_code, response.credential);
+        void this.router.navigate(['/pvp/room', response.invite_code]);
+      },
+      error: (error: unknown) => this.error.set(this.errorMessage(error)),
+    });
+  }
+
+  protected selectPlayerCount(count: RoomPlayerCount): void {
+    this.selectedHumanPlayers.set(
+      nextHumanPlayerCount(this.selectedPlayers(), this.selectedHumanPlayers(), count),
+    );
+    this.selectedPlayers.set(count);
+  }
+
+  protected humanPlayerCounts(): readonly RoomPlayerCount[] {
+    return humanPlayerOptions(this.selectedPlayers());
+  }
+
+  protected botCount(): number {
+    return this.selectedPlayers() - this.selectedHumanPlayers();
   }
 
   protected openInvite(): void {

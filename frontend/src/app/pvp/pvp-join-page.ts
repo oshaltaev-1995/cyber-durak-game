@@ -1,5 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -8,6 +15,7 @@ import { PvPApiService } from '../core/pvp/pvp-api.service';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
 import { PvPRoomStatus } from '../core/pvp/pvp.models';
 import { TranslationService } from '../core/i18n/translation.service';
+import { waitingRoomSeats } from './waiting-room-presentation';
 
 @Component({
   selector: 'app-pvp-join-page',
@@ -27,6 +35,12 @@ export class PvPJoinPageComponent implements OnInit {
   protected readonly nickname = signal('');
   protected readonly pending = signal(true);
   protected readonly error = signal<string | null>(null);
+  protected readonly waitingSeats = computed(() => {
+    const room = this.status();
+    return room === null
+      ? []
+      : waitingRoomSeats(room.capacity, room.human_players, room.participants);
+  });
   protected inviteCode = '';
 
   ngOnInit(): void {
