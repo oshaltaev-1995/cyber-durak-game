@@ -219,35 +219,40 @@
           <small>{{ i18n.t('pvp.localOnly') }}</small>
         </section>
       } @else {
-        <app-table-seat-map class="opponent-zone" [seats]="opponentSeats()" />
-
-        <section class="table-stage" [attr.aria-label]="i18n.t('game.boardLabel')">
-          <aside class="draw-zone" [attr.aria-label]="i18n.t('game.deckTrumpLabel')">
-            <app-trump-indicator
-              [trump]="game.trump"
-              [exposedCard]="game.exposed_top_card"
-              [drawPileCount]="game.draw_pile_count"
-            />
-          </aside>
-          <app-game-table
-            class="center-table"
-            [packets]="game.packets"
-            [arithmetic]="game.table_arithmetic"
-            [activeAttackValue]="game.active_attack_value"
-            [directAnchors]="game.direct_anchor_cards"
-            [final]="game.game_phase === 'complete'"
+        <section class="playfield">
+          <app-table-seat-map
+            class="opponent-zone"
+            [seats]="opponentSeats()"
+            [terminal]="game.game_phase === 'complete'"
           />
-          <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
-            <span class="pile-label">{{ i18n.t('game.discard') }}</span>
-            <div class="discard-stack" aria-hidden="true"><i></i><i></i><i></i></div>
-            <strong>{{ game.discard_count }}</strong
-            ><small>{{ i18n.cardCount(game.discard_count) }}</small>
-          </aside>
+
+          <section class="table-stage" [attr.aria-label]="i18n.t('game.boardLabel')">
+            <aside class="draw-zone" [attr.aria-label]="i18n.t('game.deckTrumpLabel')">
+              <app-trump-indicator
+                [trump]="game.trump"
+                [exposedCard]="game.exposed_top_card"
+                [drawPileCount]="game.draw_pile_count"
+              />
+            </aside>
+            <app-game-table
+              class="center-table"
+              [packets]="game.packets"
+              [arithmetic]="game.table_arithmetic"
+              [activeAttackValue]="game.active_attack_value"
+              [directAnchors]="game.direct_anchor_cards"
+              [final]="game.game_phase === 'complete'"
+            />
+            <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
+              <span class="pile-label">{{ i18n.t('game.discard') }}</span>
+              <div class="discard-stack" aria-hidden="true"><i></i><i></i><i></i></div>
+              <strong>{{ game.discard_count }}</strong
+              ><small>{{ i18n.cardCount(game.discard_count) }}</small>
+            </aside>
+          </section>
         </section>
 
         @if (game.game_phase === 'complete') {
           <section class="result-panel" aria-live="polite">
-            <span>{{ i18n.t('game.finished') }}</span>
             <h2>{{ resultTitle() }}</h2>
             @if (game.deck_profile !== 'classic' || game.deck_count !== 1) {
               <p class="result-variant">
@@ -555,46 +560,43 @@
           <div class="error-message in-game" role="alert">{{ error }}</div>
         }
 
-        <div
-          class="local-player-row"
-          [class.is-required]="game.required_seat === game.you.seat"
-          [class.is-finished]="localPlayer()?.finished"
-          [class.is-disconnected]="localPlayer()?.connected === false"
-          [attr.aria-label]="game.you.display_name + '. ' + localRoleLabels().join('. ')"
-        >
-          <div class="local-player turn-player" [title]="game.you.display_name">
-            {{ i18n.t('game.you') }}
+        @if (game.game_phase !== 'complete') {
+          <div
+            class="local-player-row"
+            [class.is-required]="game.required_seat === game.you.seat"
+            [class.is-finished]="localPlayer()?.finished"
+            [class.is-disconnected]="localPlayer()?.connected === false"
+            [attr.aria-label]="game.you.display_name + '. ' + localRoleLabels().join('. ')"
+          >
+            <div class="local-player turn-player" [title]="game.you.display_name">
+              {{ i18n.t('game.you') }}
+            </div>
+            <span class="local-player-name">{{ game.you.display_name }}</span>
+            @for (role of localRoleLabels(); track role) {
+              <span class="local-role">{{ role }}</span>
+            }
           </div>
-          <span class="local-player-name">{{ game.you.display_name }}</span>
-          @for (role of localRoleLabels(); track role) {
-            <span class="local-role">{{ role }}</span>
-          }
-        </div>
-        <app-hand
-          class="player-hand-region"
-          [cards]="game.hand"
-          [selectedIds]="selectedIds()"
-          [suggestedIds]="suggestedIds()"
-          [disabled]="
-            socket.actionPending() ||
-            gameplayPaused() ||
-            game.game_phase === 'complete' ||
-            localPlayer()?.finished === true
-          "
-          (cardSelected)="toggleCard($event)"
-        />
+          <app-hand
+            class="player-hand-region"
+            [cards]="game.hand"
+            [selectedIds]="selectedIds()"
+            [suggestedIds]="suggestedIds()"
+            [disabled]="
+              socket.actionPending() || gameplayPaused() || localPlayer()?.finished === true
+            "
+            (cardSelected)="toggleCard($event)"
+          />
+        }
 
         @if (game.game_phase !== 'complete') {
           <div class="action-dock">
-            @if (game.capacity === 2) {
-              <app-hint-panel
-                [enabled]="hintPreference.enabled()"
-                [loading]="socket.hintPending()"
-                [cards]="game.hand"
-                [combinations]="socket.hints()?.combinations ?? []"
-                (enabledChange)="setHintsEnabled($event)"
-              />
-            }
+            <app-hint-panel
+              [enabled]="hintPreference.enabled()"
+              [loading]="socket.hintPending()"
+              [cards]="game.hand"
+              [combinations]="socket.hints()?.combinations ?? []"
+              (enabledChange)="setHintsEnabled($event)"
+            />
             <app-action-bar
               [actions]="game.available_actions"
               [selectedCards]="selectedCards()"

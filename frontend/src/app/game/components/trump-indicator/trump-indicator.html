@@ -2,7 +2,13 @@
   @if (exposedCard(); as card) {
     <div class="pile-visual">
       <div class="deck-stack" aria-hidden="true"><i></i><i></i><i></i></div>
-      <app-playing-card [card]="card" [compact]="true" />
+      <app-playing-card
+        [card]="card"
+        [compact]="true"
+        [showValueBadge]="false"
+        [announceValue]="false"
+        [contextLabel]="i18n.t('game.exposed')"
+      />
     </div>
     <span class="deck-count">{{ drawPileCount() }}</span>
     <span class="label">{{ i18n.t('game.deck') }}</span>

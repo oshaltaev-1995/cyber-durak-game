@@ -6,6 +6,7 @@
   [class.is-required]="seat().required"
   [class.is-finished]="seat().finished"
   [class.is-disconnected]="seat().connected === false"
+  [class.terminal]="terminal()"
   [attr.aria-label]="accessibleLabel()"
 >
   <div class="seat-identity">
@@ -25,19 +26,21 @@
     </div>
   }
 
-  <div
-    class="hidden-hand"
-    [class.hand-normal]="sizeClass() === 'hand-normal'"
-    [class.hand-crowded]="sizeClass() === 'hand-crowded'"
-    [class.hand-large]="sizeClass() === 'hand-large'"
-    [class.hand-huge]="sizeClass() === 'hand-huge'"
-    [style.--hidden-count]="seat().cardCount"
-    [attr.data-card-count]="seat().cardCount"
-  >
-    @for (index of cardIndexes(); track index) {
-      <div class="hidden-card" aria-hidden="true">
-        <span aria-hidden="true">K</span>
-      </div>
-    }
-  </div>
+  @if (!terminal()) {
+    <div
+      class="hidden-hand"
+      [class.hand-normal]="sizeClass() === 'hand-normal'"
+      [class.hand-crowded]="sizeClass() === 'hand-crowded'"
+      [class.hand-large]="sizeClass() === 'hand-large'"
+      [class.hand-huge]="sizeClass() === 'hand-huge'"
+      [style.--hidden-count]="seat().cardCount"
+      [attr.data-card-count]="seat().cardCount"
+    >
+      @for (index of cardIndexes(); track index) {
+        <div class="hidden-card" aria-hidden="true">
+          <span aria-hidden="true">K</span>
+        </div>
+      }
+    </div>
+  }
 </section>

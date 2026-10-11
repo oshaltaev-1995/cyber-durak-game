@@ -36,7 +36,7 @@ h2 {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  padding: 0.58rem 0.75rem 0.3rem;
+  padding: 1rem 0.75rem 0.5rem;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scroll-padding-inline: 0.75rem;
@@ -90,5 +90,11 @@ h2 {
 
   .card-strip.very-dense {
     --hand-overlap: -4.55rem;
+  }
+}
+
+@media (min-width: 48rem) and (max-height: 48rem) {
+  .card-strip {
+    padding-block: 0.75rem 0.25rem;
   }
 }

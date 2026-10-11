@@ -216,6 +216,18 @@ def test_action_response_contains_transient_safe_bot_take_event() -> None:
             "card_count": 1,
             "value": None,
             "target": 18,
+            "cards": [
+                {
+                    "id": "deck-1:K:clubs",
+                    "code": "KC",
+                    "rank": "K",
+                    "suit": "clubs",
+                    "joker_color": None,
+                    "base_value": 18,
+                    "effective_value": 18,
+                    "is_trump": False,
+                }
+            ],
         }
     ]
     assert response.json()["last_bout_summary"] == {
@@ -228,6 +240,7 @@ def test_action_response_contains_transient_safe_bot_take_event() -> None:
     event_json = json.dumps(response.json()["recent_events"])
     assert "6C" not in event_json
     assert "7C" not in event_json
+    assert "KC" in event_json
 
 
 def test_public_response_hides_bot_hand_and_future_draw_order() -> None:
@@ -303,7 +316,10 @@ def test_hint_api_handles_empty_invalid_wrong_turn_complete_and_unknown_requests
     unknown = client.post("/api/games/unknown/hints", json={"selected_card_ids": ["6C"]})
 
     assert empty.status_code == 200
-    assert empty.json()["combinations"] == []
+    assert empty.json()["combinations"]
+    assert all(
+        combination["action"] == "INITIAL_ATTACK" for combination in empty.json()["combinations"]
+    )
     assert foreign.status_code == 409
     assert foreign.json() == {"detail": {"code": "card_not_owned"}}
     assert duplicate.status_code == 422

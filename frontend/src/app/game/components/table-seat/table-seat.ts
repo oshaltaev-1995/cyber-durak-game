@@ -11,6 +11,7 @@ import { HiddenTableSeat } from '../../presentation/table-seat.models';
 export class TableSeatComponent {
   protected readonly i18n = inject(TranslationService);
   readonly seat = input.required<HiddenTableSeat>();
+  readonly terminal = input(false);
 
   protected readonly cardIndexes = computed(() =>
     Array.from({ length: Math.max(0, this.seat().cardCount) }, (_, index) => index),
@@ -27,10 +28,12 @@ export class TableSeatComponent {
   protected readonly roleLabels = computed(() => {
     const seat = this.seat();
     const labels: string[] = [];
-    if (seat.defender) labels.push(this.i18n.t('pvp.defender'));
-    if (seat.currentAttacker) labels.push(this.i18n.t('pvp.currentAttacker'));
-    if (seat.leadAttacker && !seat.currentAttacker) labels.push(this.i18n.t('pvp.leadAttacker'));
-    if (seat.required) labels.push(this.i18n.t('pvp.currentTurn'));
+    if (!this.terminal()) {
+      if (seat.defender) labels.push(this.i18n.t('pvp.defender'));
+      if (seat.currentAttacker) labels.push(this.i18n.t('pvp.currentAttacker'));
+      if (seat.leadAttacker && !seat.currentAttacker) labels.push(this.i18n.t('pvp.leadAttacker'));
+      if (seat.required) labels.push(this.i18n.t('pvp.currentTurn'));
+    }
     if (seat.finished) labels.push(this.i18n.t('pvp.finishedPlayer'));
     if (seat.connected === false) labels.push(this.i18n.t('pvp.disconnectedPlayer'));
     return labels;

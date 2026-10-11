@@ -1,7 +1,8 @@
-<section class="seat-map" [class.has-side-seats]="seats().length > 1">
+<section class="seat-map" [class.has-side-seats]="seats().length > 1" [class.terminal]="terminal()">
   @for (seat of seats(); track seat.id) {
     <app-table-seat
       [seat]="seat"
+      [terminal]="terminal()"
       [class.seat-top]="seat.position === 'top'"
       [class.seat-left]="seat.position === 'left'"
       [class.seat-right]="seat.position === 'right'"

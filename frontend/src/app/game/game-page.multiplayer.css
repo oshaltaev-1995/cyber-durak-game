@@ -187,10 +187,6 @@
 }
 
 @media (max-width: 35rem) {
-  .multiplayer .game-board {
-    grid-template-rows: auto minmax(7rem, auto) minmax(8rem, 1fr) auto auto auto;
-  }
-
   .multiplayer .table-stage {
     margin-inline: 3.9rem;
   }

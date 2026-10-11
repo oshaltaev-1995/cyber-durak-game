@@ -125,6 +125,7 @@ export interface BotPresentationEvent {
   readonly value: number | null;
   readonly target: number | null;
   readonly actor_seat?: Seat | null;
+  readonly cards?: readonly GameCard[];
 }
 
 export interface BotSessionParticipant {
@@ -198,7 +199,9 @@ export type HintReasonType =
   | 'existing_value'
   | 'table_total'
   | 'arithmetic_mean'
-  | 'rank_run';
+  | 'rank_run'
+  | 'pass'
+  | 'take';
 
 export interface HintCombination {
   readonly action: HumanActionType;

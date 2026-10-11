@@ -223,6 +223,7 @@ class BotPresentationEventResponse(BaseModel):
     value: int | None
     target: int | None
     actor_seat: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    cards: list[CardResponse] = Field(default_factory=list)
 
 
 class BotSessionParticipantResponse(BaseModel):

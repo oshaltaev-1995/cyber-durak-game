@@ -32,10 +32,9 @@ from kiba_api.sessions.actions import (
     available_actions_for,
 )
 
-MAX_HINT_COMBINATIONS = 3
+MAX_HINT_COMBINATIONS = 5
 MAX_HINT_CANDIDATE_SELECTIONS = 4096
 MAX_HINT_ADDITIONAL_CARDS = 5
-MAX_HINT_INITIAL_ATTACK_CARDS = 7
 
 
 class HintReason(StrEnum):
@@ -52,6 +51,8 @@ class HintReason(StrEnum):
     TABLE_TOTAL = "table_total"
     ARITHMETIC_MEAN = "arithmetic_mean"
     RANK_RUN = "rank_run"
+    PASS = "pass"
+    TAKE = "take"
 
 
 _THROW_IN_REASON_PRIORITY = (
@@ -127,12 +128,10 @@ def get_move_hints(
 
     hand = state.hand(actor)
     _require_owned(hand, selected)
-    if not selected:
-        return MoveHints((), (), (), (), 0)
-
+    available_actions = available_actions_for(state, actor)
     actions = tuple(
         action
-        for action in available_actions_for(state, actor)
+        for action in available_actions
         if action
         in {
             HumanActionType.INITIAL_ATTACK,
@@ -141,7 +140,9 @@ def get_move_hints(
             HumanActionType.THROW_IN,
         }
     )
-    if not actions:
+    if not actions and not any(
+        action in available_actions for action in (HumanActionType.BITO, HumanActionType.TAKE)
+    ):
         return MoveHints(selected, (), (), (), 0)
 
     selected_counts = Counter(selected)
@@ -154,24 +155,36 @@ def get_move_hints(
 
     found: list[HintCombination] = []
     examined = 0
+    structural: list[HintCombination] = []
+    for action, reason in (
+        (HumanActionType.BITO, HintReason.PASS),
+        (HumanActionType.TAKE, HintReason.TAKE),
+    ):
+        if action not in available_actions or len(structural) >= max_combinations:
+            continue
+        examined += 1
+        try:
+            apply_game_action(state, actor, action, ())
+        except (BoutActionError, GameActionError):
+            continue
+        structural.append(HintCombination(action, (), (), reason, 0, None))
+
+    card_limit = max_combinations - len(structural)
     for added in _candidate_additions(tuple(remaining)):
-        if examined >= candidate_limit or len(found) >= max_combinations:
+        if examined >= candidate_limit or len(found) >= card_limit:
             break
         examined += 1
         candidate = (*selected, *added)
         for action in actions:
-            if len(found) >= max_combinations:
+            if len(found) >= card_limit:
                 break
-            if (
-                action is HumanActionType.INITIAL_ATTACK
-                and len(candidate) > MAX_HINT_INITIAL_ATTACK_CARDS
-            ):
-                continue
             try:
                 apply_game_action(state, actor, action, candidate)
             except (BoutActionError, GameActionError):
                 continue
             found.append(_describe_legal_candidate(state, action, candidate, added))
+
+    found.extend(structural)
 
     suggested_cards = _ordered_unique(
         card for combination in found for card in combination.added_cards

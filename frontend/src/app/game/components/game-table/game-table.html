@@ -1,4 +1,10 @@
-<section class="table" aria-labelledby="table-title">
+<section
+  #scrollViewport
+  class="table"
+  aria-labelledby="table-title"
+  tabindex="0"
+  (scroll)="trackScroll()"
+>
   <div class="table-heading">
     <div>
       <span class="eyebrow">{{ i18n.t('game.tableLabel') }}</span>

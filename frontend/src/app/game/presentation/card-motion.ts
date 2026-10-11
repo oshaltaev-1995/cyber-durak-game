@@ -83,9 +83,17 @@ export function planCardMotions(
     },
   ];
   let remoteIndex = 0;
-  for (const batch of remoteBatches) {
+  for (const [batchIndex, batch] of remoteBatches.entries()) {
     for (let index = 0; index < batch.count; index += 1) {
-      push(batch.from, 'table', batch.cards[index] ?? null, true, false, 0, remoteIndex++);
+      push(
+        batch.from,
+        'table',
+        batch.cards[index] ?? null,
+        true,
+        false,
+        batchIndex * 3,
+        remoteIndex++,
+      );
     }
   }
 
@@ -103,7 +111,7 @@ export function planCardMotions(
         card,
         false,
         destination === 'top' || destination === 'left' || destination === 'right',
-        1,
+        remoteBatches.length * 3 + 1,
         index,
       ),
     );
@@ -121,7 +129,9 @@ export function planCardMotions(
     let animationIndex = 0;
     localArrivals
       .slice(0, localDrawCount)
-      .forEach((card) => push('deck', 'bottom', card, true, false, 2, animationIndex++));
+      .forEach((card) =>
+        push('deck', 'bottom', card, true, false, remoteBatches.length * 3 + 2, animationIndex++),
+      );
     for (const position of ['left', 'top', 'right'] as const) {
       const handGrowth =
         (next.remoteHands[position] ?? 0) -
@@ -129,7 +139,7 @@ export function planCardMotions(
         (context.resolvedTo === position ? resolvedCardCount : 0);
       const remoteDrawCount = Math.min(remainingDraws, Math.max(0, handGrowth));
       for (let index = 0; index < remoteDrawCount; index += 1) {
-        push('deck', position, null, true, true, 2, animationIndex++);
+        push('deck', position, null, true, true, remoteBatches.length * 3 + 2, animationIndex++);
       }
       remainingDraws -= remoteDrawCount;
     }

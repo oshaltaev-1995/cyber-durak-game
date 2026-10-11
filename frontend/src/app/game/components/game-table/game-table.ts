@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
+import {
+  AfterViewChecked,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  ViewChild,
+  inject,
+  input,
+} from '@angular/core';
 import {
   AttackPacket,
   GameCard,
@@ -17,7 +25,8 @@ import { cardIdentity } from '../../../core/deck/deck-config';
   styleUrl: './game-table.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GameTableComponent {
+export class GameTableComponent implements AfterViewChecked {
+  @ViewChild('scrollViewport') private scrollViewport?: ElementRef<HTMLElement>;
   protected readonly i18n = inject(TranslationService);
   readonly packets = input.required<readonly AttackPacket[]>();
   readonly arithmetic = input.required<TableArithmetic>();
@@ -25,6 +34,26 @@ export class GameTableComponent {
   readonly directAnchors = input.required<readonly GameCard[]>();
   readonly final = input(false);
   protected readonly identity = cardIdentity;
+  private followLatest = true;
+  private renderedSignature = '';
+
+  ngAfterViewChecked(): void {
+    const signature = this.packets()
+      .map((packet) =>
+        [...packet.attack_cards, ...packet.defense_cards].map(cardIdentity).join(','),
+      )
+      .join('|');
+    if (signature === this.renderedSignature) return;
+    this.renderedSignature = signature;
+    const viewport = this.scrollViewport?.nativeElement;
+    if (viewport !== undefined && this.followLatest) viewport.scrollTop = viewport.scrollHeight;
+  }
+
+  protected trackScroll(): void {
+    const viewport = this.scrollViewport?.nativeElement;
+    if (viewport === undefined) return;
+    this.followLatest = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 48;
+  }
 
   protected formatExactValue(value: string | null): string {
     return value?.replace('/', ' / ') ?? '—';

@@ -38,6 +38,7 @@ import {
   MotionSnapshot,
   planCardMotions,
 } from '../game/presentation/card-motion';
+import { BotPresentationQueue } from '../game/presentation/bot-presentation-queue';
 import {
   HiddenTableSeat,
   RemoteTableSeatPosition,
@@ -79,7 +80,7 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   templateUrl: './pvp-room-page.html',
   styleUrls: ['../game/game-page.css', './pvp-room-page.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [CardMotionController],
+  providers: [CardMotionController, BotPresentationQueue],
 })
 export class PvPRoomPageComponent implements OnInit, OnDestroy {
   @ViewChild('leaveTrigger') private leaveTrigger?: ElementRef<HTMLButtonElement>;
@@ -92,6 +93,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   protected readonly hintPreference = inject(HintPreferenceService);
   protected readonly i18n = inject(TranslationService);
   protected readonly cardMotion = inject(CardMotionController);
+  protected readonly presentation = inject(BotPresentationQueue);
   private readonly deckOnboarding = inject(DeckVariantsOnboardingStore);
   protected readonly selectedIds = signal<ReadonlySet<string>>(new Set());
   protected readonly copyStatus = signal<'idle' | 'copied' | 'failed'>('idle');
@@ -138,6 +140,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
       ) ?? false;
     return (
       state?.room_phase === 'CLOSED' ||
+      this.presentation.locked() ||
       this.startingRematch() ||
       this.socket.roomClosure() !== null ||
       this.socket.status() !== 'connected' ||
@@ -201,7 +204,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     const state = this.state();
     return state?.game_phase !== 'complete' && this.localPlayer()?.finished === true;
   });
-  protected readonly botPresentation = signal<BotPresentationEvent | null>(null);
+  protected readonly botPresentation = this.presentation.current;
 
   protected placeLabel(rank: number): string {
     const safeRank = Math.min(4, Math.max(1, rank)) as 1 | 2 | 3 | 4;
@@ -213,8 +216,6 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   private submittedAction: HumanActionType | null = null;
   private submittedCards: readonly GameCard[] = [];
   private rematchTransitionTimer: ReturnType<typeof setTimeout> | null = null;
-  private presentationTimer: ReturnType<typeof setTimeout> | null = null;
-  private presentationQueue: BotPresentationEvent[] = [];
 
   constructor() {
     effect(() => {
@@ -244,7 +245,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
           );
         }
         this.lastVersion = Math.max(this.lastVersion, current.version);
-        if (initialState && current.recent_events.length > 0) {
+        if (initialState) {
           this.queueBotStatuses(current.recent_events);
         }
         this.previousState = current;
@@ -291,7 +292,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.rematchTransitionTimer !== null) clearTimeout(this.rematchTransitionTimer);
     this.cardMotion.clear();
-    this.cancelPresentation();
+    this.presentation.clear();
     this.socket.disconnect();
   }
 
@@ -541,7 +542,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
 
   private presentRematchStart(state: PvPState): void {
     this.cardMotion.clear();
-    this.cancelPresentation();
+    this.presentation.clear();
     this.submittedAction = null;
     this.submittedCards = [];
     if (this.rematchTransitionTimer !== null) clearTimeout(this.rematchTransitionTimer);
@@ -708,7 +709,10 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
       batches.push({
         from: source ?? 'top',
         count: event.card_count,
-        cards: cards.slice(cardIndex, cardIndex + event.card_count),
+        cards:
+          (event.cards?.length ?? 0) > 0
+            ? (event.cards ?? [])
+            : cards.slice(cardIndex, cardIndex + event.card_count),
       });
       cardIndex += event.card_count;
     }
@@ -740,30 +744,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   }
 
   private queueBotStatuses(events: readonly BotPresentationEvent[]): void {
-    if (events.length === 0) return;
-    this.cancelPresentation();
-    this.presentationQueue = [...events].slice(-6);
-    this.showNextBotStatus();
-  }
-
-  private showNextBotStatus(): void {
-    const event = this.presentationQueue.shift() ?? null;
-    if (event === null) {
-      this.botPresentation.set(null);
-      return;
-    }
-    this.botPresentation.set(event);
-    this.presentationTimer = setTimeout(() => {
-      this.presentationTimer = null;
-      this.showNextBotStatus();
-    }, 520);
-  }
-
-  private cancelPresentation(): void {
-    if (this.presentationTimer !== null) clearTimeout(this.presentationTimer);
-    this.presentationTimer = null;
-    this.presentationQueue = [];
-    this.botPresentation.set(null);
+    this.presentation.play(events, () => this.refreshHints());
   }
 
   private botEventText(event: BotPresentationEvent): string {

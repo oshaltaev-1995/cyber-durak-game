@@ -120,14 +120,15 @@ def test_initial_attack_hints_use_same_rank_and_connected_arithmetic() -> None:
     )
 
 
-def test_empty_selection_is_quiet_and_does_not_scan_the_hand() -> None:
+def test_empty_selection_suggests_bounded_engine_validated_initial_moves() -> None:
     state = start_game_bout(game((card(Rank.NINE), card(Rank.KING)), (card(Rank.ACE),)))
 
     hints = get_move_hints(state, Seat.ONE, ())
 
-    assert hints.suggested_cards == ()
-    assert hints.combinations == ()
-    assert hints.candidate_selections_examined == 0
+    assert hints.suggested_cards == (card(Rank.NINE), card(Rank.KING))
+    assert all(hint.action is HumanActionType.INITIAL_ATTACK for hint in hints.combinations)
+    assert all(hint.cards for hint in hints.combinations)
+    assert 0 < hints.candidate_selections_examined <= MAX_HINT_CANDIDATE_SELECTIONS
 
 
 def test_defense_completion_respects_sufficiency_and_irredundancy() -> None:
@@ -159,6 +160,28 @@ def test_defense_hint_uses_trump_effective_values() -> None:
 
     assert hints.suggested_cards == (trump_seven,)
     assert hints.combinations[0].selected_value == 20
+
+
+def test_structural_take_and_pass_hints_are_engine_validated_without_cards() -> None:
+    attack = card(Rank.KING)
+    defense = card(Rank.ACE)
+    defender_turn = after_attack((attack,), (defense,), (attack,))
+    attacker_turn = after_defense(
+        (attack, card(Rank.SIX)),
+        (defense, card(Rank.SEVEN)),
+        (attack,),
+        (defense,),
+    )
+
+    take_hints = get_move_hints(defender_turn, Seat.TWO, ())
+    pass_hints = get_move_hints(attacker_turn, Seat.ONE, ())
+
+    take = next(hint for hint in take_hints.combinations if hint.action is HumanActionType.TAKE)
+    passed = next(hint for hint in pass_hints.combinations if hint.action is HumanActionType.BITO)
+    assert take.reason is HintReason.TAKE
+    assert take.cards == take.added_cards == ()
+    assert passed.reason is HintReason.PASS
+    assert passed.cards == passed.added_cards == ()
 
 
 def test_transfer_hints_cover_exact_and_same_rank_extension() -> None:

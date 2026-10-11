@@ -11,4 +11,5 @@ import { TableSeatComponent } from '../table-seat/table-seat';
 })
 export class TableSeatMapComponent {
   readonly seats = input.required<readonly HiddenTableSeat[]>();
+  readonly terminal = input(false);
 }

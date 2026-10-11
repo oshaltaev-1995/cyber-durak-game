@@ -36,6 +36,14 @@ describe('TrumpIndicatorComponent', () => {
       expect(text).toContain(expected);
       expect(text).toContain('108');
       for (const value of absent) expect(text).not.toContain(value);
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('app-playing-card .value'),
+      ).toBeNull();
+      const sourceLabel = (fixture.nativeElement as HTMLElement)
+        .querySelector('app-playing-card [role="img"]')
+        ?.getAttribute('aria-label');
+      expect(sourceLabel).toContain('Открытая карта');
+      expect(sourceLabel).not.toContain('50');
     },
   );
 

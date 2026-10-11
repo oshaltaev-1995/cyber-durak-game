@@ -100,11 +100,9 @@ export class PvPWebSocketService {
   requestHints(selectedPhysicalIds: readonly string[]): void {
     const state = this.state();
     if (
-      selectedPhysicalIds.length === 0 ||
       this.status() !== 'connected' ||
       this.socket?.readyState !== WebSocket.OPEN ||
       state === null ||
-      state.capacity !== 2 ||
       state.required_participant_id !== state.you.participant_id ||
       this.actionPending()
     ) {

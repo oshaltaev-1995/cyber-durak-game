@@ -125,6 +125,7 @@ def serialize_game_session(session: GameSession, locale: Locale = Locale.RU) -> 
                 value=event.value,
                 target=event.target,
                 actor_seat=(event.actor_seat.value if session.total_players > 2 else None),
+                cards=[_serialize_card(card, event.trump_state) for card in event.cards],
             )
             for event in session.recent_events
         ],

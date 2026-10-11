@@ -295,7 +295,7 @@ describe('PvPRoomPageComponent', () => {
       expect(element.querySelector('.local-player-name')?.textContent).toContain(
         viewerSeat === 'three' ? 'Cara' : 'Dmitri',
       );
-      expect(element.querySelector('app-hint-panel')).toBeNull();
+      expect(element.querySelector('app-hint-panel')).not.toBeNull();
       expect(element.innerHTML).not.toContain('reconnect_token');
     },
   );
@@ -492,7 +492,7 @@ describe('PvPRoomPageComponent', () => {
     expect(element.querySelectorAll('.seat-badge')[2].textContent).toContain('🤖');
     expect(element.querySelectorAll('.opponent-zone .is-disconnected')).toHaveLength(1);
     expect(element.querySelectorAll('[aria-label*="Компьютерный соперник"]')).toHaveLength(2);
-    expect(element.querySelector('app-hint-panel')).toBeNull();
+    expect(element.querySelector('app-hint-panel')).not.toBeNull();
   });
 
   it('shows the authoritative bot actor and presents bot recent events from its physical seat', () => {
@@ -603,6 +603,13 @@ describe('PvPRoomPageComponent', () => {
     expect(element.textContent).toContain('Nika');
     expect(element.textContent).not.toContain('Люди победили');
     expect(element.textContent).not.toContain('команда');
+    expect(element.querySelector('.local-player-row')).toBeNull();
+    expect(element.querySelector('app-hand')).toBeNull();
+    expect(element.querySelector('app-action-bar')).toBeNull();
+    expect(element.textContent).not.toContain('Текущий атакующий');
+    expect(element.textContent).not.toContain('Защитник');
+    expect(element.textContent).not.toContain('Сейчас ходит');
+    expect(element.textContent).not.toContain('Атака 0 /');
   });
 
   it('renders multiple disconnected participants independently and pauses local controls', () => {

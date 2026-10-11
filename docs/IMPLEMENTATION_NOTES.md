@@ -1242,8 +1242,9 @@ active/finished seats, and canonical finish groups without hidden cards or strat
 
 Authenticated two-player bot completion retains its existing history/progression path exactly.
 Three- and four-player bot completion deliberately bypasses history, XP, statistics, achievements,
-and rating, matching the initial multiplayer policy. Hints also remain unavailable above two
-players. No schema migration, human-PvP behavior, frontend implementation, or production setting
+and rating, matching the initial multiplayer policy. At that milestone, hints remained unavailable
+above two players; R11 supersedes that temporary product limitation. No schema migration,
+human-PvP behavior, frontend implementation, or production setting
 changes are part of M5.5A.
 
 ### 15.10 M5.5B Play vs Bots product integration
@@ -1266,7 +1267,8 @@ remainder.
 
 Three-/four-player results reuse canonical finish groups and standard-competition ranks, including
 ties. They do not write history or grant XP, statistics, achievements or rating. Two-player result,
-hint and progression behavior is unchanged; multiplayer bot games do not mount the Hint control.
+progression behavior is unchanged. R11 later extends the same engine-validated Hint control to the
+current human participant in multiplayer bot games.
 `POST /api/games/{game_id}/restart` is the narrow same-session replay boundary. The opaque game ID
 is the process-local human session capability, and the strict empty request accepts no actor or bot
 identity. The endpoint preserves participant IDs, names, seats and player count while creating a
@@ -1385,8 +1387,8 @@ presentation, and the existing selected, disabled, suggested, trump, compact, an
 states. Exposed-Joker trump text uses the authoritative exposed card to describe the red or black
 suit family, and the empty-pile state continues to remove all trump presentation.
 
-Only two-player games mount Hint Mode. Variant hints send and consume physical IDs, so one exact
-duplicate can be highlighted without selecting its visual twin. Bot Play Again uses the D3 session
+R11 supersedes the temporary two-player-only Hint mount. Variant hints send and consume physical
+IDs, so one exact duplicate can be highlighted without selecting its visual twin. Bot Play Again uses the D3 session
 restart boundary for every player count and therefore preserves profile, deck count, bot roster,
 names, and seats while replacing match state. PvP rematch remains server-authoritative and retains
 the same immutable room configuration.
@@ -1467,8 +1469,9 @@ bots retain backend names and seats and are presented as ready computer players,
 disconnected socket owners. The active room reuses the existing relative-seat table, hidden remote
 hands, role/finished markers, and card-motion system. Bot event summaries use `actor_seat` for
 left/top/right motion and short localized action status; authoritative state always wins over the
-presentation queue. Hints remain a total-capacity rule and therefore stay absent in every
-three/four-player mixed room.
+presentation queue. R11 supersedes the temporary total-capacity Hint restriction: a connected
+current human may request participant-private engine-validated hints in three/four-player mixed
+rooms.
 
 Results rank humans and bots individually with no team language. Rematch readiness uses the
 backend-projected human-only denominator; bot rows are explicitly ready automatically and never
@@ -1477,6 +1480,33 @@ seats, bot identities, and deck configuration without a false disconnect transit
 use the existing no-progression policy. The feature remains default off, and H2 adds no gameplay,
 database, infrastructure, legal-policy, or production change; activation and deployment remain H3
 work.
+
+### 15.18 R11 gameplay UX restoration
+
+R11 changes presentation, not canon. Active play uses one bounded playfield: remote seats overlay
+the table perimeter instead of consuming a separate vertical grid row, while the current-bout
+component owns keyboard-focusable vertical scrolling. A restrained follow-latest policy follows a
+new packet only while the reader remains near the bottom. The local hand keeps its own horizontal
+scroll and sufficient vertical padding for selected/focused cards. Terminal state removes the
+local hand, action controls, attack-cap status, and active attacker/defender/turn labels; it retains
+a compact final-bout viewport, one primary result heading, placements, rematch, and progression.
+
+The authoritative backend continues to resolve bot cascades without sleeps. Response-scoped bot
+events add the exact cards already made public by each action, using physical IDs and the
+action-time trump projection; they never include hidden hands or future draw order. A shared
+Angular presentation queue consumes every new event in order, paces action types between roughly
+300 and 850 ms, accelerates long backlogs to a bounded total, and holds a presentation lock until
+the latest authoritative state is visually caught up. Reduced-motion removes card travel but keeps
+short sequential text/role transitions. Fetch/reconnect snapshots contain no `recent_events`, so
+historical cascades are not replayed.
+
+Hint Mode applies to the current human participant in two-to-four-player bot, all-human PvP, and
+mixed rooms. Empty selection is a valid bounded query; suggestions include engine-validated card
+actions plus no-card TAKE and attacker-phase Pass/BITO where available. Search remains capped at
+4,096 candidate selections and five returned combinations, uses exact physical IDs, and never
+requests while Hint Mode is off or while the presentation lock is active. The exposed trump-source
+card reuses the shared card renderer with its combat-value badge and value announcement suppressed;
+playable cards retain ordinary value/trump presentation.
 
 ## 16. Suggested implementation phases
 

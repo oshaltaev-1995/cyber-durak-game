@@ -25,6 +25,17 @@
   align-items: center;
 }
 
+.seat-map.terminal {
+  align-items: start;
+}
+
+.terminal.has-side-seats {
+  grid-template:
+    'top top top' auto
+    'left center right' auto
+    / minmax(4.5rem, 6rem) minmax(8rem, 1fr) minmax(4.5rem, 6rem);
+}
+
 .seat-left {
   grid-area: left;
 }

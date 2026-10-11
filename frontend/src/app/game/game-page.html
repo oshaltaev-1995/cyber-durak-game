@@ -106,15 +106,7 @@
     <main id="main-content" class="game-board" tabindex="-1">
       <app-card-motion-overlay [motions]="cardMotion.motions()" />
       <div class="game-utilities">
-        <span>{{
-          i18n.t(
-            currentGame.phase === 'complete'
-              ? 'game.matchComplete'
-              : currentGame.total_players > 2
-                ? 'game.vsBots'
-                : 'game.vsBot'
-          )
-        }}</span>
+        <span>{{ i18n.t(currentGame.total_players > 2 ? 'game.vsBots' : 'game.vsBot') }}</span>
         @if (currentGame.deck_profile !== 'classic' || currentGame.deck_count !== 1) {
           <span class="variant-label">{{
             i18n.t(currentGame.deck_count === 1 ? 'deck.activeSingle' : 'deck.activeDouble', {
@@ -139,37 +131,42 @@
         </button>
       </div>
 
-      <app-table-seat-map class="opponent-zone" [seats]="opponentSeats()" />
-
-      <section class="table-stage" [attr.aria-label]="i18n.t('game.boardLabel')">
-        <aside class="draw-zone" [attr.aria-label]="i18n.t('game.deckTrumpLabel')">
-          <app-trump-indicator
-            [trump]="currentGame.trump"
-            [exposedCard]="currentGame.exposed_top_card"
-            [drawPileCount]="currentGame.draw_pile_count"
-          />
-        </aside>
-
-        <app-game-table
-          class="center-table"
-          [packets]="currentGame.packets"
-          [arithmetic]="currentGame.table_arithmetic"
-          [activeAttackValue]="currentGame.active_attack_value"
-          [directAnchors]="currentGame.direct_anchor_cards"
-          [final]="currentGame.phase === 'complete'"
+      <section class="playfield">
+        <app-table-seat-map
+          class="opponent-zone"
+          [seats]="opponentSeats()"
+          [terminal]="currentGame.phase === 'complete'"
         />
 
-        <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
-          <span class="pile-label">{{ i18n.t('game.discard') }}</span>
-          <div class="discard-stack" aria-hidden="true"><i></i><i></i><i></i></div>
-          <strong>{{ currentGame.discard_count }}</strong>
-          <small>{{ i18n.cardCount(currentGame.discard_count) }}</small>
-        </aside>
+        <section class="table-stage" [attr.aria-label]="i18n.t('game.boardLabel')">
+          <aside class="draw-zone" [attr.aria-label]="i18n.t('game.deckTrumpLabel')">
+            <app-trump-indicator
+              [trump]="currentGame.trump"
+              [exposedCard]="currentGame.exposed_top_card"
+              [drawPileCount]="currentGame.draw_pile_count"
+            />
+          </aside>
+
+          <app-game-table
+            class="center-table"
+            [packets]="currentGame.packets"
+            [arithmetic]="currentGame.table_arithmetic"
+            [activeAttackValue]="currentGame.active_attack_value"
+            [directAnchors]="currentGame.direct_anchor_cards"
+            [final]="currentGame.phase === 'complete'"
+          />
+
+          <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
+            <span class="pile-label">{{ i18n.t('game.discard') }}</span>
+            <div class="discard-stack" aria-hidden="true"><i></i><i></i><i></i></div>
+            <strong>{{ currentGame.discard_count }}</strong>
+            <small>{{ i18n.cardCount(currentGame.discard_count) }}</small>
+          </aside>
+        </section>
       </section>
 
       @if (currentGame.phase === 'complete') {
         <section class="result-panel" aria-live="polite">
-          <span>{{ i18n.t('game.finished') }}</span>
           <h2>{{ resultTitle(currentGame) }}</h2>
           @if (currentGame.deck_profile !== 'classic' || currentGame.deck_count !== 1) {
             <p class="result-variant">
@@ -369,32 +366,32 @@
         <div class="error-message in-game" role="alert">{{ error }}</div>
       }
 
-      <app-hand
-        class="player-hand-region"
-        [cards]="currentGame.human_hand"
-        [selectedIds]="selectedIds()"
-        [suggestedIds]="suggestedIds()"
-        [disabled]="pending() || currentGame.phase === 'complete' || localFinishedWatching()"
-        (cardSelected)="toggleCard($event)"
-      />
+      @if (currentGame.phase !== 'complete') {
+        <app-hand
+          class="player-hand-region"
+          [cards]="currentGame.human_hand"
+          [selectedIds]="selectedIds()"
+          [suggestedIds]="suggestedIds()"
+          [disabled]="interactionLocked() || localFinishedWatching()"
+          (cardSelected)="toggleCard($event)"
+        />
+      }
 
       @if (currentGame.phase !== 'complete' && !localFinishedWatching()) {
         <div class="action-dock">
-          @if (currentGame.total_players === 2) {
-            <app-hint-panel
-              [enabled]="hintPreference.enabled()"
-              [loading]="hintsLoading()"
-              [cards]="currentGame.human_hand"
-              [combinations]="hints()?.combinations ?? []"
-              (enabledChange)="setHintsEnabled($event)"
-            />
-          }
+          <app-hint-panel
+            [enabled]="hintPreference.enabled()"
+            [loading]="hintsLoading()"
+            [cards]="currentGame.human_hand"
+            [combinations]="hints()?.combinations ?? []"
+            (enabledChange)="setHintsEnabled($event)"
+          />
           <app-action-bar
             [actions]="currentGame.available_actions"
             [selectedCards]="selectedCards()"
             [activeAttackValue]="currentGame.active_attack_value"
             [maxAttackCardAddition]="currentGame.max_attack_card_addition"
-            [pending]="pending()"
+            [pending]="interactionLocked()"
             [bitoMeansPass]="currentGame.total_players > 2"
             (actionSelected)="submitAction($event)"
           />

@@ -18,6 +18,10 @@
   opacity: 0.66;
 }
 
+.table-seat.terminal {
+  gap: 0.1rem;
+}
+
 .table-seat.is-disconnected .seat-badge {
   color: #342b12;
   background: #ffe08a;
@@ -240,6 +244,12 @@
     min-height: 4.6rem;
   }
 
+  .position-top .hidden-hand {
+    --hidden-card-width: 3.8rem;
+    --hidden-card-height: 5.2rem;
+    --hidden-overlap: -1.55rem;
+  }
+
   .position-left .hand-crowded,
   .position-right .hand-crowded {
     --hidden-overlap: -4.43rem;
@@ -259,7 +269,7 @@
 @media (min-width: 35.01rem) and (max-height: 48rem) {
   .hidden-hand {
     --hidden-card-width: 4.8rem;
-    --hidden-card-height: 6.7rem;
+    --hidden-card-height: 5.8rem;
     --hidden-overlap: 0.45rem;
   }
 

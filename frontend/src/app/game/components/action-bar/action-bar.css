@@ -113,3 +113,14 @@ button:disabled {
     align-items: center;
   }
 }
+
+@media (max-height: 48rem) {
+  .action-bar {
+    padding-block: 0.35rem;
+  }
+
+  button {
+    min-height: 2.35rem;
+    padding-block: 0.4rem;
+  }
+}

@@ -26,6 +26,7 @@ from kiba_api.game import (
     GamePhase,
     GameState,
     Seat,
+    TrumpState,
     choose_bot_action,
     create_new_game,
     get_cards_value,
@@ -91,6 +92,8 @@ class BotPresentationEvent:
     value: int | None = None
     target: int | None = None
     actor_seat: Seat = Seat.TWO
+    cards: tuple[Card, ...] = ()
+    trump_state: TrumpState = TrumpState(active=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -442,8 +445,6 @@ class GameSessionService:
         selected = tuple(selected_cards)
         with self._store.locked_record(game_id) as record:
             session = record.session
-            if session.total_players > 2:
-                raise SessionActionError(SessionErrorCode.FEATURE_NOT_AVAILABLE)
             return get_move_hints(session.state, session.human_seat, selected)
 
     def restart_game(self, game_id: str) -> GameSession:
@@ -646,14 +647,18 @@ def bot_presentation_event(
     ):
         target = bout.active_packet.attack_value
     card_count = len(action.cards)
-    if action.action_type is BotActionType.TAKE and bout is not None:
+    cards = action.cards
+    if action.action_type in {BotActionType.TAKE, BotActionType.BITO} and bout is not None:
         card_count = len(bout.table_cards)
+        cards = bout.table_cards
     return BotPresentationEvent(
         type=event_type,
         card_count=card_count,
         value=value,
         target=target,
         actor_seat=actor,
+        cards=cards,
+        trump_state=trump_state,
     )
 
 

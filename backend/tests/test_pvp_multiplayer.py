@@ -37,7 +37,7 @@ from kiba_api.pvp import (
     PvPRoomService,
     RoomTTLPolicy,
 )
-from kiba_api.sessions import HumanActionType, acting_seat
+from kiba_api.sessions import HumanActionType, acting_seat, available_actions_for
 
 ORIGIN = "http://testserver"
 
@@ -209,18 +209,31 @@ def test_four_seats_disconnect_and_reconnect_independently() -> None:
         )
 
 
-def test_multiplayer_hints_remain_explicitly_unsupported() -> None:
+def test_multiplayer_hints_are_available_to_the_current_connected_human() -> None:
     service = multiplayer_service()
     room, participants = fill_room(service, 3)
-
-    with pytest.raises(PvPActionError) as hints:
-        service.get_hints(
+    for index, participant in enumerate(participants):
+        registration = service.connect(
             room.invite_code,
-            participants[0].reconnect_token,
-            (),
-            expected_version=room.version,
+            participant.reconnect_token,
+            f"connection-{index}",
         )
-    assert hints.value.code is PvPErrorCode.FEATURE_NOT_AVAILABLE
+        room = registration.room
+
+    actor = acting_seat(room.state)
+    participant = next(value for value in participants if value.seat is actor)
+    snapshot, hints = service.get_hints(
+        room.invite_code,
+        participant.reconnect_token,
+        (),
+        expected_version=room.version,
+    )
+
+    assert snapshot.version == room.version
+    assert hints.combinations
+    assert all(
+        value.action in available_actions_for(snapshot.state, actor) for value in hints.combinations
+    )
 
 
 def test_three_player_transfer_routes_roles_and_rejects_waiting_attacker() -> None:

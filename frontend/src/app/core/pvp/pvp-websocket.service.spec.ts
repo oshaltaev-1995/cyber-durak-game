@@ -232,7 +232,7 @@ describe('PvPWebSocketService', () => {
     expect(service.hints()).toBeNull();
   });
 
-  it('sends gameplay but suppresses multiplayer hints and premature rematch', () => {
+  it('sends multiplayer hints and gameplay but suppresses premature rematch', () => {
     service.connect('ABC123', 'secret');
     const socket = FakeWebSocket.instances[0];
     authenticate(socket, multiplayerState(4));
@@ -241,7 +241,11 @@ describe('PvPWebSocketService', () => {
     service.requestRematch();
     service.sendAction('BITO', []);
 
-    expect(socket.sent.map((value) => JSON.parse(value).type)).toEqual(['AUTH', 'ACTION']);
+    expect(socket.sent.map((value) => JSON.parse(value).type)).toEqual([
+      'AUTH',
+      'HINT_REQUEST',
+      'ACTION',
+    ]);
     expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({
       version: 4,
       action: 'BITO',

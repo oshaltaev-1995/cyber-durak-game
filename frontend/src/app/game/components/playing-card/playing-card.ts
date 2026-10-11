@@ -18,6 +18,9 @@ export class PlayingCardComponent {
   readonly suggested = input(false);
   readonly selectable = input(false);
   readonly compact = input(false);
+  readonly showValueBadge = input(true);
+  readonly announceValue = input(true);
+  readonly contextLabel = input<string | null>(null);
   readonly disabled = input(false);
   readonly cardSelected = output<string>();
 
@@ -37,19 +40,24 @@ export class PlayingCardComponent {
   );
   protected readonly accessibleLabel = computed(() => {
     const card = this.card();
-    const label = card.joker_color
-      ? this.i18n.t('game.jokerAria', {
-          joker: this.i18n.t(card.joker_color === 'red' ? 'deck.redJoker' : 'deck.blackJoker'),
-          value: card.effective_value,
-          trump: card.is_trump ? this.i18n.t('game.cardTrumpSuffix') : '',
-        })
-      : this.i18n.t('game.cardAria', {
-          rank: card.rank,
-          suit: this.suitName(card.suit),
-          value: card.effective_value,
-          trump: card.is_trump ? this.i18n.t('game.cardTrumpSuffix') : '',
-        });
-    return this.suggested() ? `${label}. ${this.i18n.t('hints.suggestedAria')}` : label;
+    const label = this.announceValue()
+      ? card.joker_color
+        ? this.i18n.t('game.jokerAria', {
+            joker: this.i18n.t(card.joker_color === 'red' ? 'deck.redJoker' : 'deck.blackJoker'),
+            value: card.effective_value,
+            trump: card.is_trump ? this.i18n.t('game.cardTrumpSuffix') : '',
+          })
+        : this.i18n.t('game.cardAria', {
+            rank: card.rank,
+            suit: this.suitName(card.suit),
+            value: card.effective_value,
+            trump: card.is_trump ? this.i18n.t('game.cardTrumpSuffix') : '',
+          })
+      : card.joker_color
+        ? this.i18n.t(card.joker_color === 'red' ? 'deck.redJoker' : 'deck.blackJoker')
+        : `${card.rank} ${this.suitName(card.suit)}`;
+    const contextual = this.contextLabel() === null ? label : `${this.contextLabel()}. ${label}`;
+    return this.suggested() ? `${contextual}. ${this.i18n.t('hints.suggestedAria')}` : contextual;
   });
 
   protected select(): void {

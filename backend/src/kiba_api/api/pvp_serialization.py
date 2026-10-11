@@ -309,6 +309,7 @@ def _serialize_bot_events(room: PvPRoom) -> list[BotPresentationEventResponse]:
             value=event.value,
             target=event.target,
             actor_seat=event.actor_seat.value,
+            cards=[_serialize_card(card, event.trump_state) for card in event.cards],
         )
         for event in room.recent_events
     ]

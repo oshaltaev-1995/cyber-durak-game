@@ -161,7 +161,7 @@ button:disabled {
 .game-board {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(5.6rem, auto) minmax(8.5rem, 1fr) auto auto auto;
+  grid-template-rows: auto minmax(15rem, 1fr) auto auto auto auto;
   grid-template-columns: minmax(0, 1fr);
   width: min(100%, 80rem);
   height: 100%;
@@ -171,12 +171,27 @@ button:disabled {
 }
 
 .complete .game-board {
-  grid-template-rows: none;
+  grid-template-rows: auto minmax(11rem, 16rem) auto auto;
   height: auto;
   overflow: visible;
 }
 
+.playfield {
+  position: relative;
+  min-width: 0;
+  min-height: 15rem;
+  padding-top: 5.4rem;
+}
+
+.complete .playfield {
+  min-height: 11rem;
+  padding-top: 3rem;
+}
+
 .opponent-zone {
+  position: absolute;
+  z-index: 2;
+  inset: 0 0 auto;
   display: block;
   width: min(100%, 46rem);
   min-width: 0;
@@ -193,6 +208,7 @@ button:disabled {
   gap: 0.65rem;
   min-width: 0;
   min-height: 0;
+  height: 100%;
   padding: 0.5rem;
   overflow: hidden;
   border: 1px solid rgb(138 207 179 / 12%);
@@ -343,7 +359,7 @@ button:disabled {
 }
 
 .result-panel {
-  padding: 2rem 1rem;
+  padding: 1rem;
   border: 1px solid rgb(73 229 190 / 35%);
   border-radius: 1rem;
   background: rgb(7 31 27 / 88%);
@@ -470,7 +486,7 @@ button:disabled {
 
 .player-hand-region {
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .result-panel span {
@@ -481,12 +497,12 @@ button:disabled {
 }
 
 .result-panel h2 {
-  margin: 0.6rem 0 1.5rem;
-  font-size: clamp(2rem, 10vw, 4rem);
+  margin: 0 0 0.8rem;
+  font-size: clamp(1.55rem, 6vw, 2.7rem);
 }
 
 .last-bout-result {
-  margin: -0.65rem 0 1.1rem;
+  margin: 0 0 0.8rem;
   color: var(--text-muted);
 }
 
@@ -518,6 +534,22 @@ button:disabled {
 }
 
 @media (max-width: 35rem) {
+  .game-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .game-board {
+    grid-template-rows: auto minmax(23.5rem, auto) auto auto auto auto;
+    height: auto;
+    overflow: visible;
+  }
+
+  .playfield {
+    min-height: 23.5rem;
+    padding-top: 7.5rem;
+  }
+
   .table-stage {
     grid-template:
       'draw . discard' 4.8rem
@@ -559,5 +591,16 @@ button:disabled {
 
   .game-board {
     gap: 0.3rem;
+  }
+}
+
+@media (min-width: 48rem) and (max-height: 48rem) {
+  .game-board {
+    grid-template-rows: auto minmax(17rem, 1fr) auto auto auto auto;
+  }
+
+  .playfield {
+    min-height: 17rem;
+    padding-top: 4.6rem;
   }
 }

@@ -44,6 +44,7 @@ import { TrumpIndicatorComponent } from './components/trump-indicator/trump-indi
 import { TurnReminderComponent } from './components/turn-reminder/turn-reminder';
 import { GameSessionState } from './game-session-state';
 import { CardMotionController, MotionSnapshot, planCardMotions } from './presentation/card-motion';
+import { BotPresentationQueue } from './presentation/bot-presentation-queue';
 import {
   HiddenTableSeat,
   RemoteTableSeatPosition,
@@ -80,7 +81,7 @@ const ERROR_KEYS: Readonly<Record<string, TranslationKey>> = {
   templateUrl: './game-page.html',
   styleUrls: ['./game-page.css', './game-page.multiplayer.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [CardMotionController],
+  providers: [CardMotionController, BotPresentationQueue],
 })
 export class GamePageComponent implements OnInit, OnDestroy {
   @ViewChild('newGameTrigger') private newGameTrigger?: ElementRef<HTMLButtonElement>;
@@ -91,6 +92,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   private readonly storedSession = inject(BotGameSessionStore);
   protected readonly hintPreference = inject(HintPreferenceService);
   protected readonly cardMotion = inject(CardMotionController);
+  protected readonly presentation = inject(BotPresentationQueue);
   protected readonly auth = inject(AuthService);
   protected readonly i18n = inject(TranslationService);
   private readonly multiplayerOnboarding = inject(MultiplayerOnboardingStore);
@@ -104,7 +106,10 @@ export class GamePageComponent implements OnInit, OnDestroy {
     return key === null ? null : this.i18n.t(key);
   });
   protected readonly restartConfirmation = signal(false);
-  protected readonly botPresentation = signal<BotPresentationEvent | null>(null);
+  protected readonly botPresentation = this.presentation.current;
+  protected readonly interactionLocked = computed(
+    () => this.pending() || this.presentation.locked(),
+  );
   protected readonly multiplayerEnabled = signal(false);
   protected readonly deckVariantsEnabled = signal(false);
   protected readonly capabilityState = signal<'loading' | 'ready'>('loading');
@@ -181,8 +186,6 @@ export class GamePageComponent implements OnInit, OnDestroy {
       participant: game.participants.find((participant) => participant.seat === placement.seat),
     }));
   });
-  private presentationTimer: ReturnType<typeof setTimeout> | null = null;
-  private presentationQueue: BotPresentationEvent[] = [];
   private submittedAction: HumanActionType | null = null;
   private submittedCards: readonly GameCard[] = [];
   private hintSubscription: Subscription | null = null;
@@ -208,7 +211,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.clearHints();
     this.cardMotion.clear();
-    this.cancelPresentation();
+    this.presentation.clear();
   }
 
   protected requestNewGame(): void {
@@ -247,7 +250,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   protected startNewGame(totalPlayers: 2 | 3 | 4 = this.selectedPlayers()): void {
-    if (this.pending()) {
+    if (this.interactionLocked()) {
       return;
     }
     if (
@@ -270,7 +273,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   private createNewGame(totalPlayers: 2 | 3 | 4): void {
-    this.cancelPresentation();
+    this.presentation.clear();
     this.clearHints();
     this.cardMotion.clear();
     this.restartConfirmation.set(false);
@@ -284,22 +287,29 @@ export class GamePageComponent implements OnInit, OnDestroy {
           deck_count: this.selectedDeckCount(),
         })
       : this.api.createGame(totalPlayers);
-    request.pipe(finalize(() => this.pending.set(false))).subscribe({
-      next: (game) => {
-        this.storedSession.save(game.game_id);
-        this.game.set(game);
-        this.selectedPlayers.set(game.total_players);
-        this.selectedDeckProfile.set(game.deck_profile);
-        this.selectedDeckCount.set(game.deck_count);
-        this.selectedIds.set(new Set());
-        this.presentInitialBotAction(game);
-        this.queueBotStatuses(game.recent_events);
-      },
-      error: (error: unknown) => {
-        this.showSetup.set(this.multiplayerEnabled() || this.deckVariantsEnabled());
-        this.errorKey.set(this.messageKeyForError(error));
-      },
-    });
+    request
+      .pipe(
+        finalize(() => {
+          this.pending.set(false);
+          if (!this.presentation.locked()) this.refreshHints();
+        }),
+      )
+      .subscribe({
+        next: (game) => {
+          this.storedSession.save(game.game_id);
+          this.game.set(game);
+          this.selectedPlayers.set(game.total_players);
+          this.selectedDeckProfile.set(game.deck_profile);
+          this.selectedDeckCount.set(game.deck_count);
+          this.selectedIds.set(new Set());
+          this.presentInitialBotAction(game);
+          this.queueBotStatuses(game.recent_events);
+        },
+        error: (error: unknown) => {
+          this.showSetup.set(this.multiplayerEnabled() || this.deckVariantsEnabled());
+          this.errorKey.set(this.messageKeyForError(error));
+        },
+      });
   }
 
   protected selectPlayerCount(count: 2 | 3 | 4): void {
@@ -319,14 +329,19 @@ export class GamePageComponent implements OnInit, OnDestroy {
 
   protected playAgain(): void {
     const game = this.game();
-    if (game === null || this.pending()) return;
-    this.cancelPresentation();
+    if (game === null || this.interactionLocked()) return;
+    this.presentation.clear();
     this.cardMotion.clear();
     this.pending.set(true);
     this.errorKey.set(null);
     this.api
       .restartGame(game.game_id)
-      .pipe(finalize(() => this.pending.set(false)))
+      .pipe(
+        finalize(() => {
+          this.pending.set(false);
+          if (!this.presentation.locked()) this.refreshHints();
+        }),
+      )
       .subscribe({
         next: (restarted) => {
           this.storedSession.save(restarted.game_id);
@@ -343,8 +358,8 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   protected changePlayers(): void {
-    if (this.pending()) return;
-    this.cancelPresentation();
+    if (this.interactionLocked()) return;
+    this.presentation.clear();
     this.clearHints();
     this.cardMotion.clear();
     this.restartConfirmation.set(false);
@@ -407,7 +422,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
     if (this.capabilityState() === 'loading' && this.recoveryState() === 'idle') {
       return this.i18n.t('game.loadingOptions');
     }
-    if (this.pending()) {
+    if (this.interactionLocked()) {
       return this.i18n.t(this.recoveryState() === 'loading' ? 'game.restoring' : 'game.dealing');
     }
     if (this.recoveryState() === 'unavailable') {
@@ -442,7 +457,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   protected toggleCard(id: string): void {
-    if (this.pending()) {
+    if (this.interactionLocked()) {
       return;
     }
     this.selectedIds.update((current) => {
@@ -466,7 +481,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
 
   protected submitAction(action: HumanActionType): void {
     const game = this.game();
-    if (game === null || this.pending() || !game.available_actions.includes(action)) {
+    if (game === null || this.interactionLocked() || !game.available_actions.includes(action)) {
       return;
     }
     this.submittedAction = action;
@@ -487,7 +502,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
 
   protected localDecisionContext(game: GameResponse): string | null {
     if (
-      this.pending() ||
+      this.interactionLocked() ||
       this.restartConfirmation() ||
       game.phase === 'complete' ||
       game.required_actor !== 'HUMAN'
@@ -614,7 +629,12 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.errorKey.set(null);
     this.api
       .getGame(gameId)
-      .pipe(finalize(() => this.pending.set(false)))
+      .pipe(
+        finalize(() => {
+          this.pending.set(false);
+          this.refreshHints();
+        }),
+      )
       .subscribe({
         next: (game) => {
           this.cardMotion.clear();
@@ -649,14 +669,14 @@ export class GamePageComponent implements OnInit, OnDestroy {
     const selected = this.selectedCards().map(cardIdentity);
     if (
       !this.hintPreference.enabled() ||
-      selected.length === 0 ||
       game === null ||
-      game.total_players > 2 ||
       game.phase === 'complete' ||
       game.required_actor !== 'HUMAN' ||
-      this.pending() ||
+      this.interactionLocked() ||
       this.restartConfirmation() ||
-      !game.available_actions.some((action) => CARD_ACTIONS.has(action))
+      !game.available_actions.some(
+        (action) => CARD_ACTIONS.has(action) || action === 'TAKE' || action === 'BITO',
+      )
     ) {
       return;
     }
@@ -695,32 +715,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
   }
 
   private queueBotStatuses(events: readonly BotPresentationEvent[]): void {
-    if (events.length === 0) return;
-    this.cancelPresentation();
-    this.presentationQueue = [...events].slice(-6);
-    this.showNextBotStatus();
-  }
-
-  private showNextBotStatus(): void {
-    const event = this.presentationQueue.shift() ?? null;
-    if (event === null) {
-      this.botPresentation.set(null);
-      return;
-    }
-    this.botPresentation.set(event);
-    this.presentationTimer = setTimeout(() => {
-      this.presentationTimer = null;
-      this.showNextBotStatus();
-    }, 520);
-  }
-
-  private cancelPresentation(): void {
-    if (this.presentationTimer !== null) {
-      clearTimeout(this.presentationTimer);
-      this.presentationTimer = null;
-    }
-    this.presentationQueue = [];
-    this.botPresentation.set(null);
+    this.presentation.play(events, () => this.refreshHints());
   }
 
   private motionSnapshot(game: GameResponse): MotionSnapshot {
@@ -953,7 +948,10 @@ export class GamePageComponent implements OnInit, OnDestroy {
         const batch = {
           from: (event.actor_seat ? this.positionForSeat(event.actor_seat, game) : null) ?? 'top',
           count: event.card_count,
-          cards: cards.slice(cardIndex, cardIndex + event.card_count),
+          cards:
+            (event.cards?.length ?? 0) > 0
+              ? (event.cards ?? [])
+              : cards.slice(cardIndex, cardIndex + event.card_count),
         };
         cardIndex += event.card_count;
         return batch;

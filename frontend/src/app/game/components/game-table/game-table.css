@@ -23,8 +23,15 @@
 }
 
 .table-heading {
+  position: sticky;
+  z-index: 3;
+  top: calc(-1 * clamp(0.6rem, 1.5vh, 1rem));
   display: grid;
   gap: 0.8rem;
+  padding: clamp(0.6rem, 1.5vh, 1rem);
+  margin: calc(-1 * clamp(0.6rem, 1.5vh, 1rem));
+  margin-bottom: 0;
+  background: linear-gradient(180deg, rgb(5 42 34 / 100%) 80%, rgb(5 42 34 / 0%));
 }
 
 .eyebrow {

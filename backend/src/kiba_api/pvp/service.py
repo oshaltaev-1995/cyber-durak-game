@@ -975,8 +975,6 @@ class PvPRoomService:
         with self._store.locked_record(invite_code) as record:
             room = record.room
             participant = room.participant_by_token(reconnect_token)
-            if room.capacity != 2:
-                raise PvPActionError(PvPErrorCode.FEATURE_NOT_AVAILABLE, "multiplayer_hints")
             if room.phase is PvPRoomPhase.CLOSED:
                 raise PvPActionError(PvPErrorCode.ROOM_CLOSED)
             if room.state is None or room.phase is PvPRoomPhase.WAITING_FOR_OPPONENT:

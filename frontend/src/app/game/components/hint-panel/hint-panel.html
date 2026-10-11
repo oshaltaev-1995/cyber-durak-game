@@ -24,8 +24,13 @@
       @for (hint of combinations(); track hint.action + ':' + hintIds(hint).join(',')) {
         <span class="hint-option">
           <b>{{ action(hint.action) }}</b>
-          <span>{{ cardExpression(hintIds(hint)) }}</span>
-          <small>{{ equation(hint) }} · {{ reason(hint.reason) }}</small>
+          @if (hintIds(hint).length > 0) {
+            <span>{{ cardExpression(hintIds(hint)) }}</span>
+            <small>{{ equation(hint) }} · {{ reason(hint.reason) }}</small>
+          } @else {
+            <span>{{ i18n.t('hints.noCards') }}</span>
+            <small>{{ reason(hint.reason) }}</small>
+          }
         </span>
       }
     </div>

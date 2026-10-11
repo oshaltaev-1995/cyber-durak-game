@@ -282,7 +282,7 @@ describe('GamePageComponent', () => {
       deck_count: 2,
     });
     expect(element.textContent).toContain('Расширенная · 2 колоды · 108 карт');
-    expect(element.querySelector('app-hint-panel')).toBeNull();
+    expect(element.querySelector('app-hint-panel')).not.toBeNull();
   });
 
   it('shows a native total-player selector only when the shared capability is enabled', () => {
@@ -320,7 +320,7 @@ describe('GamePageComponent', () => {
     expect(element.querySelector('.seat-left section')?.getAttribute('aria-label')).toContain(
       'Компьютерный соперник',
     );
-    expect(element.querySelector('app-hint-panel')).toBeNull();
+    expect(element.querySelector('app-hint-panel')).not.toBeNull();
   });
 
   it('replays a multiplayer bot game in the same session and preserves names', () => {
@@ -833,7 +833,7 @@ describe('GamePageComponent', () => {
     ).toContain('Выбрано: 0');
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('.playing-card.suggested'),
-    ).toBeNull();
+    ).not.toBeNull();
   });
 
   it('selects and submits one exact duplicate by physical ID while the other remains', () => {
@@ -1005,7 +1005,7 @@ describe('GamePageComponent', () => {
       }),
     );
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Вы отбились');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Ваша защита завершена');
   });
 
   it('keeps a complete multi-card selection visible in the persistent action summary', () => {
@@ -1424,7 +1424,7 @@ describe('GamePageComponent', () => {
     expect(element.textContent).toContain(title);
     expect(element.querySelector('app-game-table')?.textContent).toContain('Финальный кон');
     expect(element.querySelector('app-game-table')?.textContent).toContain('Атака · 6');
-    expect(element.querySelectorAll('app-hand .playing-card')).toHaveLength(1);
+    expect(element.querySelectorAll('app-hand .playing-card')).toHaveLength(0);
     api.restartGame.mockReturnValue(of(makeGame({ game_id: 'game-2' })));
     clickButton('Сыграть ещё');
     expect(api.restartGame).toHaveBeenCalledWith('game-1');
@@ -1697,7 +1697,7 @@ describe('GamePageComponent', () => {
       vi.advanceTimersByTime(520);
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('Nika переводит');
-      vi.advanceTimersByTime(520);
+      vi.advanceTimersByTime(800);
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('Otto: пас');
     } finally {
