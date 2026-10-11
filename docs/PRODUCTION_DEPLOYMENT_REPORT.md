@@ -490,3 +490,62 @@ were active; both monitor services most recently exited successfully; and no sys
 failed. Caddy, Husky, Kennel, Amnezia, Docker runtime, firewall, SSH, OS packages and swap policy
 were not changed. `public-beta-v1` and `public-beta-v2` were not moved, and no release tag was
 created.
+
+## R11.1 gameplay UX and Hint semantics stabilization (2026-10-11)
+
+Application commit `de5cb99ec801579fb6d1fe07b3e1416a6a918b17` completed the post-v2 gameplay
+stabilization. Side seats now remain inside reserved safe zones, short laptop layouts retain a
+usable internally scrollable bout, mobile keeps the table scroll bounded, and scrollbar padding
+keeps cards clear of the scroll track. The exposed trump-source card still suppresses its combat
+value while playable trump cards retain theirs. Terminal mode retains the final bout and ranking
+but removes active roles, status, hand, Hint and action UI.
+
+Hint responses now distinguish the selected cards, every bounded-search card that can participate
+in an authoritative legal continuation, the top five suggested complete moves, and the exact card
+actions legal for the current selection. The frontend keeps ordinary continuation cards enabled
+without presenting them as top suggestions, permits incomplete Street/arithmetic construction, and
+enables submission only for an exact server-approved selection. Hint OFF remains request-free.
+Warning copy now explicitly says that Hints show up to five suggested legal moves. The 30-second
+presentation-only reminder transitions to a restrained 1.5-second turquoise attention pulse,
+becomes static under reduced motion, emits one live announcement and clears on the next decision
+context without taking an automatic action.
+
+Local validation passed frontend lint and formatting, the production build, 409 tests in 43 files,
+backend lint/formatting, 859 backend tests, and `git diff --check`. Twenty deterministic R11 fixture
+states cover the required short/long bouts, large side and local hands, source cards, non-exhaustive
+defense Hints, partial Street/arithmetic construction, presentation queue, attention states,
+terminal states, mixed rooms and 3-/4-player Hints. Real local browser acceptance covered all six
+requested viewports. A physical 8-9-10-J-Q Street was built incrementally and submitted through the
+normal UI; a three-player game reached terminal state; and a four-player bot cascade remained
+ordered with controls locked until catch-up.
+
+Immediately before deployment, `kiba-backup.service` created and internally verified
+`/var/backups/kiba/kiba-20261011T083729Z.dump` (28,803 bytes, mode `0600`). The exact application
+archive SHA-256 was `8479db27d9f4fa911618661c39c5cf454d45d7532f4f3177983a0e03fee3972c`.
+The prior source tree remains at
+`/opt/kiba/releases/app-before-r11-1-6e25a390-20261011T0839Z`. Backend and frontend images were
+built serially; production runs backend image
+`sha256:c03218c4cd41b84cf7dd585fba773540d5168d5b64953ac197939e96534d49b5` and frontend image
+`sha256:fe9c216bc6d60c6fe227a7a37318c7a67f8e49f97861b24039414623269ff970`. Only those two Kiba
+application services were recreated. PostgreSQL retained its container identity and no migration
+was added or run.
+
+Live acceptance used ordinary production UI flows. A three-player Extended game selected and
+submitted both a non-top-five legal attack and a non-top-five legal defense, proving that bounded
+suggestions no longer restrict input. A four-player Extended double-deck cascade presented attack,
+defense, Pass and throw-in steps in order and enabled the human only after visual catch-up. The
+attention pulse appeared after 30 seconds without changing game state and cleared immediately on
+Pass. The same three-player game reached a compact terminal ranking with one result heading, a
+visible final bout, no stale active UI and neutral RU/EN last-bout copy. A real 2H+2B Extended
+double-deck room returned Hints only for the acting human; its waiting human saw no actionable
+Hint data. Active mixed layout passed 1366x768 and 390x844 without page-level horizontal overflow
+or side-seat overlap. Production browser consoles were clean.
+
+Final health showed approximately 1.9 GiB `MemAvailable`, 154.1 MiB resident swap, `si=0`/`so=0`
+through the ten-sample postflight, zero current memory PSI and no kernel OOM evidence. Swap grew by
+approximately 3.5 MiB during the frontend build and then remained stable. Kiba, Husky Tracking and
+Kennel Operations returned HTTP 200; all Kiba containers were healthy with zero restarts and
+`OOMKilled=false`; Docker, Caddy and Amnezia remained running; backup and both monitor timers were
+active; both monitor services most recently exited successfully; and no systemd units were failed.
+No PostgreSQL, Caddy, Husky, Kennel, Amnezia or Docker-runtime change/restart occurred. No release
+tag was created or moved; `public-beta-v1` and frozen `public-beta-v2` remain unchanged.
