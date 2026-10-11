@@ -30,7 +30,7 @@
   @if (packets().length === 0) {
     <div class="empty-table">
       <span aria-hidden="true">♠</span>
-      <p>{{ i18n.t('game.emptyTable') }}</p>
+      <p>{{ i18n.t(observer() ? 'game.emptyTableObserver' : 'game.emptyTable') }}</p>
     </div>
   } @else {
     <div class="packet-list">

@@ -1553,6 +1553,23 @@ instead of defense-sufficiency wording. Early-finished humans see a single obser
 remaining table, with no hand, prompt, timer, Hint or action controls. Russian named TAKE summaries
 use the neutral present-tense `забирает` form with the existing 1/2/5/11/21 card inflection.
 
+### 15.20 R13 final gameplay UI polish
+
+R13 changes presentation only. In hands of 17 or more cards, a suggested card uses a compact star
+badge in the exposed leading strip while its button accessibility label retains the complete
+localized Hint meaning. Effective-value and selected-card treatments remain unchanged. Every
+attacker command represented by the transport `BITO` action is labeled Pass/Пас in controls and
+attacker-phase status copy; actual completed-bout/discard terminology remains BITO/Бито. A local
+participant who has already finished sees neutral empty-table observer copy until the match becomes
+terminal.
+
+The current-bout viewport distinguishes live following from deliberate history reading. A new
+active packet or newly actionable local decision anchors the viewport at the start of the current
+packet, below the sticky heading. Mutations within the same packet do not repeatedly reposition the
+viewport. A user scroll away from the live edge suspends automatic positioning; returning to the
+bottom restores it. Terminal tables retain their content-sized, bounded layout and do not
+auto-position.
+
 ## 16. Suggested implementation phases
 
 ### Phase 0 — repository bootstrap

@@ -133,6 +133,7 @@ h2 {
 .packet-list {
   display: grid;
   gap: 0.75rem;
+  padding-bottom: var(--live-follow-space, 0);
   margin-top: 1rem;
 }
 

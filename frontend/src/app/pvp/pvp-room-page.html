@@ -246,6 +246,8 @@
               [directAnchors]="game.direct_anchor_cards"
               [final]="game.game_phase === 'complete'"
               [finalOutcome]="game.last_bout_summary?.outcome ?? null"
+              [observer]="localFinishedWatching()"
+              [followContextKey]="localDecisionContext()"
             />
             <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
               <span class="pile-label">{{ i18n.t('game.discard') }}</span>
@@ -610,7 +612,6 @@
               [activeAttackValue]="game.active_attack_value"
               [maxAttackCardAddition]="game.max_attack_card_addition"
               [pending]="socket.actionPending() || gameplayPaused()"
-              [bitoMeansPass]="game.capacity > 2"
               (actionSelected)="submitAction($event)"
             />
           </div>

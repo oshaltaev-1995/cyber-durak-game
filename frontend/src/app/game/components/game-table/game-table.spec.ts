@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AttackPacket, GameCard } from '../../../core/api/game-api.models';
+import { TranslationService } from '../../../core/i18n/translation.service';
 import { GameTableComponent } from './game-table';
 
 const card: GameCard = {
@@ -33,11 +34,11 @@ describe('GameTableComponent scroll follow', () => {
     fixture.componentRef.setInput('directAnchors', []);
   };
 
-  it('keeps new packets visible only while the reader remains near the bottom', async () => {
+  it('anchors a new live decision at the packet start and preserves deliberate history reading', async () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.componentRef.setInput(
       'packets',
-      Array.from({ length: 8 }, (_, index) => packet(index)),
+      Array.from({ length: 8 }, (_, index) => ({ ...packet(index), closed: index < 7 })),
     );
     fixture.componentRef.setInput('arithmetic', {
       total_effective_value: 48,
@@ -53,26 +54,66 @@ describe('GameTableComponent scroll follow', () => {
       scrollHeight: { configurable: true, value: 900 },
       clientHeight: { configurable: true, value: 300 },
     });
-    viewport.scrollTop = 600;
-    fixture.componentRef.setInput('packets', [
-      ...Array.from({ length: 8 }, (_, index) => packet(index)),
-      packet(9),
-    ]);
+    const heading = viewport.querySelector('.table-heading') as HTMLElement;
+    const active = viewport.querySelector('.packet.active') as HTMLElement;
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({ top: 100 } as DOMRect);
+    vi.spyOn(heading, 'getBoundingClientRect').mockReturnValue({ height: 72 } as DOMRect);
+    vi.spyOn(active, 'getBoundingClientRect').mockReturnValue({ top: 620 } as DOMRect);
+    fixture.componentRef.setInput('followContextKey', 'decision-1');
     fixture.detectChanges();
-    expect(viewport.scrollTop).toBe(900);
+    expect(viewport.scrollTop).toBe(440);
+    viewport.dispatchEvent(new Event('scroll'));
+
+    viewport.scrollTop = 470;
+    fixture.componentRef.setInput(
+      'packets',
+      Array.from({ length: 8 }, (_, index) =>
+        index === 7
+          ? { ...packet(index), defense_cards: [card], defense_value: 8 }
+          : { ...packet(index), closed: true },
+      ),
+    );
+    fixture.detectChanges();
+    expect(viewport.scrollTop).toBe(470);
 
     viewport.scrollTop = 100;
     viewport.dispatchEvent(new Event('scroll'));
     fixture.componentRef.setInput('packets', [
-      ...Array.from({ length: 9 }, (_, index) => packet(index)),
-      packet(10),
+      ...Array.from({ length: 8 }, (_, index) => ({ ...packet(index), closed: true })),
+      packet(9),
     ]);
+    fixture.componentRef.setInput('followContextKey', 'decision-2');
     fixture.detectChanges();
     expect(viewport.scrollTop).toBe(100);
+
+    const newest = viewport.querySelector('.packet.active') as HTMLElement;
+    vi.spyOn(newest, 'getBoundingClientRect').mockReturnValue({ top: 200 } as DOMRect);
+    viewport.scrollTop = 600;
+    viewport.dispatchEvent(new Event('scroll'));
+    fixture.componentRef.setInput('followContextKey', 'decision-3');
+    fixture.detectChanges();
+    expect(viewport.scrollTop).toBe(620);
     expect(getComputedStyle(viewport).overflowY).toBe('auto');
     expect(getComputedStyle(viewport).scrollbarGutter).toBe('stable');
     expect(getComputedStyle(viewport).getPropertyValue('--scrollbar-safe-zone')).toBe('0.85rem');
     expect(viewport.tabIndex).toBe(0);
+  });
+
+  it.each([
+    ['en', 'Waiting for the next bout.'],
+    ['ru', 'Ожидание следующего кона.'],
+  ] as const)('uses neutral %s empty-table copy for a finished observer', async (locale, copy) => {
+    TestBed.inject(TranslationService).setLocale(locale);
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.componentRef.setInput('packets', []);
+    fixture.componentRef.setInput('observer', true);
+    setBaseInputs(fixture);
+    await fixture.whenStable();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(copy);
+    expect(text).not.toContain('Select a card');
+    expect(text).not.toContain('Выберите карту');
   });
 
   it('uses the full packet row for a normal five-card attack and four-card defense', async () => {

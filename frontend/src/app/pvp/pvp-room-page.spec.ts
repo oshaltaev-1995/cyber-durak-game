@@ -767,6 +767,36 @@ describe('PvPRoomPageComponent', () => {
     expect(element.querySelector('.position-top .seat-count')?.textContent).toContain('0 карт');
     expect(element.querySelector('.position-top')?.classList).not.toContain('is-disconnected');
     expect(element.textContent).toContain('Вы финишировали — партия продолжается');
+    expect(element.textContent).toContain('Ожидание следующего кона');
+    expect(element.textContent).not.toContain('Выберите карту, чтобы начать кон');
+
+    socket.state.set({
+      ...mixed,
+      version: 8,
+      room_phase: 'COMPLETE',
+      game_phase: 'complete',
+      active_seats: [],
+      finished_seats: ['one', 'two', 'three', 'four'],
+      finish_groups: [['one'], ['three'], ['two'], ['four']],
+      players: mixed.players.map((player) => ({
+        ...player,
+        active: false,
+        finished: true,
+        hand_count: 0,
+      })),
+      result: {
+        outcome: 'WIN',
+        winner_seat: 'one',
+        winner_participant_id: 'p1',
+        winner_display_name: 'Alice',
+      },
+      available_actions: [],
+      required_participant_id: null,
+      required_seat: null,
+    });
+    fixture.detectChanges();
+    expect(element.textContent).not.toContain('Вы финишировали — партия продолжается');
+    expect(element.querySelector('.result-panel')).not.toBeNull();
   });
 
   it('renders the latest terminal all-bot-remainder result without team language', () => {

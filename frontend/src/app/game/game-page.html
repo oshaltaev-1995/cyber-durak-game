@@ -159,6 +159,8 @@
             [directAnchors]="currentGame.direct_anchor_cards"
             [final]="currentGame.phase === 'complete'"
             [finalOutcome]="currentGame.last_bout_summary?.outcome ?? null"
+            [observer]="localFinishedWatching()"
+            [followContextKey]="localDecisionContext(currentGame)"
           />
 
           <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
@@ -399,7 +401,6 @@
             [activeAttackValue]="currentGame.active_attack_value"
             [maxAttackCardAddition]="currentGame.max_attack_card_addition"
             [pending]="interactionLocked()"
-            [bitoMeansPass]="currentGame.total_players > 2"
             (actionSelected)="submitAction($event)"
           />
         </div>

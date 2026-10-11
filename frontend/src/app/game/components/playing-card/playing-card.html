@@ -36,7 +36,10 @@
   >
     <ng-container [ngTemplateOutlet]="cardFace" />
     @if (suggested()) {
-      <span class="suggested-badge">{{ i18n.t('hints.suggested') }}</span>
+      <span class="suggested-badge" aria-hidden="true" [attr.title]="i18n.t('hints.suggested')">
+        <span class="suggested-label">{{ i18n.t('hints.suggested') }}</span>
+        <span class="suggested-icon">✦</span>
+      </span>
     }
   </button>
 } @else {

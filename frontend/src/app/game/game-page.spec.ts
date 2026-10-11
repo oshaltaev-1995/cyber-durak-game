@@ -1453,7 +1453,7 @@ describe('GamePageComponent', () => {
     expect(text).toContain('Перевести');
     expect(text).toContain('Подкинуть');
     expect(text).toContain('Взять');
-    expect(text).toContain('Бито');
+    expect(text).toContain('Пас');
     api.submitAction.mockReturnValue(of(makeGame()));
     clickButton('Взять');
     expect(api.submitAction).toHaveBeenCalledWith('game-1', 'TAKE', []);
@@ -2143,9 +2143,9 @@ describe('GamePageComponent', () => {
     fixture.detectChanges();
     clickButton('Покрыть');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
-      'Можно подкинуть карты или закончить кон',
+      'Можно подкинуть карты или выбрать «Пас»',
     );
-    clickButton('Бито');
+    clickButton('Пас');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Вы победили! 🏆');
     expect(api.submitAction).toHaveBeenCalledTimes(3);
   });

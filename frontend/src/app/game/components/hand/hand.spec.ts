@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { GameCard } from '../../../core/api/game-api.models';
+import { TranslationService } from '../../../core/i18n/translation.service';
 import { HandComponent } from './hand';
 
 const ranks = ['6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'] as const;
@@ -30,7 +31,7 @@ describe('HandComponent', () => {
     [20, ['very-dense']],
     [23, ['very-dense']],
     [26, ['very-dense']],
-    [30, ['very-dense']],
+    [31, ['very-dense']],
   ] as const)(
     'renders %i reachable cards with the adaptive density class',
     async (count, classes) => {
@@ -44,6 +45,50 @@ describe('HandComponent', () => {
       expect(element.querySelectorAll('app-playing-card')).toHaveLength(count);
       expect([...strip.classList].filter((name) => name !== 'card-strip')).toEqual(classes);
       expect(strip.getAttribute('class')).not.toContain('hidden');
+    },
+  );
+
+  it.each(
+    ([7, 20, 26, 31] as const).flatMap((count) =>
+      (
+        [
+          ['en', 'Suggested', 'Suggested for the current combination'],
+          ['ru', 'Подходит', 'Подходит к текущей комбинации'],
+        ] as const
+      ).map(
+        ([locale, visualLabel, accessibleLabel]) =>
+          [count, locale, visualLabel, accessibleLabel] as const,
+      ),
+    ),
+  )(
+    'keeps the %i-card suggested marker readable in %s',
+    async (count, locale, visualLabel, accessibleLabel) => {
+      TestBed.inject(TranslationService).setLocale(locale);
+      const fixture = TestBed.createComponent(HandComponent);
+      const hand = cards(count);
+      fixture.componentRef.setInput('cards', hand);
+      fixture.componentRef.setInput('selectedIds', new Set<string>());
+      fixture.componentRef.setInput('suggestedIds', new Set([hand[0].code]));
+      await fixture.whenStable();
+
+      const suggested = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
+        '.playing-card.suggested',
+      )!;
+      const badge = suggested.querySelector<HTMLElement>('.suggested-badge')!;
+      expect(suggested.getAttribute('aria-label')).toContain(accessibleLabel);
+      expect(badge.title).toBe(visualLabel);
+      if (count >= 17) {
+        expect(suggested.classList).toContain('dense');
+        expect(
+          getComputedStyle(badge.querySelector('.suggested-label') as HTMLElement).display,
+        ).toBe('none');
+        expect(
+          getComputedStyle(badge.querySelector('.suggested-icon') as HTMLElement).display,
+        ).toBe('inline');
+      } else {
+        expect(suggested.classList).not.toContain('dense');
+        expect(badge.textContent).toContain(visualLabel);
+      }
     },
   );
 

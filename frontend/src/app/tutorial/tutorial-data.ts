@@ -554,7 +554,7 @@ export const TUTORIAL_LESSONS_EN: readonly TutorialLesson[] = [
   },
   {
     id: 'endgame',
-    title: 'End bout, take and game end',
+    title: 'Bito, take and game end',
     lead: 'After each bout, the table is resolved and hands refill.',
     points: [
       'Discard: the defender starts the next bout. If they defend successfully with their final card or cards from hand, the bout ends automatically and no more cards may be thrown in.',

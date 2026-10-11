@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { GameCard } from '../../../core/api/game-api.models';
+import { TranslationService } from '../../../core/i18n/translation.service';
 import { ActionBarComponent } from './action-bar';
 
 const cards = (count: number): readonly GameCard[] =>
@@ -14,6 +15,23 @@ const cards = (count: number): readonly GameCard[] =>
   }));
 
 describe('ActionBarComponent', () => {
+  it.each([
+    ['en', 'Pass'],
+    ['ru', 'Пас'],
+  ] as const)('presents the BITO command as the attacker action %s Pass', async (locale, label) => {
+    TestBed.inject(TranslationService).setLocale(locale);
+    const fixture = TestBed.createComponent(ActionBarComponent);
+    fixture.componentRef.setInput('actions', ['BITO']);
+    fixture.componentRef.setInput('selectedCards', []);
+    await fixture.whenStable();
+
+    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.actions button',
+    )!;
+    expect(button.textContent?.trim()).toBe(label);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('End bout');
+  });
+
   it('uses the authoritative addition cap instead of a fixed seven-card UI limit', async () => {
     const fixture = TestBed.createComponent(ActionBarComponent);
     fixture.componentRef.setInput('actions', ['INITIAL_ATTACK']);
