@@ -177,7 +177,7 @@ button:disabled {
 }
 
 .playfield {
-  --top-seat-safe-zone: 10rem;
+  --top-seat-safe-zone: 0.6rem;
   --side-seat-safe-zone: 0rem;
   position: relative;
   min-width: 0;
@@ -185,13 +185,21 @@ button:disabled {
   padding-top: var(--top-seat-safe-zone);
 }
 
-.multiplayer .playfield {
+.playfield.has-top-seat {
+  --top-seat-safe-zone: 8.25rem;
+}
+
+.playfield.has-side-seats {
   --side-seat-safe-zone: clamp(5rem, 8.5vw, 7.5rem);
 }
 
 .complete .playfield {
-  --top-seat-safe-zone: 5.25rem;
+  --top-seat-safe-zone: 0.4rem;
   min-height: 11rem;
+}
+
+.complete .playfield.has-top-seat {
+  --top-seat-safe-zone: 4.75rem;
 }
 
 .opponent-zone {
@@ -524,10 +532,17 @@ button:disabled {
     padding: 0.55rem 1.5rem 0.7rem;
   }
 
+  .action-dock {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
+    gap: 0.45rem;
+    align-items: stretch;
+  }
+
   .table-stage {
     grid-template:
       'draw table discard' minmax(0, 1fr)
-      / minmax(7.5rem, 9rem) minmax(0, 1fr) minmax(6rem, 7rem);
+      / minmax(6.5rem, 8rem) minmax(0, 1fr) minmax(5.5rem, 6.5rem);
     gap: 0.8rem;
     padding: 0.8rem;
   }
@@ -555,19 +570,27 @@ button:disabled {
   }
 
   .playfield {
-    --top-seat-safe-zone: 7.8rem;
+    --top-seat-safe-zone: 0.35rem;
     height: clamp(23.5rem, 60dvh, 32rem);
     min-height: 23.5rem;
   }
 
   .complete .playfield {
-    --top-seat-safe-zone: 4.75rem;
+    --top-seat-safe-zone: 0.25rem;
     height: clamp(18rem, 45dvh, 24rem);
     min-height: 18rem;
   }
 
-  .multiplayer .playfield {
-    --side-seat-safe-zone: 5rem;
+  .playfield.has-top-seat {
+    --top-seat-safe-zone: 7.3rem;
+  }
+
+  .complete .playfield.has-top-seat {
+    --top-seat-safe-zone: 4.4rem;
+  }
+
+  .playfield.has-side-seats {
+    --side-seat-safe-zone: 4.8rem;
   }
 
   .table-stage {
@@ -614,18 +637,15 @@ button:disabled {
   }
 
   .playfield {
-    --top-seat-safe-zone: 9rem;
+    --top-seat-safe-zone: 0.35rem;
+  }
+
+  .playfield.has-top-seat {
+    --top-seat-safe-zone: 7rem;
   }
 }
 
-@media (min-width: 48rem) and (max-height: 48rem) {
-  .action-dock {
-    display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
-    gap: 0.45rem;
-    align-items: stretch;
-  }
-
+@media (min-width: 48rem) and (max-height: 52rem) {
   .game-board {
     grid-template-rows: auto minmax(17rem, 1fr) auto auto auto auto;
   }

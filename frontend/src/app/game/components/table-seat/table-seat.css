@@ -143,25 +143,27 @@
 
 .position-left .hidden-hand,
 .position-right .hidden-hand {
-  --hidden-card-width: 2.7rem;
-  --hidden-card-height: 3.7rem;
-  --hidden-overlap: -3.55rem;
-  width: var(--hidden-card-width);
-  min-height: 4.4rem;
+  --hidden-card-width: 2.85rem;
+  --hidden-card-height: 4.05rem;
+  --hidden-overlap: -3.2rem;
+  width: var(--hidden-card-height);
+  min-height: calc(var(--hidden-card-height) + 4.8rem);
+  max-height: 100%;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 0;
+  padding-block: calc((var(--hidden-card-height) - var(--hidden-card-width)) / 2);
+  padding-inline: 0;
 }
 
 .position-left .hand-crowded,
 .position-right .hand-crowded {
-  --hidden-overlap: -3.6rem;
+  --hidden-overlap: -3.32rem;
 }
 
 .position-left .hand-large,
 .position-right .hand-large {
-  --hidden-overlap: -3.64rem;
+  --hidden-overlap: -3.48rem;
 }
 
 .position-left .hand-huge,
@@ -178,6 +180,8 @@
 .position-left .hidden-card,
 .position-right .hidden-card {
   flex-basis: var(--hidden-card-height);
+  transform: rotate(90deg);
+  transform-origin: center;
 }
 
 .position-left .seat-identity,
@@ -216,6 +220,12 @@
   .hand-huge {
     --hidden-overlap: -3.1rem;
   }
+
+  .position-top .hidden-hand {
+    --hidden-card-width: 3.55rem;
+    --hidden-card-height: 4.95rem;
+    --hidden-overlap: 0.4rem;
+  }
 }
 
 @media (max-width: 35rem) {
@@ -243,31 +253,31 @@
 
   .position-left .hidden-hand,
   .position-right .hidden-hand {
-    --hidden-card-width: 3.2rem;
-    --hidden-card-height: 4.45rem;
-    --hidden-overlap: -4.42rem;
-    min-height: 4.6rem;
+    --hidden-card-width: 2.75rem;
+    --hidden-card-height: 3.9rem;
+    --hidden-overlap: -3.18rem;
+    min-height: calc(var(--hidden-card-height) + 4.1rem);
   }
 
   .position-top .hidden-hand {
-    --hidden-card-width: 3.8rem;
-    --hidden-card-height: 5.2rem;
-    --hidden-overlap: -1.55rem;
+    --hidden-card-width: 3rem;
+    --hidden-card-height: 4.1rem;
+    --hidden-overlap: -1.05rem;
   }
 
   .position-left .hand-crowded,
   .position-right .hand-crowded {
-    --hidden-overlap: -4.43rem;
+    --hidden-overlap: -3.28rem;
   }
 
   .position-left .hand-large,
   .position-right .hand-large {
-    --hidden-overlap: -4.44rem;
+    --hidden-overlap: -3.42rem;
   }
 
   .position-left .hand-huge,
   .position-right .hand-huge {
-    --hidden-overlap: -4.45rem;
+    --hidden-overlap: -3.62rem;
   }
 }
 
@@ -297,26 +307,27 @@
 
 @media (min-width: 35.01rem) and (max-height: 52rem) {
   .position-top .hidden-hand {
-    --hidden-card-width: 3.2rem;
-    --hidden-card-height: 3.9rem;
+    --hidden-card-width: 3rem;
+    --hidden-card-height: 3.75rem;
     --hidden-overlap: 0.35rem;
   }
 
   .position-left .hidden-hand,
   .position-right .hidden-hand {
+    --hidden-card-width: 2.6rem;
     --hidden-card-height: 3.5rem;
-    --hidden-overlap: -3.38rem;
-    min-height: 4rem;
+    --hidden-overlap: -2.82rem;
+    min-height: calc(var(--hidden-card-height) + 3.5rem);
   }
 
   .position-left .hand-crowded,
   .position-right .hand-crowded {
-    --hidden-overlap: -3.42rem;
+    --hidden-overlap: -2.94rem;
   }
 
   .position-left .hand-large,
   .position-right .hand-large {
-    --hidden-overlap: -3.46rem;
+    --hidden-overlap: -3.08rem;
   }
 
   .position-left .hand-huge,

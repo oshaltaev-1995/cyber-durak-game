@@ -15,7 +15,7 @@ describe('relativeSeatPosition', () => {
           'left',
         );
         expect(relativeSeatPosition(ring, viewer, ring[(ring.indexOf(viewer) + 2) % 3])).toBe(
-          'top',
+          'right',
         );
       } else {
         expect(relativeSeatPosition(ring, viewer, ring[(ring.indexOf(viewer) + 1) % 4])).toBe(
@@ -35,7 +35,7 @@ describe('relativeSeatPosition', () => {
     assertRing(['one', 'two']);
   });
 
-  it('preserves the approved bottom-left-top three-player geometry for every viewer', () => {
+  it('keeps every three-player viewer at bottom with opponents left and right', () => {
     assertRing(['one', 'two', 'three']);
   });
 

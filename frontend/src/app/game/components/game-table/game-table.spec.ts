@@ -60,6 +60,8 @@ describe('GameTableComponent scroll follow', () => {
     fixture.detectChanges();
     expect(viewport.scrollTop).toBe(100);
     expect(getComputedStyle(viewport).overflowY).toBe('auto');
+    expect(getComputedStyle(viewport).scrollbarGutter).toBe('stable');
+    expect(getComputedStyle(viewport).getPropertyValue('--scrollbar-safe-zone')).toBe('0.85rem');
     expect(viewport.tabIndex).toBe(0);
   });
 });

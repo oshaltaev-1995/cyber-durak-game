@@ -323,6 +323,30 @@ describe('GamePageComponent', () => {
     expect(element.querySelector('app-hint-panel')).not.toBeNull();
   });
 
+  it('keeps two-player bot geometry at portrait top and local bottom only', () => {
+    create();
+    const element = fixture.nativeElement as HTMLElement;
+    const hand = element.querySelector<HTMLElement>('.position-top .hidden-hand')!;
+
+    expect(element.querySelector('.position-left')).toBeNull();
+    expect(element.querySelector('.position-right')).toBeNull();
+    expect(element.querySelector('.playfield')?.classList).toContain('has-top-seat');
+    expect(element.querySelector('.playfield')?.classList).not.toContain('has-side-seats');
+    expect(hand.dataset['cardOrientation']).toBe('portrait');
+    expect(hand.dataset['handFlow']).toBe('horizontal');
+  });
+
+  it('keeps three-player bot geometry at rotated left and right with no top seat', () => {
+    create(makeMultiplayerGame(3));
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.position-left .seat-name')?.textContent).toBe('Milo');
+    expect(element.querySelector('.position-right .seat-name')?.textContent).toBe('Nika');
+    expect(element.querySelector('.position-top')).toBeNull();
+    expect(element.querySelector('.playfield')?.classList).not.toContain('has-top-seat');
+    expect(element.querySelector('.playfield')?.classList).toContain('has-side-seats');
+  });
+
   it('replays a multiplayer bot game in the same session and preserves names', () => {
     localStorage.setItem('kiba.multiplayerOnboarding.v1', 'true');
     const completed = makeMultiplayerGame(3, {

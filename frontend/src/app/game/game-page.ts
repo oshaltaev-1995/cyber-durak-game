@@ -182,6 +182,12 @@ export class GamePageComponent implements OnInit, OnDestroy {
         required: game.required_seat === participant.seat,
       }));
   });
+  protected readonly hasTopOpponent = computed(() =>
+    this.opponentSeats().some((seat) => seat.position === 'top'),
+  );
+  protected readonly hasSideOpponents = computed(() =>
+    this.opponentSeats().some((seat) => seat.position === 'left' || seat.position === 'right'),
+  );
   protected readonly placements = computed(() => {
     const game = this.game();
     if (game === null) return [];

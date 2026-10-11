@@ -35,6 +35,8 @@
       [class.hand-huge]="sizeClass() === 'hand-huge'"
       [style.--hidden-count]="seat().cardCount"
       [attr.data-card-count]="seat().cardCount"
+      [attr.data-card-orientation]="seat().position === 'top' ? 'portrait' : 'landscape'"
+      [attr.data-hand-flow]="seat().position === 'top' ? 'horizontal' : 'vertical'"
     >
       @for (index of cardIndexes(); track index) {
         <div class="hidden-card" aria-hidden="true">

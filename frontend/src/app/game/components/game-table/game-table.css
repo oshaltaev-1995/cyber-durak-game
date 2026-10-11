@@ -4,10 +4,12 @@
 }
 
 .table {
+  --table-padding: clamp(0.6rem, 1.5vh, 1rem);
+  --scrollbar-safe-zone: 0.85rem;
   min-width: 0;
   min-height: 0;
-  padding: clamp(0.6rem, 1.5vh, 1rem);
-  padding-inline-end: calc(clamp(0.6rem, 1.5vh, 1rem) + 0.35rem);
+  padding: var(--table-padding);
+  padding-inline-end: calc(var(--table-padding) + var(--scrollbar-safe-zone));
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-color: rgb(73 229 190 / 34%) transparent;
@@ -50,11 +52,13 @@
 .table-heading {
   position: sticky;
   z-index: 3;
-  top: calc(-1 * clamp(0.6rem, 1.5vh, 1rem));
+  top: calc(-1 * var(--table-padding));
   display: grid;
   gap: 0.8rem;
-  padding: clamp(0.6rem, 1.5vh, 1rem);
-  margin: calc(-1 * clamp(0.6rem, 1.5vh, 1rem));
+  padding: var(--table-padding);
+  padding-inline-end: calc(var(--table-padding) + var(--scrollbar-safe-zone));
+  margin: calc(-1 * var(--table-padding));
+  margin-inline-end: calc(-1 * (var(--table-padding) + var(--scrollbar-safe-zone)));
   margin-bottom: 0;
   background: linear-gradient(180deg, rgb(5 42 34 / 100%) 80%, rgb(5 42 34 / 0%));
 }
@@ -236,7 +240,8 @@ h2 {
 
 @media (min-width: 48rem) {
   .table {
-    padding: 1.2rem;
+    --table-padding: 1.2rem;
+    --scrollbar-safe-zone: 0.9rem;
   }
 
   .table-heading {

@@ -291,7 +291,12 @@ describe('PvPRoomPageComponent', () => {
       expect(names).toEqual(expectedNames);
       expect(element.querySelectorAll('.opponent-zone app-table-seat')).toHaveLength(capacity - 1);
       expect(element.querySelector('.position-left .seat-name')?.textContent).toContain('Alice');
-      expect(element.querySelector('.position-top .seat-name')?.textContent).toContain('Bob');
+      const secondPosition = capacity === 3 ? '.position-right' : '.position-top';
+      expect(element.querySelector(`${secondPosition} .seat-name`)?.textContent).toContain('Bob');
+      if (capacity === 3) {
+        expect(element.querySelector('.position-top')).toBeNull();
+        expect(element.querySelector('.playfield')?.classList).not.toContain('has-top-seat');
+      }
       expect(element.querySelector('.local-player-name')?.textContent).toContain(
         viewerSeat === 'three' ? 'Cara' : 'Dmitri',
       );
@@ -299,6 +304,18 @@ describe('PvPRoomPageComponent', () => {
       expect(element.innerHTML).not.toContain('reconnect_token');
     },
   );
+
+  it('keeps the two-player PvP opponent at top with a portrait horizontal hand', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const hand = element.querySelector<HTMLElement>('.position-top .hidden-hand')!;
+
+    expect(element.querySelector('.position-left')).toBeNull();
+    expect(element.querySelector('.position-right')).toBeNull();
+    expect(element.querySelector('.playfield')?.classList).toContain('has-top-seat');
+    expect(element.querySelector('.playfield')?.classList).not.toContain('has-side-seats');
+    expect(hand.dataset['cardOrientation']).toBe('portrait');
+    expect(hand.dataset['handFlow']).toBe('horizontal');
+  });
 
   it('uses the authoritative BITO action as a multiplayer attacker phase Pass', () => {
     socket.state.set(makeMultiplayerState(4, 'one', { available_actions: ['BITO'] }));

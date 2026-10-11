@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { HiddenTableSeat } from '../../presentation/table-seat.models';
 import { TableSeatComponent } from '../table-seat/table-seat';
 
@@ -12,4 +12,10 @@ import { TableSeatComponent } from '../table-seat/table-seat';
 export class TableSeatMapComponent {
   readonly seats = input.required<readonly HiddenTableSeat[]>();
   readonly terminal = input(false);
+  protected readonly hasTopSeat = computed(() =>
+    this.seats().some((seat) => seat.position === 'top'),
+  );
+  protected readonly hasSideSeats = computed(() =>
+    this.seats().some((seat) => seat.position === 'left' || seat.position === 'right'),
+  );
 }

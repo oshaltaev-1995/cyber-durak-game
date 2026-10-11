@@ -103,7 +103,8 @@ export const en: Record<TranslationKey, string> = {
   'hints.on': 'On',
   'hints.off': 'Off',
   'hints.toggleAria': 'Turn combination hints on or off',
-  'hints.help': 'Hints show up to five suggested legal moves.',
+  'hints.help':
+    'Blue marks up to five suggestions; green marks other cards in a legal continuation.',
   'hints.loading': 'Checking combinations…',
   'hints.noCards': 'No cards selected',
   'hints.suggested': 'Suggested',

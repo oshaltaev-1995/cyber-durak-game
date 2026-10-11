@@ -43,6 +43,13 @@ button.playing-card:focus-visible {
   transform: translateY(-0.55rem);
 }
 
+.playing-card.continuation:not(.selected, .suggested) {
+  border-color: rgb(73 229 190 / 88%);
+  box-shadow:
+    0 0 0 2px rgb(73 229 190 / 18%),
+    0 0.55rem 1rem rgb(0 0 0 / 22%);
+}
+
 .playing-card.suggested:not(.selected) {
   border-color: #54e1f4;
   border-style: dashed;

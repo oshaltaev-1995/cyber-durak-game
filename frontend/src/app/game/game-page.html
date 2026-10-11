@@ -131,7 +131,11 @@
         </button>
       </div>
 
-      <section class="playfield">
+      <section
+        class="playfield"
+        [class.has-top-seat]="hasTopOpponent()"
+        [class.has-side-seats]="hasSideOpponents()"
+      >
         <app-table-seat-map
           class="opponent-zone"
           [seats]="opponentSeats()"

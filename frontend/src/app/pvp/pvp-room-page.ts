@@ -185,6 +185,12 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
         required: state.required_seat === player.seat,
       }));
   });
+  protected readonly hasTopOpponent = computed(() =>
+    this.opponentSeats().some((seat) => seat.position === 'top'),
+  );
+  protected readonly hasSideOpponents = computed(() =>
+    this.opponentSeats().some((seat) => seat.position === 'left' || seat.position === 'right'),
+  );
   protected readonly waitingSeats = computed(() => {
     const state = this.state();
     if (state === null) return [];

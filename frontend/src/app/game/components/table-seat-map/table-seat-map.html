@@ -1,4 +1,10 @@
-<section class="seat-map" [class.has-side-seats]="seats().length > 1" [class.terminal]="terminal()">
+<section
+  class="seat-map"
+  [class.has-side-seats]="hasSideSeats()"
+  [class.has-top-seat]="hasTopSeat()"
+  [class.side-only]="hasSideSeats() && !hasTopSeat()"
+  [class.terminal]="terminal()"
+>
   @for (seat of seats(); track seat.id) {
     <app-table-seat
       [seat]="seat"
@@ -8,7 +14,7 @@
       [class.seat-right]="seat.position === 'right'"
     />
   }
-  @if (seats().length > 1) {
+  @if (hasSideSeats()) {
     <div class="table-center-space" aria-hidden="true"></div>
   }
 </section>

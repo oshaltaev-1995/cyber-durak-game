@@ -34,6 +34,6 @@ export function relativeSeatPosition(
   if (offset === 0) return 'bottom';
   if (seatOrder.length === 2) return 'top';
   if (offset === 1) return 'left';
-  if (seatOrder.length === 3) return 'top';
+  if (seatOrder.length === 3) return 'right';
   return offset === 2 ? 'top' : 'right';
 }

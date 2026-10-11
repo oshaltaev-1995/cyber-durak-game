@@ -64,6 +64,8 @@ describe('TableSeatComponent', () => {
     expect(hand.classList).toContain('hand-normal');
     expect(identity.compareDocumentPosition(hand) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     expect(identity.contains(hand)).toBe(false);
+    expect(hand.dataset['cardOrientation']).toBe('portrait');
+    expect(hand.dataset['handFlow']).toBe('horizontal');
   });
 
   it('updates count and uses stronger compression for 20-card TAKE hands', () => {
@@ -91,18 +93,42 @@ describe('TableSeatComponent', () => {
 });
 
 describe('table seat presentation fixtures', () => {
-  it('represents three seats as top, side, and local bottom positions', async () => {
+  it('represents two players as portrait top and local bottom with no side lanes', async () => {
+    await TestBed.configureTestingModule({ imports: [SeatPrototypeHost] }).compileComponents();
+    const fixture = TestBed.createComponent(SeatPrototypeHost);
+    fixture.componentInstance.seats.set([topSeat]);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const hand = element.querySelector<HTMLElement>('.position-top .hidden-hand')!;
+    expect(element.querySelector('.position-top')).not.toBeNull();
+    expect(element.querySelector('.position-left')).toBeNull();
+    expect(element.querySelector('.position-right')).toBeNull();
+    expect(element.querySelector('.seat-map')?.classList).not.toContain('has-side-seats');
+    expect(hand.dataset['cardOrientation']).toBe('portrait');
+    expect(hand.dataset['handFlow']).toBe('horizontal');
+    expect(element.querySelector('[data-position="bottom"]')).not.toBeNull();
+  });
+
+  it('represents three players as rotated left/right hands and local bottom with no top seat', async () => {
     await TestBed.configureTestingModule({ imports: [SeatPrototypeHost] }).compileComponents();
     const fixture = TestBed.createComponent(SeatPrototypeHost);
     fixture.componentInstance.seats.set([
-      topSeat,
       { ...topSeat, id: 'left', position: 'left', displayName: 'Left' },
+      { ...topSeat, id: 'right', position: 'right', displayName: 'Right' },
     ]);
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelector('.position-top')).not.toBeNull();
+    expect(element.querySelector('.position-top')).toBeNull();
     expect(element.querySelector('.position-left')).not.toBeNull();
+    expect(element.querySelector('.position-right')).not.toBeNull();
+    expect(element.querySelector('.seat-map')?.classList).toContain('side-only');
+    const sideHands = [...element.querySelectorAll<HTMLElement>('.hidden-hand')];
+    expect(sideHands.every((hand) => hand.dataset['cardOrientation'] === 'landscape')).toBe(true);
+    expect(sideHands.every((hand) => hand.dataset['handFlow'] === 'vertical')).toBe(true);
+    const sideCards = [...element.querySelectorAll<HTMLElement>('.hidden-card')];
+    expect(sideCards.every((card) => getComputedStyle(card).transform !== 'none')).toBe(true);
     expect(element.querySelector('[data-position="bottom"]')).not.toBeNull();
   });
 
@@ -119,6 +145,7 @@ describe('table seat presentation fixtures', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelectorAll('app-table-seat')).toHaveLength(3);
     expect(element.querySelector('.seat-map')?.classList).toContain('has-side-seats');
+    expect(element.querySelector('.seat-map')?.classList).toContain('has-top-seat');
     expect(element.querySelector('.position-right')).not.toBeNull();
     expect(element.querySelector('[data-position="bottom"]')).not.toBeNull();
   });
