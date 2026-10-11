@@ -25,6 +25,21 @@ describe('DeckConfigSelectorComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(total);
   });
 
+  it.each([
+    ['classic', 1, 'Всего 36 карт'],
+    ['extended', 1, 'Всего 54 карты'],
+    ['classic', 2, 'Всего 72 карты'],
+    ['extended', 2, 'Всего 108 карт'],
+  ] as const)('uses Russian card-count grammar for %s x%s', async (profile, deckCount, total) => {
+    localStorage.setItem('kiba.preferred-locale', 'ru');
+    const fixture = TestBed.createComponent(DeckConfigSelectorComponent);
+    fixture.componentRef.setInput('profile', profile);
+    fixture.componentRef.setInput('deckCount', deckCount);
+    await fixture.whenStable();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(total);
+  });
+
   it('uses labeled native radios and emits independent profile and count choices', async () => {
     const fixture = TestBed.createComponent(DeckConfigSelectorComponent);
     fixture.componentRef.setInput('profile', 'classic');

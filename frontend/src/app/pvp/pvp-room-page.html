@@ -34,6 +34,7 @@
                 game.deck_profile === 'classic' ? 'deck.classicName' : 'deck.extendedName'
               ),
               count: (game.deck_profile === 'classic' ? 36 : 54) * game.deck_count,
+              cards: i18n.cardCount((game.deck_profile === 'classic' ? 36 : 54) * game.deck_count),
             })
           }}</span>
         }
@@ -122,6 +123,7 @@
                 game.deck_profile === 'classic' ? 'deck.classicName' : 'deck.extendedName'
               ),
               count: (game.deck_profile === 'classic' ? 36 : 54) * game.deck_count,
+              cards: i18n.cardCount((game.deck_profile === 'classic' ? 36 : 54) * game.deck_count),
             })
           }}</strong>
           <p>
@@ -177,7 +179,12 @@
                     emptySeatCount() === 1 ? 'pvp.waitingPerson.one' : 'pvp.waitingPerson.many',
                     { count: emptySeatCount() }
                   )
-                : i18n.t('pvp.waitingRemaining', { count: emptySeatCount() })
+                : i18n.t(
+                    emptySeatCount() === 1
+                      ? 'pvp.waitingRemaining.one'
+                      : 'pvp.waitingRemaining.many',
+                    { count: emptySeatCount() }
+                  )
             }}</small>
           }
           @if (game.capacity > 2 || game.deck_profile !== 'classic' || game.deck_count !== 1) {
@@ -250,6 +257,9 @@
                       game.deck_profile === 'classic' ? 'deck.classicName' : 'deck.extendedName'
                     ),
                     count: (game.deck_profile === 'classic' ? 36 : 54) * game.deck_count,
+                    cards: i18n.cardCount(
+                      (game.deck_profile === 'classic' ? 36 : 54) * game.deck_count
+                    ),
                   })
                 }}
               </p>

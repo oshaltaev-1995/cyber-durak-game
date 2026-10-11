@@ -24,6 +24,7 @@
               room.deck_profile === 'classic' ? 'deck.classicName' : 'deck.extendedName'
             ),
             count: (room.deck_profile === 'classic' ? 36 : 54) * room.deck_count,
+            cards: i18n.cardCount((room.deck_profile === 'classic' ? 36 : 54) * room.deck_count),
           })
         }}</strong>
         @if (room.capacity > 2 || room.deck_profile !== 'classic' || room.deck_count !== 1) {

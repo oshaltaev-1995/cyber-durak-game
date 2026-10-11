@@ -122,6 +122,9 @@
                 currentGame.deck_profile === 'classic' ? 'deck.classicName' : 'deck.extendedName'
               ),
               count: (currentGame.deck_profile === 'classic' ? 36 : 54) * currentGame.deck_count,
+              cards: i18n.cardCount(
+                (currentGame.deck_profile === 'classic' ? 36 : 54) * currentGame.deck_count
+              ),
             })
           }}</span>
         }
@@ -179,6 +182,9 @@
                   ),
                   count:
                     (currentGame.deck_profile === 'classic' ? 36 : 54) * currentGame.deck_count,
+                  cards: i18n.cardCount(
+                    (currentGame.deck_profile === 'classic' ? 36 : 54) * currentGame.deck_count
+                  ),
                 })
               }}
             </p>

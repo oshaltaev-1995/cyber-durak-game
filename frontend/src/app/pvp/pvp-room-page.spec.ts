@@ -395,6 +395,82 @@ describe('PvPRoomPageComponent', () => {
     },
   );
 
+  it.each([
+    [2, 1, 'Waiting for 1 more player'],
+    [3, 1, 'Waiting for 2 more players'],
+    [4, 1, 'Waiting for 3 more players'],
+  ] as const)(
+    'uses English all-human waiting grammar for %s seats with %s joined',
+    (capacity, joinedCount, expected) => {
+      TestBed.inject(TranslationService).setLocale('en');
+      const waiting = capacity === 2 ? makeState() : makeMultiplayerState(capacity as 3 | 4, 'one');
+      socket.state.set({
+        ...waiting,
+        room_phase: 'WAITING_FOR_OPPONENT',
+        game_phase: null,
+        joined_count: joinedCount,
+        human_joined_count: joinedCount,
+        players: waiting.players.slice(0, joinedCount),
+        available_actions: [],
+        required_participant_id: null,
+        required_seat: null,
+      });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain(expected);
+    },
+  );
+
+  it.each([
+    ['classic', 1, 'Классика · 36 карт'],
+    ['extended', 1, 'Расширенная · 54 карты'],
+    ['classic', 2, 'Классика · 2 колоды · 72 карты'],
+    ['extended', 2, 'Расширенная · 2 колоды · 108 карт'],
+  ] as const)(
+    'uses Russian card-count grammar in the waiting-room deck label for %s x%s',
+    (deckProfile, deckCount, expected) => {
+      TestBed.inject(TranslationService).setLocale('ru');
+      socket.state.set(
+        makeState({
+          room_phase: 'WAITING_FOR_OPPONENT',
+          game_phase: null,
+          joined_count: 1,
+          human_joined_count: 1,
+          players: makeState().players.slice(0, 1),
+          available_actions: [],
+          required_participant_id: null,
+          required_seat: null,
+          deck_profile: deckProfile,
+          deck_count: deckCount,
+        }),
+      );
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain(expected);
+    },
+  );
+
+  it('keeps mixed-room singular waiting copy human-specific in English', () => {
+    TestBed.inject(TranslationService).setLocale('en');
+    const mixed = makeMixedState(3, 2);
+    socket.state.set({
+      ...mixed,
+      room_phase: 'WAITING_FOR_OPPONENT',
+      game_phase: null,
+      joined_count: 1,
+      human_joined_count: 1,
+      players: mixed.players.filter((player) => player.is_bot || player.seat === 'one'),
+      available_actions: [],
+      required_participant_id: null,
+      required_seat: null,
+    });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent;
+    expect(text).toContain('Waiting for 1 more person');
+    expect(text).not.toContain('Waiting for 1 more player');
+  });
+
   it('renders mixed humans and bots by seat without treating bots as disconnected', () => {
     const mixed = makeMixedState(4, 2);
     socket.state.set({
