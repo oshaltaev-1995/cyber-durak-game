@@ -433,3 +433,60 @@ Kiba containers were healthy with zero restarts and `OOMKilled=false`; Docker, C
 remained running; backup and both monitor timers remained active; and both monitor services most
 recently exited successfully. No backend, PostgreSQL, Caddy, Husky, Kennel, Amnezia or Docker-runtime
 restart/reconfiguration occurred. No release tag was created or moved.
+
+## R11 post-v2 gameplay UX restoration (2026-10-11)
+
+Application commits `82be5a1ea0292e80eaedfee79189b1ef2def2659` and
+`6e25a390cfc48342e27cf43fcaeefe844642523d` restore a stable active-play shell, an internally
+scrollable current-bout viewport with restrained follow-latest behavior, unclipped large hands,
+compact terminal results, exposed-source cards without combat-value badges, an ordered bounded bot
+presentation queue, and server-authoritative Hint Mode for the current human in 2–4-player bot,
+all-human and mixed games. Playable cards retain effective-value badges. Terminal mode removes
+active roles, status/action controls and the empty local-hand region while keeping the final bout
+and result in normal non-overlapping flow. Russian last-bout copy is gender-neutral. No gameplay
+canon, database schema, migration, persistence model or infrastructure configuration changed.
+
+Local validation passed frontend lint and formatting, the production build, 404 tests in 43 files,
+backend lint/formatting, 856 backend tests, and `git diff --check`. Thirteen deterministic R11 fixture
+states cover short/long bouts, a 20+ card hand, multi-packet defense, four-player and mixed tables,
+three-/four-player terminal results, ordinary/Joker exposed sources, bot cascades, the post-cascade
+human turn, and multiplayer hints. Browser acceptance covered the required desktop, short-laptop
+and mobile viewports, keyboard table scrolling and skip-link focus, presentation locking, reload
+without event replay, 3-/4-player hints, Hint OFF, a real terminal result, and a real 2H+2B mixed
+room with hints only for the acting human.
+
+The first live pass exposed one missing additive response-schema value: the engine correctly
+generated structural `pass`/`take` hints, but the REST response model rejected `pass`. Deployment
+acceptance stopped, commit `6e25a390cfc48342e27cf43fcaeefe844642523d` added both values and an
+HTTP-level TAKE/Pass regression, and the full backend suite was rerun before a backend-only hotfix.
+The corrected production Hint requests returned HTTP 200 and rendered cardless Pass/BITO guidance;
+no validation error remained.
+
+Immediately before deployment, `kiba-backup.service` created and verified
+`/var/backups/kiba/kiba-20261011T073801Z.dump` (28,802 bytes, mode `0600`). The final application
+archive SHA-256 was `26eafdd7b433553199c105f73e71ee6c55d3f8acd017647ccecbd8b01151c840`;
+the pre-R11 source tree remains at
+`/opt/kiba/releases/app-before-r11-1d9a082-20261011T0740Z`. Backend and frontend images were built
+serially. Production runs backend image
+`sha256:dbd0b7b579f2d12a1257f4fed9b3dfa51b69900b118f2eb75259d8bf68401bbb` and frontend image
+`sha256:4e34e3a7fa92427833043780ed641665e18928413405ad1237b376dd418078d0`.
+Only Kiba backend/frontend were recreated for the feature rollout; the hotfix recreated only the
+backend. PostgreSQL retained its container identity throughout, and no migration was run.
+
+Final live acceptance showed readable long-bout cards with keyboard-reachable internal overflow,
+visible deck/discard and hand/action regions, zero value badges on the exposed source and seven on
+the playable hand, sequential bot statuses with controls locked until catch-up, clean reload state,
+one compact terminal heading, no terminal active-role/status/hand/action UI, no RU/EN copy overlap,
+and a normally hidden but keyboard-visible skip link. A 3-player bot game returned five bounded
+hints including Pass; a 4-player Extended ×2 game returned card and cardless BITO hints; a 2H+2B
+room returned mixed-room Street hints to the acting host while the waiting guest received no hint
+list or actions. Hint OFF produced no additional Hint request. Browser consoles were clean.
+
+Final health showed approximately 1.9 GiB `MemAvailable`, 150 MiB resident swap with `si=0`/`so=0`
+through the ten-sample postflight, zero current memory PSI, and no kernel OOM evidence. Kiba, Husky
+Tracking and Kennel Operations returned HTTP 200; Kiba containers were healthy with zero restarts
+and `OOMKilled=false`; Docker, Caddy and Amnezia remained running; backup and both monitor timers
+were active; both monitor services most recently exited successfully; and no systemd units were
+failed. Caddy, Husky, Kennel, Amnezia, Docker runtime, firewall, SSH, OS packages and swap policy
+were not changed. `public-beta-v1` and `public-beta-v2` were not moved, and no release tag was
+created.
