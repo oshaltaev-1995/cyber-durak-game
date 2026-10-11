@@ -323,3 +323,68 @@ running; backup and both monitor timers remained active; and both monitor servic
 exited successfully. Backend, PostgreSQL, Caddy, Husky, Kennel, Amnezia, Docker runtime, firewall,
 SSH and OS packages were not restarted, rebuilt, reconfigured, or upgraded. No release tag was
 created or moved.
+
+## H3.1 mixed-room flag wiring and Stage B rollout (2026-10-11)
+
+H3 Stage A had already deployed and accepted application commit
+`0502f22db6d4275ffb694751046972d371f3ffba`. Its backend image was
+`sha256:28e7b4dd1e6820881a3ab3db4feda9d5cc0c1e742a6938781c0a362b032cd936` and its frontend image
+was `sha256:6259bd3942b8892bd71964f93805270618552a81a6f47bf1579c71a33ae78a93`. Stage B initially
+remained off because `docker-compose.prod.yml` did not pass `KIBA_MIXED_ROOMS_ENABLED` from the
+protected production environment into the backend container, so the application correctly retained
+its default `false` value.
+
+Configuration commit `361fac5fd31f9137f8b126414a9c0f1392e24205` adds the missing default-off backend mapping,
+documents the variable in `.env.production.example`, and adds a CI Compose contract that renders
+and asserts absent -> `false`, explicit `false` -> `false`, and explicit `true` -> `true` while also
+checking the existing multiplayer and deck-variant flags. The exact production source archive had
+SHA-256 `8ba269a7f8e4d6928f5a2c1457b872202a541b5d6b8bce31071827f148d2dd75`. The prior Stage A
+source and images remain retained for rollback.
+
+Before backend replacement, production Compose was rendered from the actual root-owned mode-`0600`
+`/etc/kiba/production.env` and proved all three backend values were `true`, with one mixed-room
+mapping. Only the backend was recreated. It continued using the H2 backend image above; the
+frontend and PostgreSQL container identities and their images were unchanged. No image was rebuilt,
+no migration was present or run, and the public capabilities endpoint then returned multiplayer,
+deck variants, and mixed rooms all enabled.
+
+Live production acceptance used ordinary `/pvp` UI flows. A 2-human + 1-bot Extended room showed
+the 1/2 human waiting denominator, one open human seat and one named bot seat, then started at 2/2
+and exercised human actions and bot cascades without Hint Mode. A 3-human + 1-bot Classic
+double-deck room progressed through 1/3, 2/3 and 3/3, exercised live actions, and reconnected a human
+with the same hand, seat, bot identity and configuration. Its optional full terminal/rematch was not
+repeated live. A separate mixed room verified explicit Exit produced neutral `Room closed` copy,
+no ranking and no rematch.
+
+Two real 2-human + 2-bot Extended double-deck 108-card matches completed to terminal production
+rankings containing all four individual participants and no team result. The primary room exercised
+attack, defense, bot cascades and Pass, then held at 1/2 human rematch consent before the second human
+accepted. The fresh same-room match preserved human seats, bot seats and names, 2H+2B composition,
+and deck configuration without a false disconnect flash. Bots were reported automatically ready.
+The second match independently exercised 63 human attacks, 63 TAKE actions and 30 Pass actions before
+its terminal result.
+
+All-human creator defaults remained three humans for total three and four humans for total four;
+ordinary two-player PvP retained Hint Mode. Play vs Bots remained independent, exposed no human-count
+selector, and started a one-human + three-bot game. Mixed rooms exposed no Hint control or profile
+progression claim. RU and EN creator, waiting, bot identity, human denominator and rematch-ready copy
+rendered without raw localization keys. Normal-user inspection confirmed hidden remote human/bot
+hands, no bot action controls, immutable joiner composition, a single open human seat, and invite
+URLs containing only the room code.
+
+Responsive creator, waiting, active-table and terminal-result smoke covered 1440x900, 1366x768,
+1280x800, 390x844 and 430x932. The active and terminal 2H+2B Extended double-deck surfaces had no
+page-level horizontal overflow and retained visible action/rematch controls. Radio groups exposed
+checked state and accessible names, keyboard selection changed the human-count choice, keyboard
+activation created a room, and bot seats exposed explicit bot identity rather than disconnected
+status.
+
+Final health showed approximately 2.0 GiB `MemAvailable`, 138 MiB resident swap, `si=0`/`so=0`
+through the ten-sample check, zero current memory PSI, no kernel OOM evidence, and zero Kiba
+container restarts or `OOMKilled` states. Kiba, Husky Tracking and Kennel Operations returned HTTP
+200; internal Kiba health/readiness returned 200; Docker, Caddy and Amnezia remained running; no
+systemd units were failed; backup and both monitor timers remained active; and both monitor services
+most recently exited successfully. The verified
+`/var/backups/kiba/kiba-20261010T204347Z.dump` remained root-owned mode `0600`. No Caddy, Husky,
+Kennel, Amnezia, Docker-runtime, firewall, SSH, OS-package, swap or kernel configuration was changed.
+No release tag was created or moved.
