@@ -216,9 +216,12 @@ export interface HintCombination {
 
 export interface HintResponse {
   readonly selected_card_ids: readonly string[];
+  readonly continuation_card_ids?: readonly string[];
   readonly suggested_card_ids: readonly string[];
   readonly selected_physical_ids?: readonly string[];
+  readonly continuation_physical_ids?: readonly string[];
   readonly suggested_physical_ids?: readonly string[];
+  readonly legal_action_types?: readonly HumanActionType[];
   readonly suggested_action_types: readonly HumanActionType[];
   readonly combinations: readonly HintCombination[];
 }

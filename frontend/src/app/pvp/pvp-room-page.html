@@ -580,6 +580,7 @@
             class="player-hand-region"
             [cards]="game.hand"
             [selectedIds]="selectedIds()"
+            [continuationIds]="continuationIds()"
             [suggestedIds]="suggestedIds()"
             [disabled]="
               socket.actionPending() || gameplayPaused() || localPlayer()?.finished === true
@@ -600,6 +601,7 @@
             <app-action-bar
               [actions]="game.available_actions"
               [selectedCards]="selectedCards()"
+              [legalActionTypes]="socket.hints()?.legal_action_types ?? null"
               [activeAttackValue]="game.active_attack_value"
               [maxAttackCardAddition]="game.max_attack_card_addition"
               [pending]="socket.actionPending() || gameplayPaused()"

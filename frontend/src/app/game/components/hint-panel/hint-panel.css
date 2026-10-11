@@ -82,17 +82,7 @@
     padding: 0.35rem 0.45rem;
   }
 
-  .hint-help {
-    display: none;
-  }
-
   .hint-option {
     font-size: 0.72rem;
-  }
-}
-
-@media (max-height: 48rem) {
-  .hint-help {
-    display: none;
   }
 }

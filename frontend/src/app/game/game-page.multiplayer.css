@@ -92,12 +92,12 @@
 .multiplayer .opponent-zone {
   z-index: 2;
   width: 100%;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .multiplayer .table-stage {
   width: auto;
-  margin-inline: clamp(4.7rem, 11vw, 6rem);
+  margin-inline: var(--side-seat-safe-zone);
 }
 
 .result-actions .secondary {
@@ -188,7 +188,7 @@
 
 @media (max-width: 35rem) {
   .multiplayer .table-stage {
-    margin-inline: 3.9rem;
+    margin-inline: var(--side-seat-safe-zone);
   }
 
   .multiplayer-onboarding > div {

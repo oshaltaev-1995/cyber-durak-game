@@ -15,6 +15,7 @@ export class HandComponent {
   protected readonly i18n = inject(TranslationService);
   readonly cards = input.required<readonly GameCard[]>();
   readonly selectedIds = input.required<ReadonlySet<string>>();
+  readonly continuationIds = input<ReadonlySet<string>>(new Set());
   readonly suggestedIds = input<ReadonlySet<string>>(new Set());
   readonly disabled = input(false);
   readonly cardSelected = output<string>();

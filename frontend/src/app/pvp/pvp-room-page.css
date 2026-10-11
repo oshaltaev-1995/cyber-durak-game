@@ -222,11 +222,11 @@
 .multiplayer .opponent-zone {
   z-index: 2;
   width: 100%;
-  overflow: visible;
+  overflow: hidden;
 }
 .multiplayer .table-stage {
   width: auto;
-  margin-inline: clamp(4.7rem, 11vw, 6rem);
+  margin-inline: var(--side-seat-safe-zone);
 }
 .finish-groups {
   width: min(100%, 28rem);

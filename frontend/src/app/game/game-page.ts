@@ -126,6 +126,10 @@ export class GamePageComponent implements OnInit, OnDestroy {
   protected readonly suggestedIds = computed<ReadonlySet<string>>(
     () => new Set(this.hints()?.suggested_physical_ids ?? this.hints()?.suggested_card_ids ?? []),
   );
+  protected readonly continuationIds = computed<ReadonlySet<string>>(
+    () =>
+      new Set(this.hints()?.continuation_physical_ids ?? this.hints()?.continuation_card_ids ?? []),
+  );
   protected readonly recoveryState = signal<'idle' | 'loading' | 'unavailable' | 'failed'>('idle');
   protected readonly selectedCards = computed<readonly GameCard[]>(() => {
     const selected = this.selectedIds();

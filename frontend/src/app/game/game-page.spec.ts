@@ -528,7 +528,9 @@ describe('GamePageComponent', () => {
     api.getHints.mockReturnValue(
       of({
         selected_card_ids: ['6C'],
+        continuation_card_ids: ['QD'],
         suggested_card_ids: ['QD'],
+        legal_action_types: [],
         suggested_action_types: ['INITIAL_ATTACK'],
         combinations: [
           {
@@ -557,6 +559,55 @@ describe('GamePageComponent', () => {
     expect(hintPanel.textContent).toContain('6♣ + Q♦');
     expect(hintPanel.textContent).not.toMatch(/(?:10|[6-9JQKA])[CDHS](?![a-z])/);
     expect(hintPanel.outerHTML).not.toMatch(/(?:aria-label|title)="[^"]*(?:10|[6-9JQKA])[CDHS]/);
+  });
+
+  it('builds a five-rank Street one card at a time before enabling submission', () => {
+    const street = [
+      card('8C', '8', 'clubs', 8),
+      card('9D', '9', 'diamonds', 9),
+      card('10H', '10', 'hearts', 10),
+      card('JS', 'J', 'spades', 12),
+      card('QC', 'Q', 'clubs', 15),
+    ];
+    api.getHints.mockImplementation((_id, selected) =>
+      of({
+        selected_card_ids: [...selected],
+        continuation_card_ids: street
+          .filter((value) => !selected.includes(value.code))
+          .map((value) => value.code),
+        suggested_card_ids: [],
+        legal_action_types: selected.length === 5 ? ['INITIAL_ATTACK'] : [],
+        suggested_action_types: ['INITIAL_ATTACK'],
+        combinations: [],
+      }),
+    );
+    api.submitAction.mockReturnValue(of(makeGame({ human_hand: [], table_cards: street })));
+    create(makeGame({ human_hand: street, max_attack_card_addition: 7 }));
+
+    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+      'app-hand .playing-card',
+    );
+    const attack = (): HTMLButtonElement =>
+      [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('button'),
+      ].find((value) => value.textContent?.trim() === 'Ходить')!;
+
+    for (let index = 0; index < street.length; index += 1) {
+      expect(buttons[index].disabled).toBe(false);
+      buttons[index].click();
+      fixture.detectChanges();
+      expect(attack().disabled).toBe(index < street.length - 1);
+    }
+
+    attack().click();
+    fixture.detectChanges();
+    expect(api.submitAction).toHaveBeenCalledWith('game-1', 'INITIAL_ATTACK', [
+      '8C',
+      '9D',
+      '10H',
+      'JS',
+      'QC',
+    ]);
   });
 
   it('never calls the hint API while the saved preference is off', () => {

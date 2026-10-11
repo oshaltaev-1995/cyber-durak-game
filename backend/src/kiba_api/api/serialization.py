@@ -55,9 +55,12 @@ def serialize_move_hints(hints: MoveHints) -> HintResponse:
     """Serialize only participant-owned card codes and structured reasons."""
     return HintResponse(
         selected_card_ids=[card_to_code(card) for card in hints.selected_cards],
+        continuation_card_ids=[card_to_code(card) for card in hints.continuation_cards],
         suggested_card_ids=[card_to_code(card) for card in hints.suggested_cards],
         selected_physical_ids=[card.physical_id for card in hints.selected_cards],
+        continuation_physical_ids=[card.physical_id for card in hints.continuation_cards],
         suggested_physical_ids=[card.physical_id for card in hints.suggested_cards],
+        legal_action_types=list(hints.legal_actions),
         suggested_action_types=list(hints.suggested_actions),
         combinations=[
             HintCombinationResponse(

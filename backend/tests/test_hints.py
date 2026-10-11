@@ -36,6 +36,19 @@ def card(rank: Rank, suit: Suit = Suit.CLUBS) -> Card:
     return Card(rank=rank, suit=suit)
 
 
+CLASSIC_RANKS = (
+    Rank.SIX,
+    Rank.SEVEN,
+    Rank.EIGHT,
+    Rank.NINE,
+    Rank.TEN,
+    Rank.JACK,
+    Rank.QUEEN,
+    Rank.KING,
+    Rank.ACE,
+)
+
+
 def game(
     seat_one_hand: Iterable[Card],
     seat_two_hand: Iterable[Card],
@@ -129,6 +142,85 @@ def test_empty_selection_suggests_bounded_engine_validated_initial_moves() -> No
     assert all(hint.action is HumanActionType.INITIAL_ATTACK for hint in hints.combinations)
     assert all(hint.cards for hint in hints.combinations)
     assert 0 < hints.candidate_selections_examined <= MAX_HINT_CANDIDATE_SELECTIONS
+
+
+def test_bounded_suggestions_do_not_truncate_authoritative_defense_continuations() -> None:
+    attack = card(Rank.SIX)
+    legal_defenses = tuple(
+        card(rank)
+        for rank in (
+            Rank.SEVEN,
+            Rank.EIGHT,
+            Rank.NINE,
+            Rank.TEN,
+            Rank.JACK,
+            Rank.QUEEN,
+            Rank.KING,
+        )
+    )
+    state = play_game_initial_attack(
+        start_game_bout(
+            GameState(
+                hands=(
+                    (attack,),
+                    legal_defenses,
+                    tuple(card(rank, Suit.SPADES) for rank in CLASSIC_RANKS[:7]),
+                ),
+                draw_pile=(),
+                current_attacker=Seat.ONE,
+            )
+        ),
+        Seat.ONE,
+        (attack,),
+    )
+
+    hints = get_move_hints(state, Seat.TWO, ())
+
+    assert len(hints.combinations) == 5
+    assert set(hints.continuation_cards) == set(legal_defenses)
+    omitted = next(value for value in legal_defenses if value not in hints.suggested_cards)
+    omitted_hints = get_move_hints(state, Seat.TWO, (omitted,))
+    assert HumanActionType.DEFEND in omitted_hints.legal_actions
+    assert play_game_defense(state, Seat.TWO, (omitted,)).active_bout is not None
+
+
+def test_partial_initial_street_exposes_continuations_until_exact_action_is_legal() -> None:
+    street = tuple(card(rank) for rank in (Rank.EIGHT, Rank.NINE, Rank.TEN, Rank.JACK, Rank.QUEEN))
+    state = start_game_bout(
+        game(street, tuple(card(rank, Suit.SPADES) for rank in CLASSIC_RANKS[:7]))
+    )
+
+    one = get_move_hints(state, Seat.ONE, street[:1])
+    three = get_move_hints(state, Seat.ONE, street[:3])
+    complete = get_move_hints(state, Seat.ONE, street)
+
+    assert set(street[1:]) <= set(one.continuation_cards)
+    assert set(street[3:]) <= set(three.continuation_cards)
+    assert HumanActionType.INITIAL_ATTACK not in three.legal_actions
+    assert HumanActionType.INITIAL_ATTACK in complete.legal_actions
+    assert play_game_initial_attack(state, Seat.ONE, street).active_bout is not None
+
+
+def test_partial_arithmetic_selection_keeps_cards_from_later_legal_completion() -> None:
+    first_nine = card(Rank.NINE)
+    second_nine = card(Rank.NINE, Suit.DIAMONDS)
+    king = card(Rank.KING)
+    seven = card(Rank.SEVEN)
+    state = start_game_bout(
+        game(
+            (first_nine, second_nine, king, seven),
+            tuple(card(rank, Suit.SPADES) for rank in CLASSIC_RANKS[:7]),
+        )
+    )
+
+    hints = get_move_hints(state, Seat.ONE, (first_nine,))
+
+    assert {second_nine, king} <= set(hints.continuation_cards)
+    assert any(
+        combination.reason is HintReason.ARITHMETIC_EQUALITY
+        and {second_nine, king} <= set(combination.added_cards)
+        for combination in hints.combinations
+    )
 
 
 def test_defense_completion_respects_sufficiency_and_irredundancy() -> None:

@@ -143,11 +143,11 @@
 
 .position-left .hidden-hand,
 .position-right .hidden-hand {
-  --hidden-card-width: 3.65rem;
-  --hidden-card-height: 5.15rem;
-  --hidden-overlap: -4.8rem;
+  --hidden-card-width: 2.7rem;
+  --hidden-card-height: 3.7rem;
+  --hidden-overlap: -3.55rem;
   width: var(--hidden-card-width);
-  min-height: 7.7rem;
+  min-height: 4.4rem;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
@@ -156,17 +156,17 @@
 
 .position-left .hand-crowded,
 .position-right .hand-crowded {
-  --hidden-overlap: -4.95rem;
+  --hidden-overlap: -3.6rem;
 }
 
 .position-left .hand-large,
 .position-right .hand-large {
-  --hidden-overlap: -5.02rem;
+  --hidden-overlap: -3.64rem;
 }
 
 .position-left .hand-huge,
 .position-right .hand-huge {
-  --hidden-overlap: -5.08rem;
+  --hidden-overlap: -3.68rem;
 }
 
 .position-left .hidden-card + .hidden-card,
@@ -191,6 +191,11 @@
 .position-left .seat-name,
 .position-right .seat-name {
   max-width: 5.5rem;
+}
+
+.position-left .seat-separator,
+.position-right .seat-separator {
+  display: none;
 }
 
 @media (min-width: 48rem) and (min-height: 52.01rem) {
@@ -287,6 +292,36 @@
 
   .table-seat {
     gap: 0.15rem;
+  }
+}
+
+@media (min-width: 35.01rem) and (max-height: 52rem) {
+  .position-top .hidden-hand {
+    --hidden-card-width: 3.2rem;
+    --hidden-card-height: 3.9rem;
+    --hidden-overlap: 0.35rem;
+  }
+
+  .position-left .hidden-hand,
+  .position-right .hidden-hand {
+    --hidden-card-height: 3.5rem;
+    --hidden-overlap: -3.38rem;
+    min-height: 4rem;
+  }
+
+  .position-left .hand-crowded,
+  .position-right .hand-crowded {
+    --hidden-overlap: -3.42rem;
+  }
+
+  .position-left .hand-large,
+  .position-right .hand-large {
+    --hidden-overlap: -3.46rem;
+  }
+
+  .position-left .hand-huge,
+  .position-right .hand-huge {
+    --hidden-overlap: -3.48rem;
   }
 }
 

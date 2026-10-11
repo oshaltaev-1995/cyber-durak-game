@@ -15,6 +15,7 @@ export class PlayingCardComponent {
   protected readonly i18n = inject(TranslationService);
   readonly card = input.required<GameCard>();
   readonly selected = input(false);
+  readonly continuation = input(false);
   readonly suggested = input(false);
   readonly selectable = input(false);
   readonly compact = input(false);
@@ -57,7 +58,10 @@ export class PlayingCardComponent {
         ? this.i18n.t(card.joker_color === 'red' ? 'deck.redJoker' : 'deck.blackJoker')
         : `${card.rank} ${this.suitName(card.suit)}`;
     const contextual = this.contextLabel() === null ? label : `${this.contextLabel()}. ${label}`;
-    return this.suggested() ? `${contextual}. ${this.i18n.t('hints.suggestedAria')}` : contextual;
+    if (this.suggested()) return `${contextual}. ${this.i18n.t('hints.suggestedAria')}`;
+    return this.continuation()
+      ? `${contextual}. ${this.i18n.t('hints.continuationAria')}`
+      : contextual;
   });
 
   protected select(): void {

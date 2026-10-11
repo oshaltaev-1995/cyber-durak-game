@@ -1483,13 +1483,16 @@ work.
 
 ### 15.18 R11 gameplay UX restoration
 
-R11 changes presentation, not canon. Active play uses one bounded playfield: remote seats overlay
-the table perimeter instead of consuming a separate vertical grid row, while the current-bout
-component owns keyboard-focusable vertical scrolling. A restrained follow-latest policy follows a
-new packet only while the reader remains near the bottom. The local hand keeps its own horizontal
-scroll and sufficient vertical padding for selected/focused cards. Terminal state removes the
-local hand, action controls, attack-cap status, and active attacker/defender/turn labels; it retains
-a compact final-bout viewport, one primary result heading, placements, rematch, and progression.
+R11 changes presentation, not canon. Active play uses one bounded playfield. The top participant
+has a reserved top zone; left and right participants have bounded side safe zones that end with the
+playfield and cannot extend into status, local-hand, Hint, or action rows. Central deck, bout, and
+discard content reserves those side widths. The current-bout component owns keyboard-focusable
+vertical scrolling, a stable edge gutter, and a narrow non-content scrollbar. A restrained
+follow-latest policy follows a new packet only while the reader remains near the bottom. The local
+hand keeps its own horizontal scroll and sufficient vertical padding for selected/focused cards.
+Terminal state removes the local hand, action controls, attack-cap status, and active
+attacker/defender/turn labels; it retains a compact final-bout viewport, one primary result heading,
+placements, rematch, and progression.
 
 The authoritative backend continues to resolve bot cascades without sleeps. Response-scoped bot
 events add the exact cards already made public by each action, using physical IDs and the
@@ -1501,12 +1504,25 @@ short sequential text/role transitions. Fetch/reconnect snapshots contain no `re
 historical cascades are not replayed.
 
 Hint Mode applies to the current human participant in two-to-four-player bot, all-human PvP, and
-mixed rooms. Empty selection is a valid bounded query; suggestions include engine-validated card
-actions plus no-card TAKE and attacker-phase Pass/BITO where available. Search remains capped at
-4,096 candidate selections and five returned combinations, uses exact physical IDs, and never
-requests while Hint Mode is off or while the presentation lock is active. The exposed trump-source
-card reuses the shared card renderer with its combat-value badge and value announcement suppressed;
-playable cards retain ordinary value/trump presentation.
+mixed rooms. Empty selection is a valid bounded query. The response deliberately separates three
+concepts: every owned card remains selectable while ordinary UI constraints permit; continuation
+physical IDs identify cards found in at least one engine-validated completion from the current
+partial selection; and at most five combinations form the recommended Hint list. Exact
+`legal_action_types` describe only the current complete selection, so an incomplete Street or
+arithmetic selection may keep its submit button disabled without blocking later component cards.
+Non-suggested cards retain normal playable styling. Structured suggestions include card actions
+plus no-card TAKE and attacker-phase Pass/BITO where available. Search remains capped at 4,096
+candidate selections and five returned combinations, uses exact physical IDs, and never requests
+while Hint Mode is off or while the presentation lock is active.
+
+The 30-second turn indicator remains presentation-only. After its initial perimeter drain, a still
+active local decision receives a restrained 1.5-second turquoise border pulse and one status
+announcement; reduced-motion presentation uses a stronger static border. Changing decision
+context or suspending the local decision for an action, turn change, modal, disconnect, terminal
+state, or presentation backlog destroys/restarts the reminder and clears attention immediately.
+It never submits a gameplay action. The exposed trump-source card reuses the shared card renderer
+with its combat-value badge and value announcement suppressed; playable cards retain ordinary
+value/trump presentation.
 
 ## 16. Suggested implementation phases
 

@@ -17,6 +17,9 @@ export const TURN_REMINDER_DELAY_MS = 30_000;
   templateUrl: './turn-reminder.html',
   styleUrl: './turn-reminder.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '[class.attention]': 'reminderVisible()',
+  },
 })
 export class TurnReminderComponent implements OnInit, OnChanges, OnDestroy {
   @Input() contextKey = '';

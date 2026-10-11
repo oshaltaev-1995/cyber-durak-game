@@ -74,6 +74,29 @@ describe('HandComponent', () => {
     expect(rendered[1].classList).toContain('suggested');
   });
 
+  it('keeps a non-suggested legal continuation normal, enabled, and clickable', async () => {
+    const fixture = TestBed.createComponent(HandComponent);
+    fixture.componentRef.setInput('cards', cards(7));
+    fixture.componentRef.setInput('selectedIds', new Set<string>());
+    fixture.componentRef.setInput('suggestedIds', new Set(['6C', '7C', '8C', '9C', '10C']));
+    fixture.componentRef.setInput(
+      'continuationIds',
+      new Set(['6C', '7C', '8C', '9C', '10C', 'JC']),
+    );
+    const emitted = vi.spyOn(fixture.componentInstance.cardSelected, 'emit');
+    await fixture.whenStable();
+
+    const rendered = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+      '.playing-card',
+    );
+    const sixth = rendered[5];
+    expect(sixth.classList).toContain('continuation');
+    expect(sixth.classList).not.toContain('suggested');
+    expect(sixth.disabled).toBe(false);
+    sixth.click();
+    expect(emitted).toHaveBeenCalledWith('JC');
+  });
+
   it('selects exact duplicate faces independently by physical ID', async () => {
     const duplicates: readonly GameCard[] = [
       { ...cards(1)[0], id: 'deck-1:KH', code: 'KH', rank: 'K', suit: 'hearts' },

@@ -113,6 +113,14 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
           [],
       ),
   );
+  protected readonly continuationIds = computed<ReadonlySet<string>>(
+    () =>
+      new Set(
+        this.socket.hints()?.continuation_physical_ids ??
+          this.socket.hints()?.continuation_card_ids ??
+          [],
+      ),
+  );
   protected readonly inviteUrl = computed(
     () => `${window.location.origin}/join/${this.inviteCode}`,
   );

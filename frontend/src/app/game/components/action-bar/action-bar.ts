@@ -14,6 +14,7 @@ import { cardIdentity } from '../../../core/deck/deck-config';
 export class ActionBarComponent {
   readonly actions = input.required<readonly HumanActionType[]>();
   readonly selectedCards = input.required<readonly GameCard[]>();
+  readonly legalActionTypes = input<readonly HumanActionType[] | null>(null);
   readonly activeAttackValue = input<number | null>(null);
   readonly maxAttackCardAddition = input<number | null>(null);
   readonly pending = input(false);
@@ -56,6 +57,13 @@ export class ActionBarComponent {
 
   protected actionDisabled(action: HumanActionType): boolean {
     if (this.pending() || (CARD_ACTIONS.has(action) && this.selectedCards().length === 0)) {
+      return true;
+    }
+    if (
+      CARD_ACTIONS.has(action) &&
+      this.legalActionTypes() !== null &&
+      !this.legalActionTypes()?.includes(action)
+    ) {
       return true;
     }
     if (

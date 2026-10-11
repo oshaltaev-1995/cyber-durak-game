@@ -177,26 +177,34 @@ button:disabled {
 }
 
 .playfield {
+  --top-seat-safe-zone: 10rem;
+  --side-seat-safe-zone: 0rem;
   position: relative;
   min-width: 0;
-  min-height: 15rem;
-  padding-top: 5.4rem;
+  min-height: 17rem;
+  padding-top: var(--top-seat-safe-zone);
+}
+
+.multiplayer .playfield {
+  --side-seat-safe-zone: clamp(5rem, 8.5vw, 7.5rem);
 }
 
 .complete .playfield {
+  --top-seat-safe-zone: 5.25rem;
   min-height: 11rem;
-  padding-top: 3rem;
 }
 
 .opponent-zone {
   position: absolute;
   z-index: 2;
-  inset: 0 0 auto;
+  inset: 0;
   display: block;
-  width: min(100%, 46rem);
+  width: 100%;
+  height: 100%;
   min-width: 0;
   margin-inline: auto;
   overflow: hidden;
+  pointer-events: none;
 }
 
 .table-stage {
@@ -209,6 +217,7 @@ button:disabled {
   min-width: 0;
   min-height: 0;
   height: 100%;
+  margin-inline: var(--side-seat-safe-zone);
   padding: 0.5rem;
   overflow: hidden;
   border: 1px solid rgb(138 207 179 / 12%);
@@ -546,8 +555,19 @@ button:disabled {
   }
 
   .playfield {
+    --top-seat-safe-zone: 7.8rem;
+    height: clamp(23.5rem, 60dvh, 32rem);
     min-height: 23.5rem;
-    padding-top: 7.5rem;
+  }
+
+  .complete .playfield {
+    --top-seat-safe-zone: 4.75rem;
+    height: clamp(18rem, 45dvh, 24rem);
+    min-height: 18rem;
+  }
+
+  .multiplayer .playfield {
+    --side-seat-safe-zone: 5rem;
   }
 
   .table-stage {
@@ -592,15 +612,25 @@ button:disabled {
   .game-board {
     gap: 0.3rem;
   }
+
+  .playfield {
+    --top-seat-safe-zone: 9rem;
+  }
 }
 
 @media (min-width: 48rem) and (max-height: 48rem) {
+  .action-dock {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
+    gap: 0.45rem;
+    align-items: stretch;
+  }
+
   .game-board {
     grid-template-rows: auto minmax(17rem, 1fr) auto auto auto auto;
   }
 
   .playfield {
     min-height: 17rem;
-    padding-top: 4.6rem;
   }
 }

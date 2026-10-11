@@ -35,4 +35,25 @@ describe('ActionBarComponent', () => {
     expect(button.disabled).toBe(true);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('остаток лимита атаки 10');
   });
+
+  it('uses exact authoritative legality for submission without restricting card selection', async () => {
+    const fixture = TestBed.createComponent(ActionBarComponent);
+    fixture.componentRef.setInput('actions', ['INITIAL_ATTACK']);
+    fixture.componentRef.setInput('selectedCards', cards(3));
+    fixture.componentRef.setInput('legalActionTypes', []);
+    await fixture.whenStable();
+
+    let button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.actions button',
+    )!;
+    expect(button.disabled).toBe(true);
+
+    fixture.componentRef.setInput('selectedCards', cards(5));
+    fixture.componentRef.setInput('legalActionTypes', ['INITIAL_ATTACK']);
+    fixture.detectChanges();
+    button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.actions button',
+    )!;
+    expect(button.disabled).toBe(false);
+  });
 });

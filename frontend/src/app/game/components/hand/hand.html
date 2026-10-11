@@ -15,6 +15,7 @@
         [card]="card"
         [selectable]="true"
         [selected]="selectedIds().has(identity(card))"
+        [continuation]="continuationIds().has(identity(card)) && !selectedIds().has(identity(card))"
         [suggested]="suggestedIds().has(identity(card)) && !selectedIds().has(identity(card))"
         [disabled]="disabled()"
         (cardSelected)="cardSelected.emit($event)"

@@ -371,6 +371,7 @@
           class="player-hand-region"
           [cards]="currentGame.human_hand"
           [selectedIds]="selectedIds()"
+          [continuationIds]="continuationIds()"
           [suggestedIds]="suggestedIds()"
           [disabled]="interactionLocked() || localFinishedWatching()"
           (cardSelected)="toggleCard($event)"
@@ -389,6 +390,7 @@
           <app-action-bar
             [actions]="currentGame.available_actions"
             [selectedCards]="selectedCards()"
+            [legalActionTypes]="hints()?.legal_action_types ?? null"
             [activeAttackValue]="currentGame.active_attack_value"
             [maxAttackCardAddition]="currentGame.max_attack_card_addition"
             [pending]="interactionLocked()"

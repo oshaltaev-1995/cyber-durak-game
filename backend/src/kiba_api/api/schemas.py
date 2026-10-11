@@ -63,9 +63,12 @@ class HintCombinationResponse(BaseModel):
 
 class HintResponse(BaseModel):
     selected_card_ids: list[str]
+    continuation_card_ids: list[str]
     suggested_card_ids: list[str]
     selected_physical_ids: list[str]
+    continuation_physical_ids: list[str]
     suggested_physical_ids: list[str]
+    legal_action_types: list[HumanActionType]
     suggested_action_types: list[HumanActionType]
     combinations: list[HintCombinationResponse]
 

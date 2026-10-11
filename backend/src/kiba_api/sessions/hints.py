@@ -99,7 +99,9 @@ class MoveHints:
     """Participant-private bounded suggestions for one selection."""
 
     selected_cards: tuple[Card, ...]
+    continuation_cards: tuple[Card, ...]
     suggested_cards: tuple[Card, ...]
+    legal_actions: tuple[HumanActionType, ...]
     suggested_actions: tuple[HumanActionType, ...]
     combinations: tuple[HintCombination, ...]
     candidate_selections_examined: int
@@ -143,7 +145,7 @@ def get_move_hints(
     if not actions and not any(
         action in available_actions for action in (HumanActionType.BITO, HumanActionType.TAKE)
     ):
-        return MoveHints(selected, (), (), (), 0)
+        return MoveHints(selected, (), (), (), (), (), 0)
 
     selected_counts = Counter(selected)
     remaining: list[Card] = []
@@ -154,6 +156,8 @@ def get_move_hints(
             remaining.append(card)
 
     found: list[HintCombination] = []
+    continuation_cards: list[Card] = []
+    legal_actions: list[HumanActionType] = []
     examined = 0
     structural: list[HintCombination] = []
     for action, reason in (
@@ -170,19 +174,28 @@ def get_move_hints(
         structural.append(HintCombination(action, (), (), reason, 0, None))
 
     card_limit = max_combinations - len(structural)
+    remaining_ids = {card.physical_id for card in remaining}
     for added in _candidate_additions(tuple(remaining)):
-        if examined >= candidate_limit or len(found) >= card_limit:
+        if examined >= candidate_limit:
             break
         examined += 1
         candidate = (*selected, *added)
         for action in actions:
-            if len(found) >= card_limit:
-                break
             try:
                 apply_game_action(state, actor, action, candidate)
             except (BoutActionError, GameActionError):
                 continue
-            found.append(_describe_legal_candidate(state, action, candidate, added))
+            if not added:
+                legal_actions.append(action)
+            else:
+                continuation_cards.extend(added)
+            if len(found) < card_limit:
+                found.append(_describe_legal_candidate(state, action, candidate, added))
+        if (
+            len(found) >= card_limit
+            and {card.physical_id for card in continuation_cards} == remaining_ids
+        ):
+            break
 
     found.extend(structural)
 
@@ -192,7 +205,9 @@ def get_move_hints(
     suggested_actions = tuple(dict.fromkeys(combination.action for combination in found))
     return MoveHints(
         selected_cards=selected,
+        continuation_cards=_ordered_unique(continuation_cards),
         suggested_cards=suggested_cards,
+        legal_actions=tuple(dict.fromkeys(legal_actions)),
         suggested_actions=suggested_actions,
         combinations=tuple(found),
         candidate_selections_examined=examined,

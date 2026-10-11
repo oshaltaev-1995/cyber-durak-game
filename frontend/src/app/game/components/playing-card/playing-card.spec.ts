@@ -92,6 +92,20 @@ describe('PlayingCardComponent', () => {
     expect(button.getAttribute('aria-label')).toContain('Подходит к текущей комбинации');
   });
 
+  it('announces a legal continuation without styling it as a top suggestion', async () => {
+    const fixture = TestBed.createComponent(PlayingCardComponent);
+    fixture.componentRef.setInput('card', heart);
+    fixture.componentRef.setInput('selectable', true);
+    fixture.componentRef.setInput('continuation', true);
+    await fixture.whenStable();
+
+    const button = (fixture.nativeElement as HTMLElement).querySelector('button')!;
+    expect(button.classList).toContain('continuation');
+    expect(button.classList).not.toContain('suggested');
+    expect(button.textContent).not.toContain('Подходит');
+    expect(button.getAttribute('aria-label')).toContain('Может входить в допустимое продолжение');
+  });
+
   it.each([
     ['2C', '2', 'clubs', '2', 'треф'],
     ['5H', '5', 'hearts', '5', 'червей'],
