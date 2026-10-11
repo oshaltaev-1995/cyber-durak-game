@@ -304,6 +304,49 @@ def test_hint_api_returns_canonical_read_only_suggestions_without_hidden_cards()
         assert card_to_code(hidden_card) not in hint_codes
 
 
+def test_hint_api_serializes_structural_take_and_pass_suggestions() -> None:
+    attack = card(Rank.KING)
+    defense = card(Rank.ACE)
+
+    defender_turn = start_game_bout(
+        game(
+            (defense, card(Rank.SEVEN)),
+            (attack, card(Rank.SIX)),
+            attacker=Seat.TWO,
+        )
+    )
+    defender_turn = play_game_initial_attack(defender_turn, Seat.TWO, (attack,))
+    take_client, take_game_id = client_for_state(defender_turn)
+
+    attacker_turn = start_game_bout(
+        game(
+            (attack, card(Rank.SIX)),
+            (defense, card(Rank.SEVEN)),
+        )
+    )
+    attacker_turn = play_game_initial_attack(attacker_turn, Seat.ONE, (attack,))
+    attacker_turn = play_game_defense(attacker_turn, Seat.TWO, (defense,))
+    pass_client, pass_game_id = client_for_state(attacker_turn)
+
+    take_response = take_client.post(
+        f"/api/games/{take_game_id}/hints", json={"selected_card_ids": []}
+    )
+    pass_response = pass_client.post(
+        f"/api/games/{pass_game_id}/hints", json={"selected_card_ids": []}
+    )
+
+    assert take_response.status_code == 200
+    assert any(
+        combination["action"] == "TAKE" and combination["reason"] == "take"
+        for combination in take_response.json()["combinations"]
+    )
+    assert pass_response.status_code == 200
+    assert any(
+        combination["action"] == "BITO" and combination["reason"] == "pass"
+        for combination in pass_response.json()["combinations"]
+    )
+
+
 def test_hint_api_handles_empty_invalid_wrong_turn_complete_and_unknown_requests() -> None:
     human_state = start_game_bout(
         game((card(Rank.SIX), card(Rank.SEVEN)), (card(Rank.ACE), card(Rank.KING)))

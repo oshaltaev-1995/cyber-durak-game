@@ -54,6 +54,8 @@ class HintCombinationResponse(BaseModel):
         "table_total",
         "arithmetic_mean",
         "rank_run",
+        "take",
+        "pass",
     ]
     selected_value: int
     target_value: int | None
