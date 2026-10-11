@@ -388,3 +388,48 @@ most recently exited successfully. The verified
 `/var/backups/kiba/kiba-20261010T204347Z.dump` remained root-owned mode `0600`. No Caddy, Husky,
 Kennel, Amnezia, Docker-runtime, firewall, SSH, OS-package, swap or kernel configuration was changed.
 No release tag was created or moved.
+
+## Final copy polish deployment (2026-10-11)
+
+Application commit `1d9a082678daedf4bbbe2624d43b5e292ec9402a` replaced hard-coded deck
+label card nouns with the shared locale-aware nominative card-count helper and split ordinary
+all-human waiting-room copy into singular and plural keys. Contextual Russian TAKE grammar remains
+separate and unchanged. The patch contains only frontend translations, templates, and focused
+tests; it changes no room payload, capacity, gameplay, backend, database, or infrastructure logic.
+
+Local validation passed frontend lint and formatting, the production build, 399 tests in 40 files,
+backend lint/formatting, 854 backend tests, and `git diff --check`. Live local UI acceptance covered
+`36 карт`, `54 карты`, `72 карты`, `108 карт`, `Waiting for 1 more player`, `Waiting for 2 more
+players`, unchanged mixed-room `Waiting for 1 more person`, and exact `Вы взяли 1 карту` after a
+real TAKE action.
+
+Immediately before deployment, `kiba-backup.service` created and verified
+`/var/backups/kiba/kiba-20261011T063214Z.dump` (28,801 bytes, mode `0600`). The exact application
+archive SHA-256 was `b9e8a8a51aa59a3d5cf306b5534dc9f82f15c80832382959ddf4377ccd2ad29b`.
+The prior source/config state is retained at
+`/opt/kiba/releases/app-before-final-copy-361fac5fd31f-20261011`, and the prior frontend image
+`sha256:6259bd3942b8892bd71964f93805270618552a81a6f47bf1579c71a33ae78a93` remains available for
+rollback.
+
+Only `kiba-frontend` was built and recreated. Production now runs frontend image
+`sha256:1a777c0c45ded92ccc7840688a19111c61ee1a65c8930911ce7c41c848c33748`. Backend image
+`sha256:28e7b4dd1e6820881a3ab3db4feda9d5cc0c1e742a6938781c0a362b032cd936` and the backend and
+PostgreSQL container identities/start times were unchanged. No migration was added or run, and
+multiplayer, deck-variant, and mixed-room capability flags remained `true`.
+
+Live production acceptance reproduced the corrected Russian 36/54/72/108-card forms in the normal
+creator and confirmed `Расширенная · 54 карты` and `Классика · 2 колоды · 72 карты` in waiting
+rooms. An ordinary two-human room rendered `Waiting for 1 more player`; a three-human room rendered
+`Waiting for 2 more players`. A 2H+1B smoke retained its human denominator, bot identity,
+`Waiting for 1 more person`, no team wording, and no Hint control. Landing, Play vs Bots, PvP,
+Privacy, Tutorial, Rules, Not Found, and social metadata loaded without browser console warnings or
+errors.
+
+Final health showed approximately 1.9 GiB `MemAvailable`, 150.6 MiB resident swap with
+`si=0`/`so=0` through the ten-sample postflight, zero current memory PSI, and no kernel OOM
+evidence. The build increased resident swap by approximately 12.5 MiB; it stabilized after the
+build without sustained paging. Kiba, Husky Tracking and Kennel Operations returned HTTP 200;
+Kiba containers were healthy with zero restarts and `OOMKilled=false`; Docker, Caddy and Amnezia
+remained running; backup and both monitor timers remained active; and both monitor services most
+recently exited successfully. No backend, PostgreSQL, Caddy, Husky, Kennel, Amnezia or Docker-runtime
+restart/reconfiguration occurred. No release tag was created or moved.
