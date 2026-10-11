@@ -532,14 +532,17 @@ was added or run.
 
 Live acceptance used ordinary production UI flows. A three-player Extended game selected and
 submitted both a non-top-five legal attack and a non-top-five legal defense, proving that bounded
-suggestions no longer restrict input. A four-player Extended double-deck cascade presented attack,
-defense, Pass and throw-in steps in order and enabled the human only after visual catch-up. The
-attention pulse appeared after 30 seconds without changing game state and cleared immediately on
-Pass. The same three-player game reached a compact terminal ranking with one result heading, a
-visible final bout, no stale active UI and neutral RU/EN last-bout copy. A real 2H+2B Extended
-double-deck room returned Hints only for the acting human; its waiting human saw no actionable
-Hint data. Active mixed layout passed 1366x768 and 390x844 without page-level horizontal overflow
-or side-seat overlap. Production browser consoles were clean.
+suggestions no longer restrict input. A naturally dealt two-player Classic `9-10-J-Q-K` Street was
+built one card at a time: all five cards remained selectable, Attack was disabled for incomplete
+two-/three-/four-card selections, enabled on the complete Street, and the server accepted the move
+without an error. A four-player Extended double-deck cascade presented attack, defense, Pass and
+throw-in steps in order and enabled the human only after visual catch-up. The attention pulse
+appeared after 30 seconds without changing game state and cleared immediately on Pass. The same
+three-player game reached a compact terminal ranking with one result heading, a visible final bout,
+no stale active UI and neutral RU/EN last-bout copy. A real 2H+2B Extended double-deck room returned
+Hints only for the acting human; its waiting human saw no actionable Hint data. Active mixed layout
+passed 1366x768 and 390x844 without page-level horizontal overflow or side-seat overlap. Production
+browser consoles were clean.
 
 Final health showed approximately 1.9 GiB `MemAvailable`, 154.1 MiB resident swap, `si=0`/`so=0`
 through the ten-sample postflight, zero current memory PSI and no kernel OOM evidence. Swap grew by
