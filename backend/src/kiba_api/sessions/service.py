@@ -94,6 +94,8 @@ class BotPresentationEvent:
     actor_seat: Seat = Seat.TWO
     cards: tuple[Card, ...] = ()
     trump_state: TrumpState = TrumpState(active=False)
+    state_after: GameState | None = None
+    resolved_bout: BoutState | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -567,7 +569,9 @@ class GameSessionService:
             except BotActionError as error:
                 raise RuntimeError("baseline bot could not advance an owned decision") from error
             last_bout = remember_resolved_bout(previous_state, state, last_bout)
-            recent_events.append(bot_presentation_event(previous_state, action, actor))
+            recent_events.append(
+                bot_presentation_event(previous_state, action, actor, state, last_bout)
+            )
             bot_action_count += 1
 
         return state, last_bout, tuple(recent_events)
@@ -627,6 +631,8 @@ def bot_presentation_event(
     previous_state: GameState,
     action: BotAction,
     actor: Seat,
+    state_after: GameState | None = None,
+    resolved_bout: BoutState | None = None,
 ) -> BotPresentationEvent:
     event_type = _BOT_EVENT_TYPES.get(action.action_type)
     if event_type is None:
@@ -659,6 +665,10 @@ def bot_presentation_event(
         actor_seat=actor,
         cards=cards,
         trump_state=trump_state,
+        state_after=state_after,
+        resolved_bout=(
+            resolved_bout if state_after is not None and state_after.active_bout is None else None
+        ),
     )
 
 

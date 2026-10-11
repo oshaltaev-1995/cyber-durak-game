@@ -17,6 +17,7 @@
         [selected]="selectedIds().has(identity(card))"
         [continuation]="continuationIds().has(identity(card)) && !selectedIds().has(identity(card))"
         [suggested]="suggestedIds().has(identity(card)) && !selectedIds().has(identity(card))"
+        [dense]="cards().length >= 17"
         [disabled]="disabled()"
         (cardSelected)="cardSelected.emit($event)"
       />

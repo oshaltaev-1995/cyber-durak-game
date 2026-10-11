@@ -28,6 +28,8 @@ describe('HandComponent', () => {
     [14, ['dense']],
     [18, ['very-dense']],
     [20, ['very-dense']],
+    [23, ['very-dense']],
+    [26, ['very-dense']],
     [30, ['very-dense']],
   ] as const)(
     'renders %i reachable cards with the adaptive density class',
@@ -42,6 +44,52 @@ describe('HandComponent', () => {
       expect(element.querySelectorAll('app-playing-card')).toHaveLength(count);
       expect([...strip.classList].filter((name) => name !== 'card-strip')).toEqual(classes);
       expect(strip.getAttribute('class')).not.toContain('hidden');
+    },
+  );
+
+  it('keeps value and hint indicators in the visible strip of a 26-card hand', async () => {
+    const fixture = TestBed.createComponent(HandComponent);
+    const hand = cards(26);
+    fixture.componentRef.setInput('cards', hand);
+    fixture.componentRef.setInput('selectedIds', new Set([hand[13].code]));
+    fixture.componentRef.setInput('suggestedIds', new Set([hand[0].code, hand[25].code]));
+    fixture.componentRef.setInput('continuationIds', new Set([hand[12].code]));
+    await fixture.whenStable();
+
+    const rendered = (fixture.nativeElement as HTMLElement).querySelectorAll('.playing-card');
+    expect(rendered).toHaveLength(26);
+    for (const index of [0, 12, 13, 25]) {
+      expect(rendered[index].classList).toContain('dense');
+      expect(rendered[index].querySelector('.value')).not.toBeNull();
+    }
+    expect(rendered[0].querySelector('.suggested-badge')).not.toBeNull();
+    expect(rendered[12].classList).toContain('continuation');
+    expect(rendered[13].classList).toContain('selected');
+  });
+
+  it.each([14, 20, 23, 26, 31])(
+    'keeps first, middle, and last values plus Hint/selection markers exposed for %i cards',
+    async (count) => {
+      const fixture = TestBed.createComponent(HandComponent);
+      const hand = cards(count);
+      const middle = Math.floor(count / 2);
+      fixture.componentRef.setInput('cards', hand);
+      fixture.componentRef.setInput('selectedIds', new Set([hand[middle].code]));
+      fixture.componentRef.setInput('suggestedIds', new Set([hand[0].code, hand[count - 1].code]));
+      fixture.componentRef.setInput('continuationIds', new Set([hand[middle - 1].code]));
+      await fixture.whenStable();
+
+      const element = fixture.nativeElement as HTMLElement;
+      const strip = element.querySelector('.card-strip') as HTMLElement;
+      const rendered = element.querySelectorAll('.playing-card');
+      expect(getComputedStyle(strip).overflowX).toBe('auto');
+      for (const index of [0, middle - 1, middle, count - 1]) {
+        expect(rendered[index].querySelector('.value')).not.toBeNull();
+      }
+      expect(rendered[0].querySelector('.suggested-badge')).not.toBeNull();
+      expect(rendered[middle - 1].classList).toContain('continuation');
+      expect(rendered[middle].classList).toContain('selected');
+      expect(rendered[count - 1].querySelector('.suggested-badge')).not.toBeNull();
     },
   );
 

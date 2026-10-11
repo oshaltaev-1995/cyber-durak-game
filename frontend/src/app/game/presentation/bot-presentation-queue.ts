@@ -22,8 +22,13 @@ export class BotPresentationQueue {
   private index = 0;
   private scale = 1;
   private onComplete: (() => void) | null = null;
+  private onStep: ((event: BotPresentationEvent, index: number) => void) | null = null;
 
-  play(events: readonly BotPresentationEvent[], onComplete?: () => void): void {
+  play(
+    events: readonly BotPresentationEvent[],
+    onComplete?: () => void,
+    onStep?: (event: BotPresentationEvent, index: number) => void,
+  ): void {
     this.clear();
     if (events.length === 0) {
       onComplete?.();
@@ -33,6 +38,7 @@ export class BotPresentationQueue {
     const preferredTotal = events.reduce((total, event) => total + BASE_EVENT_MS[event.type], 0);
     this.scale = Math.min(1, MAX_SEQUENCE_MS / preferredTotal);
     this.onComplete = onComplete ?? null;
+    this.onStep = onStep ?? null;
     this.locked.set(true);
     this.showNext();
   }
@@ -45,9 +51,11 @@ export class BotPresentationQueue {
     this.current.set(null);
     this.locked.set(false);
     this.onComplete = null;
+    this.onStep = null;
   }
 
   private showNext(): void {
+    const eventIndex = this.index;
     const event = this.events[this.index++] ?? null;
     if (event === null) {
       const complete = this.onComplete;
@@ -56,6 +64,7 @@ export class BotPresentationQueue {
       return;
     }
     this.current.set(event);
+    this.onStep?.(event, eventIndex);
     const reducedMotion =
       typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = reducedMotion

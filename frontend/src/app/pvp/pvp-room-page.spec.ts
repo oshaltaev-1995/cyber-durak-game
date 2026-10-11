@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
-import { GameCard, Seat } from '../core/api/game-api.models';
+import { BotPresentationState, GameCard, Seat } from '../core/api/game-api.models';
 import { TranslationService } from '../core/i18n/translation.service';
 import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
 import { PvPWebSocketService } from '../core/pvp/pvp-websocket.service';
@@ -194,6 +194,42 @@ const makeMixedState = (
   };
 };
 
+const presentationState = (
+  state: PvPState,
+  overrides: Partial<BotPresentationState> = {},
+): BotPresentationState => ({
+  phase: state.game_phase ?? 'ready_for_bout',
+  viewer_hand: state.hand,
+  hand_counts: Object.fromEntries(
+    state.players.map((player) => [player.seat, player.hand_count ?? 0]),
+  ),
+  draw_pile_count: state.draw_pile_count,
+  discard_count: state.discard_count,
+  exposed_top_card: state.exposed_top_card,
+  trump: state.trump,
+  active_seats: state.active_seats,
+  finished_seats: state.finished_seats,
+  finish_groups: state.finish_groups,
+  table_cards: state.table_cards,
+  table_arithmetic: state.table_arithmetic,
+  bout_starting_attacker: state.bout_starting_attacker,
+  attacker: state.attacker,
+  lead_attacker: state.lead_attacker,
+  defender: state.defender,
+  bout_phase: state.bout_phase,
+  packets: state.packets,
+  active_packet: state.active_packet,
+  direct_anchor_cards: state.direct_anchor_cards,
+  active_attack_value: state.active_attack_value,
+  attack_card_limit: state.attack_card_limit,
+  max_attack_card_addition: state.max_attack_card_addition,
+  total_attack_card_count: state.total_attack_card_count,
+  transfer_open: state.transfer_open,
+  required_seat: state.required_seat,
+  last_bout_summary: state.last_bout_summary,
+  ...overrides,
+});
+
 describe('PvPRoomPageComponent', () => {
   let fixture: ComponentFixture<PvPRoomPageComponent>;
   const credentials = { get: vi.fn(), clear: vi.fn() };
@@ -273,6 +309,63 @@ describe('PvPRoomPageComponent', () => {
     expect(element.querySelectorAll('.opponent-zone .hidden-card')).toHaveLength(7);
     expect(element.textContent).not.toContain('opponent_hand');
     expect(element.textContent).not.toContain('draw_pile');
+  });
+
+  it.each([3, 4] as const)(
+    'requests untouched initial hints when a %i-human decision becomes active',
+    (capacity) => {
+      socket.requestHints.mockClear();
+      socket.state.set(makeMultiplayerState(capacity, 'one', { version: capacity }));
+      fixture.detectChanges();
+
+      expect(socket.requestHints).toHaveBeenCalledTimes(1);
+      expect(socket.requestHints).toHaveBeenCalledWith([]);
+    },
+  );
+
+  it('requests untouched initial hints in a mixed room only after presentation catch-up', () => {
+    vi.useFakeTimers();
+    try {
+      socket.requestHints.mockClear();
+      socket.state.set(
+        makeMixedState(4, 2, {
+          version: 7,
+          recent_events: [
+            {
+              type: 'BOT_INITIAL_ATTACK',
+              actor: 'BOT',
+              actor_seat: 'three',
+              card_count: 1,
+              value: 6,
+              target: null,
+            },
+          ],
+        }),
+      );
+      fixture.detectChanges();
+      expect(socket.requestHints).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(500);
+      fixture.detectChanges();
+      expect(socket.requestHints).toHaveBeenCalledOnce();
+      expect(socket.requestHints).toHaveBeenCalledWith([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not request hints for a waiting human', () => {
+    socket.requestHints.mockClear();
+    socket.state.set(
+      makeMultiplayerState(3, 'one', {
+        version: 8,
+        required_participant_id: 'p2',
+        required_seat: 'two',
+        available_actions: [],
+      }),
+    );
+    fixture.detectChanges();
+    expect(socket.requestHints).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -555,6 +648,97 @@ describe('PvPRoomPageComponent', () => {
     }
   });
 
+  it('renders mixed-room event snapshots before exposing the later authoritative table', () => {
+    vi.useFakeTimers();
+    try {
+      const first = { ...card, id: 'mixed-a' };
+      const second = {
+        ...card,
+        id: 'mixed-b',
+        code: '7D',
+        rank: '7',
+        suit: 'diamonds' as const,
+        effective_value: 7,
+        base_value: 7,
+      };
+      const packet = (cards: readonly GameCard[]) => ({
+        attack_cards: cards,
+        attack_value: cards.reduce((sum, value) => sum + value.effective_value, 0),
+        defense_cards: [],
+        defense_value: null,
+        closed: false,
+        throw_in_reasons: [],
+      });
+      const base = makeMixedState(4, 2);
+      const afterAttack = {
+        ...base,
+        table_cards: [first],
+        packets: [packet([first])],
+        attacker: 'three' as const,
+        lead_attacker: 'three' as const,
+        defender: 'four' as const,
+        required_participant_id: 'bot-four',
+        required_seat: 'four' as const,
+      };
+      const afterTransfer = {
+        ...base,
+        version: 9,
+        table_cards: [first, second],
+        packets: [packet([first, second])],
+        attacker: 'four' as const,
+        lead_attacker: 'four' as const,
+        defender: 'one' as const,
+        required_participant_id: 'p1',
+        required_seat: 'one' as const,
+        available_actions: ['DEFEND' as const],
+      };
+      const latest = {
+        ...afterTransfer,
+        recent_events: [
+          {
+            type: 'BOT_INITIAL_ATTACK' as const,
+            actor: 'BOT' as const,
+            actor_seat: 'three' as const,
+            card_count: 1,
+            value: 6,
+            target: null,
+            cards: [first],
+            presentation_state: presentationState(afterAttack),
+          },
+          {
+            type: 'BOT_TRANSFER' as const,
+            actor: 'BOT' as const,
+            actor_seat: 'four' as const,
+            card_count: 1,
+            value: 7,
+            target: 6,
+            cards: [second],
+            presentation_state: presentationState({ ...afterTransfer, recent_events: [] }),
+          },
+        ],
+      };
+
+      socket.state.set(latest);
+      fixture.detectChanges();
+      let element = fixture.nativeElement as HTMLElement;
+      expect(element.textContent).toContain('Milo атакует');
+      expect(element.querySelectorAll('.packet app-playing-card')).toHaveLength(1);
+      expect(element.querySelector('.table-seat.is-required .seat-name')?.textContent).toBe('Nika');
+
+      vi.advanceTimersByTime(500);
+      fixture.detectChanges();
+      element = fixture.nativeElement as HTMLElement;
+      expect(element.textContent).toContain('Nika переводит');
+      expect(element.querySelectorAll('.packet app-playing-card')).toHaveLength(2);
+
+      vi.advanceTimersByTime(800);
+      fixture.detectChanges();
+      expect(socket.requestHints).toHaveBeenCalledWith([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('keeps finished human and bot seats stable while the mixed match continues', () => {
     const mixed = makeMixedState(4, 2);
     socket.state.set({
@@ -574,7 +758,11 @@ describe('PvPRoomPageComponent', () => {
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelector('.local-player-row')?.classList).toContain('is-finished');
+    expect(element.querySelector('.local-player-row')).toBeNull();
+    expect(element.querySelector('app-hand')).toBeNull();
+    expect(element.querySelector('app-hint-panel')).toBeNull();
+    expect(element.querySelector('app-action-bar')).toBeNull();
+    expect(element.querySelector('app-turn-reminder')).toBeNull();
     expect(element.querySelector('.position-top')?.classList).toContain('is-finished');
     expect(element.querySelector('.position-top .seat-count')?.textContent).toContain('0 карт');
     expect(element.querySelector('.position-top')?.classList).not.toContain('is-disconnected');
@@ -668,8 +856,9 @@ describe('PvPRoomPageComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelectorAll('.opponent-zone app-table-seat')).toHaveLength(3);
     expect(element.querySelector('.position-left')?.classList).toContain('is-finished');
-    expect(element.querySelector('.local-player-row')?.classList).toContain('is-finished');
-    expect(element.querySelector('.local-player-name')?.textContent).toContain('Alice');
+    expect(element.querySelector('.local-player-row')).toBeNull();
+    expect(element.querySelector('app-hand')).toBeNull();
+    expect(element.querySelector('app-hint-panel')).toBeNull();
     expect(element.textContent).toContain('Вы финишировали — партия продолжается');
     expect(element.querySelector('app-action-bar button')).toBeNull();
   });
@@ -939,7 +1128,7 @@ describe('PvPRoomPageComponent', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Последний кон');
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Bob взял(а) 5 карт');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Bob забирает 5 карт');
 
     socket.state.set(
       makeState({

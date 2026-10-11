@@ -3,7 +3,13 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Observable, of, Subject, throwError } from 'rxjs';
-import { DeckConfig, GameCard, GameResponse, HintResponse } from '../core/api/game-api.models';
+import {
+  BotPresentationState,
+  DeckConfig,
+  GameCard,
+  GameResponse,
+  HintResponse,
+} from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
 import { AuthService } from '../core/auth/auth.service';
 import { TranslationService } from '../core/i18n/translation.service';
@@ -131,6 +137,42 @@ const makeMultiplayerGame = (
     ...overrides,
   });
 };
+
+const presentationState = (
+  game: GameResponse,
+  overrides: Partial<BotPresentationState> = {},
+): BotPresentationState => ({
+  phase: game.phase,
+  viewer_hand: game.human_hand,
+  hand_counts: Object.fromEntries(
+    game.participants.map((participant) => [participant.seat, participant.hand_count]),
+  ) as Partial<Record<'one' | 'two' | 'three' | 'four', number>>,
+  draw_pile_count: game.draw_pile_count,
+  discard_count: game.discard_count,
+  exposed_top_card: game.exposed_top_card,
+  trump: game.trump,
+  active_seats: game.active_seats,
+  finished_seats: game.finished_seats,
+  finish_groups: game.finish_groups,
+  table_cards: game.table_cards,
+  table_arithmetic: game.table_arithmetic,
+  bout_starting_attacker: game.bout_starting_attacker,
+  attacker: game.attacker,
+  lead_attacker: game.lead_attacker,
+  defender: game.defender,
+  bout_phase: game.bout_phase,
+  packets: game.packets,
+  active_packet: game.active_packet,
+  direct_anchor_cards: game.direct_anchor_cards,
+  active_attack_value: game.active_attack_value,
+  attack_card_limit: game.attack_card_limit,
+  max_attack_card_addition: game.max_attack_card_addition,
+  total_attack_card_count: game.total_attack_card_count,
+  transfer_open: game.transfer_open,
+  required_seat: game.required_seat,
+  last_bout_summary: game.last_bout_summary,
+  ...overrides,
+});
 
 interface ApiStub {
   getCapabilities: ReturnType<
@@ -585,6 +627,16 @@ describe('GamePageComponent', () => {
     expect(hintPanel.outerHTML).not.toMatch(/(?:aria-label|title)="[^"]*(?:10|[6-9JQKA])[CDHS]/);
   });
 
+  it.each([2, 3, 4] as const)(
+    'requests untouched initial hints for a %i-player bot game',
+    (totalPlayers) => {
+      create(totalPlayers === 2 ? makeGame() : makeMultiplayerGame(totalPlayers));
+
+      expect(api.getHints).toHaveBeenCalledTimes(1);
+      expect(api.getHints).toHaveBeenCalledWith('game-1', []);
+    },
+  );
+
   it('builds a five-rank Street one card at a time before enabling submission', () => {
     const street = [
       card('8C', '8', 'clubs', 8),
@@ -864,6 +916,139 @@ describe('GamePageComponent', () => {
     expect(element.querySelectorAll('.motion-card.from-top.to-table')).toHaveLength(1);
     expect(element.querySelector('.motion-layer')?.getAttribute('aria-hidden')).toBe('true');
     expect(element.querySelector('.opponent-zone')?.innerHTML).not.toContain('6C');
+  });
+
+  it('keeps caption, public table, and roles synchronized through a five-event bot cascade', () => {
+    vi.useFakeTimers();
+    try {
+      const cards = [
+        { ...sixClubs, id: 'a', code: '6C' },
+        { ...queenDiamonds, id: 'b', code: 'QD' },
+        { ...sevenHearts, id: 'c', code: '7H' },
+        { ...sixClubs, id: 'd', code: '6D', suit: 'diamonds' as const },
+        { ...queenDiamonds, id: 'e', code: 'QS', suit: 'spades' as const },
+      ];
+      const packet = (attack: readonly GameCard[], defense: readonly GameCard[] = []) => ({
+        attack_cards: attack,
+        attack_value: attack.reduce((total, value) => total + value.effective_value, 0),
+        defense_cards: defense,
+        defense_value:
+          defense.length === 0
+            ? null
+            : defense.reduce((total, value) => total + value.effective_value, 0),
+        closed: defense.length > 0,
+        throw_in_reasons: [],
+      });
+      const frames = [
+        makeMultiplayerGame(4, {
+          table_cards: cards.slice(0, 1),
+          packets: [packet(cards.slice(0, 1))],
+          attacker: 'two',
+          lead_attacker: 'two',
+          defender: 'three',
+          required_seat: 'three',
+        }),
+        makeMultiplayerGame(4, {
+          table_cards: cards.slice(0, 2),
+          packets: [packet(cards.slice(0, 2))],
+          attacker: 'three',
+          lead_attacker: 'three',
+          defender: 'four',
+          required_seat: 'four',
+        }),
+        makeMultiplayerGame(4, {
+          table_cards: cards.slice(0, 3),
+          packets: [packet(cards.slice(0, 2), cards.slice(2, 3))],
+          attacker: 'two',
+          lead_attacker: 'two',
+          defender: 'four',
+          required_seat: 'two',
+        }),
+        makeMultiplayerGame(4, {
+          table_cards: cards.slice(0, 4),
+          packets: [packet(cards.slice(0, 2), cards.slice(2, 3)), packet(cards.slice(3, 4))],
+          attacker: 'two',
+          lead_attacker: 'two',
+          defender: 'four',
+          required_seat: 'four',
+        }),
+        makeMultiplayerGame(4, {
+          table_cards: cards,
+          packets: [
+            packet(cards.slice(0, 2), cards.slice(2, 3)),
+            packet(cards.slice(3, 4), cards.slice(4, 5)),
+          ],
+          attacker: 'one',
+          lead_attacker: 'one',
+          defender: 'four',
+          required_actor: 'HUMAN',
+          required_seat: 'one',
+          available_actions: ['THROW_IN', 'BITO'],
+        }),
+      ];
+      const types = [
+        'BOT_INITIAL_ATTACK',
+        'BOT_TRANSFER',
+        'BOT_DEFEND',
+        'BOT_THROW_IN',
+        'BOT_DEFEND',
+      ] as const;
+      const actors = ['two', 'three', 'four', 'two', 'three'] as const;
+      const latest = {
+        ...frames[4],
+        recent_events: types.map((type, index) => ({
+          type,
+          actor: 'BOT' as const,
+          actor_seat: actors[index],
+          card_count: 1,
+          value: cards[index].effective_value,
+          target: null,
+          cards: [cards[index]],
+          presentation_state: presentationState(frames[index]),
+        })),
+      };
+
+      create(makeMultiplayerGame(4));
+      api.getHints.mockClear();
+      api.submitAction.mockReturnValue(of(latest));
+      const firstCard = (fixture.nativeElement as HTMLElement).querySelector(
+        'app-hand .playing-card',
+      ) as HTMLButtonElement;
+      firstCard.click();
+      fixture.detectChanges();
+      api.getHints.mockClear();
+      clickButton('Ходить');
+
+      const expected = [
+        ['Milo атакует', 1, 'Nika'],
+        ['Nika переводит', 2, 'Otto'],
+        ['Otto покрывает', 3, 'Milo'],
+        ['Milo подкидывает', 4, 'Otto'],
+        ['Nika покрывает', 5, null],
+      ] as const;
+      const durations = [500, 800, 600, 650, 600];
+      for (let index = 0; index < expected.length; index += 1) {
+        fixture.detectChanges();
+        const element = fixture.nativeElement as HTMLElement;
+        expect(element.textContent).toContain(expected[index][0]);
+        expect(element.querySelectorAll('.packet app-playing-card')).toHaveLength(
+          expected[index][1],
+        );
+        if (expected[index][2] !== null) {
+          expect(element.querySelector('.table-seat.is-required .seat-name')?.textContent).toBe(
+            expected[index][2],
+          );
+        }
+        vi.advanceTimersByTime(durations[index]);
+      }
+      fixture.detectChanges();
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('.packet app-playing-card'),
+      ).toHaveLength(5);
+      expect(api.getHints).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps the turn status next to the player interaction region', () => {

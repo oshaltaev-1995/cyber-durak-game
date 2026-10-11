@@ -49,6 +49,12 @@
   height: 100%;
 }
 
+:host.final,
+:host.final .table {
+  height: auto;
+  max-height: 32rem;
+}
+
 .table-heading {
   position: sticky;
   z-index: 3;
@@ -131,6 +137,7 @@ h2 {
 }
 
 .packet {
+  container-type: inline-size;
   padding: 0.7rem;
   border: 1px solid rgb(255 255 255 / 9%);
   border-radius: 0.9rem;
@@ -183,10 +190,15 @@ h2 {
 
 .packet-cards {
   display: flex;
-  gap: 0.25rem;
+  flex-wrap: wrap;
+  gap: 0.25rem 0;
   max-width: 100%;
   padding: 0.25rem 0.1rem;
-  overflow-x: auto;
+  overflow: visible;
+}
+
+.packet-cards app-playing-card + app-playing-card {
+  margin-left: -0.7rem;
 }
 
 .relation {
@@ -203,6 +215,12 @@ h2 {
   color: #aac9bb;
   font-size: 0.67rem;
   text-align: center;
+}
+
+.awaiting.resolved {
+  border-style: solid;
+  color: #d9f7e9;
+  border-color: rgb(73 229 190 / 30%);
 }
 
 .throw-reasons {
@@ -248,9 +266,17 @@ h2 {
     grid-template-columns: 1fr auto;
     align-items: start;
   }
+}
 
-  .packet-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@container (max-width: 44rem) {
+  .packet-sides {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .relation {
+    transform: rotate(90deg);
+    justify-self: center;
   }
 }
 

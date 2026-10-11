@@ -166,7 +166,14 @@ def test_bot_started_bout_advances_to_human_without_bot_socket() -> None:
     assert acting_seat(room.state) is Seat.ONE
     assert [event.actor_seat for event in room.recent_events] == [Seat.THREE]
     assert room.action_summary(Seat.THREE).action_count == 1
-    assert serialize_pvp_state(room, humans[0]).recent_events[0].actor_seat == Seat.THREE.value
+    serialized = serialize_pvp_state(room, humans[0]).recent_events[0]
+    assert serialized.actor_seat == Seat.THREE.value
+    assert serialized.presentation_state is not None
+    assert serialized.presentation_state.required_seat == Seat.ONE.value
+    assert serialized.presentation_state.viewer_hand
+    assert serialized.presentation_state.hand_counts[Seat.THREE.value] == len(
+        room.state.hand(Seat.THREE)
+    )
 
 
 def test_human_action_runs_bot_defender_once_and_keeps_other_hands_private() -> None:

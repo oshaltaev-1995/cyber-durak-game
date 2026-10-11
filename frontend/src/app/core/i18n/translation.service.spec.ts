@@ -67,6 +67,25 @@ describe('runtime localization', () => {
     );
   });
 
+  it.each([
+    [1, 'карту'],
+    [2, 'карты'],
+    [5, 'карт'],
+    [11, 'карт'],
+    [21, 'карту'],
+  ])('renders the neutral Russian named TAKE summary for %i', (count, cards) => {
+    localStorage.setItem(KIBA_LOCALE_STORAGE_KEY, 'ru');
+    const service = TestBed.inject(TranslationService);
+
+    expect(
+      service.t('game.opponentTook', {
+        name: 'UX Beta',
+        count,
+        cards: service.takeCardCount(count),
+      }),
+    ).toBe(`UX Beta забирает ${count} ${cards}`);
+  });
+
   it('keeps nominative card labels and English TAKE wording unchanged', () => {
     localStorage.setItem(KIBA_LOCALE_STORAGE_KEY, 'ru');
     const service = TestBed.inject(TranslationService);

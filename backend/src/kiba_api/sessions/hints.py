@@ -45,6 +45,7 @@ class HintReason(StrEnum):
     LATEST_DEFENSE_RANKS = "latest_defense_ranks"
     ARITHMETIC_EQUALITY = "arithmetic_equality"
     DEFENSE_TOTAL = "defense_total"
+    LATEST_DEFENSE_TOTAL = "latest_defense_total"
     TRANSFER_EXACT = "transfer_exact"
     SAME_RANK_TRANSFER = "same_rank_transfer"
     EXISTING_VALUE = "existing_value"
@@ -272,7 +273,11 @@ def _describe_legal_candidate(
             action,
             cards,
             added_cards,
-            HintReason(throw_reason.value),
+            (
+                HintReason.LATEST_DEFENSE_TOTAL
+                if throw_reason is ThrowInReason.DEFENSE_TOTAL
+                else HintReason(throw_reason.value)
+            ),
             analysis.selected_value,
             target_value,
         )

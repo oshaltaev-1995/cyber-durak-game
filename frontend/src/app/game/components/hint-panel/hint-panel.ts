@@ -28,7 +28,8 @@ export class HintPanelComponent {
     return this.i18n.t(`hints.reason.${reason}` as TranslationKey);
   }
 
-  protected action(action: HumanActionType): string {
+  protected action(action: HumanActionType, reason: HintReasonType): string {
+    if (action === 'BITO' && reason === 'pass') return this.i18n.t('action.PASS');
     return this.i18n.t(`action.${action}` as TranslationKey);
   }
 

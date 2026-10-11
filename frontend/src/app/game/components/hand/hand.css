@@ -67,7 +67,7 @@ h2 {
 }
 
 .card-strip.very-dense {
-  --hand-overlap: -1.85rem;
+  --hand-overlap: -3rem;
 }
 
 .card-strip app-playing-card:focus-within,
@@ -89,7 +89,7 @@ h2 {
   }
 
   .card-strip.very-dense {
-    --hand-overlap: -4.55rem;
+    --hand-overlap: -2.85rem;
   }
 }
 

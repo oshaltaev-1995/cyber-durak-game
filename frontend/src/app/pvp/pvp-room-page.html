@@ -1,7 +1,7 @@
 <div
   class="game-shell"
-  [class.complete]="state()?.game_phase === 'complete'"
-  [class.multiplayer]="(state()?.capacity ?? 2) > 2"
+  [class.complete]="visibleState()?.game_phase === 'complete'"
+  [class.multiplayer]="(visibleState()?.capacity ?? 2) > 2"
 >
   @if (socket.status() === 'expired') {
     <main
@@ -16,7 +16,7 @@
       <a class="room-again" routerLink="/pvp">{{ i18n.t('pvp.newRoom') }}</a>
       <a routerLink="/play">{{ i18n.t('landing.playBot') }}</a>
     </main>
-  } @else if (state(); as game) {
+  } @else if (visibleState(); as game) {
     <main id="main-content" class="game-board" tabindex="-1">
       <app-card-motion-overlay [motions]="cardMotion.motions()" />
       @if (startingRematch()) {
@@ -245,6 +245,7 @@
               [activeAttackValue]="game.active_attack_value"
               [directAnchors]="game.direct_anchor_cards"
               [final]="game.game_phase === 'complete'"
+              [finalOutcome]="game.last_bout_summary?.outcome ?? null"
             />
             <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
               <span class="pile-label">{{ i18n.t('game.discard') }}</span>
@@ -564,7 +565,7 @@
           <div class="error-message in-game" role="alert">{{ error }}</div>
         }
 
-        @if (game.game_phase !== 'complete') {
+        @if (game.game_phase !== 'complete' && !localFinishedWatching()) {
           <div
             class="local-player-row"
             [class.is-required]="game.required_seat === game.you.seat"
@@ -593,7 +594,7 @@
           />
         }
 
-        @if (game.game_phase !== 'complete') {
+        @if (game.game_phase !== 'complete' && !localFinishedWatching()) {
           <div class="action-dock">
             <app-hint-panel
               [enabled]="hintPreference.enabled()"

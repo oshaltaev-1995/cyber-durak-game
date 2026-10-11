@@ -372,7 +372,7 @@ def test_transfer_is_not_suggested_after_first_defense() -> None:
             ),
             card(Rank.TEN),
             card(Rank.TEN, Suit.DIAMONDS),
-            HintReason.DEFENSE_TOTAL,
+            HintReason.LATEST_DEFENSE_TOTAL,
         ),
         (
             after_defense(

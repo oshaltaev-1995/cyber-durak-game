@@ -34,11 +34,19 @@
     </div>
   } @else {
     <div class="packet-list">
-      @for (packet of packets(); track $index; let index = $index) {
-        <article class="packet" [class.active]="!packet.closed">
+      @for (packet of packets(); track $index; let index = $index; let last = $last) {
+        <article class="packet" [class.active]="!packet.closed && !final()">
           <header>
             <span>{{ i18n.t('game.packet', { number: index + 1 }) }}</span>
-            <strong>{{ i18n.t(packet.closed ? 'game.covered' : 'game.active') }}</strong>
+            <strong>{{
+              i18n.t(
+                final() && last && finalOutcome() === 'TAKE'
+                  ? 'game.taken'
+                  : packet.closed || final()
+                    ? 'game.covered'
+                    : 'game.active'
+              )
+            }}</strong>
           </header>
           <div class="packet-sides">
             <div class="packet-side attack-side">
@@ -62,6 +70,10 @@
                     <app-playing-card [card]="card" [compact]="true" />
                   }
                 </div>
+              } @else if (final() && last && finalOutcome() === 'TAKE') {
+                <div class="awaiting resolved">{{ i18n.t('game.taken') }}</div>
+              } @else if (final()) {
+                <div class="awaiting resolved">{{ i18n.t('game.covered') }}</div>
               } @else {
                 <div class="awaiting">{{ i18n.t('game.awaiting') }}</div>
               }

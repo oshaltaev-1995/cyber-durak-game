@@ -65,8 +65,11 @@ After a human action, and also at initial start/rematch, the room driver advance
 bot-owned turns until human input or terminal state. It uses the same sanitized `BotDecisionContext`
 and 5,000-transition safety bound as Play vs Bots. One accepted human message increments the room
 version once for its entire atomic bot cascade. Response-scoped `recent_events` contains ordered,
-public bot action summaries (seat, action kind, card count, public values) and no exact hidden cards.
-Reconnect and socket replacement do not replay or trigger a cascade.
+public bot action summaries, exact cards already made public by each action, and a participant-safe
+post-event presentation snapshot. The snapshot contains public table/role/count state plus only the
+recipient's own hand; it never contains another hand or future draw order. The client retains the
+latest version as authoritative while presenting these snapshots in order. Reconnect and socket
+replacement do not replay or trigger a cascade.
 
 Card actions accept exactly one reference form. Existing CLASSIC ×1 clients may continue sending
 face codes in `cards` (`JD`, `KS`, `10C`). Generalized clients send exact match-scoped physical IDs

@@ -209,27 +209,24 @@ def test_action_response_contains_transient_safe_bot_take_event() -> None:
     fetched = client.get(f"/api/games/{game_id}")
 
     assert response.status_code == 200
-    assert response.json()["recent_events"] == [
-        {
-            "type": "BOT_TAKE",
-            "actor": "BOT",
-            "card_count": 1,
-            "value": None,
-            "target": 18,
-            "cards": [
-                {
-                    "id": "deck-1:K:clubs",
-                    "code": "KC",
-                    "rank": "K",
-                    "suit": "clubs",
-                    "joker_color": None,
-                    "base_value": 18,
-                    "effective_value": 18,
-                    "is_trump": False,
-                }
-            ],
-        }
-    ]
+    event = response.json()["recent_events"][0]
+    assert {key: event[key] for key in ("type", "actor", "card_count", "value", "target")} == {
+        "type": "BOT_TAKE",
+        "actor": "BOT",
+        "card_count": 1,
+        "value": None,
+        "target": 18,
+    }
+    assert [card["code"] for card in event["cards"]] == ["KC"]
+    assert event["presentation_state"]["phase"] == "ready_for_bout"
+    assert event["presentation_state"]["bout_phase"] == "complete"
+    assert event["presentation_state"]["last_bout_summary"] == {
+        "outcome": "TAKE",
+        "actor_seat": Seat.TWO.value,
+        "table_card_count": 1,
+    }
+    assert event["presentation_state"]["hand_counts"] == {"one": 1, "two": 3}
+    assert [card["code"] for card in event["presentation_state"]["viewer_hand"]] == ["AC"]
     assert response.json()["last_bout_summary"] == {
         "outcome": "TAKE",
         "actor_seat": Seat.TWO.value,
@@ -241,6 +238,8 @@ def test_action_response_contains_transient_safe_bot_take_event() -> None:
     assert "6C" not in event_json
     assert "7C" not in event_json
     assert "KC" in event_json
+    assert "bot_hand" not in event_json
+    assert '"draw_pile":' not in event_json
 
 
 def test_public_response_hides_bot_hand_and_future_draw_order() -> None:

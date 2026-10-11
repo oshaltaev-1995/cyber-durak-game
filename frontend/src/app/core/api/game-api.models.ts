@@ -126,6 +126,37 @@ export interface BotPresentationEvent {
   readonly target: number | null;
   readonly actor_seat?: Seat | null;
   readonly cards?: readonly GameCard[];
+  readonly presentation_state?: BotPresentationState | null;
+}
+
+export interface BotPresentationState {
+  readonly phase: GamePhase;
+  readonly viewer_hand: readonly GameCard[];
+  readonly hand_counts: Readonly<Partial<Record<Seat, number>>>;
+  readonly draw_pile_count: number;
+  readonly discard_count: number;
+  readonly exposed_top_card: GameCard | null;
+  readonly trump: TrumpState;
+  readonly active_seats: readonly Seat[];
+  readonly finished_seats: readonly Seat[];
+  readonly finish_groups: readonly (readonly Seat[])[];
+  readonly table_cards: readonly GameCard[];
+  readonly table_arithmetic: TableArithmetic;
+  readonly bout_starting_attacker: Seat | null;
+  readonly attacker: Seat | null;
+  readonly lead_attacker: Seat | null;
+  readonly defender: Seat | null;
+  readonly bout_phase: BoutPhase | null;
+  readonly packets: readonly AttackPacket[];
+  readonly active_packet: AttackPacket | null;
+  readonly direct_anchor_cards: readonly GameCard[];
+  readonly active_attack_value: number | null;
+  readonly attack_card_limit: number | null;
+  readonly max_attack_card_addition: number | null;
+  readonly total_attack_card_count: number | null;
+  readonly transfer_open: boolean;
+  readonly required_seat: Seat | null;
+  readonly last_bout_summary: LastBoutSummary | null;
 }
 
 export interface BotSessionParticipant {
@@ -194,6 +225,7 @@ export type HintReasonType =
   | 'latest_defense_ranks'
   | 'arithmetic_equality'
   | 'defense_total'
+  | 'latest_defense_total'
   | 'transfer_exact'
   | 'same_rank_transfer'
   | 'existing_value'

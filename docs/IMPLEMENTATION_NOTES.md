@@ -448,11 +448,13 @@ Rank-run explanations additionally carry the server-confirmed start, end, length
 Angular renders that metadata but never derives run legality.
 
 Human-vs-bot action responses may additionally carry a response-scoped `recent_events` trace for
-confirmed bot actions. The trace contains only safe public action type/count/value metadata, is not
-stored in PostgreSQL or retained by subsequent GET responses, and never drives game correctness.
-Angular renders the authoritative response immediately and may retain pointer-inert visual card
-ghosts long enough to explain a confirmed bot TAKE or other transition. The presentation never
-delays, rejects, or creates a game action.
+confirmed bot actions. The trace contains safe public action metadata plus a participant-safe
+post-event presentation snapshot: public table/roles/counts and only that viewer's own hand. It is
+not stored in PostgreSQL or retained by subsequent GET responses and never drives game correctness.
+Angular retains the latest authoritative response for versioning and validation while rendering each
+new event snapshot with its matching caption and pointer-inert card motion. After the queue, visible
+state catches up to the authoritative response. A GET/reconnect has no event trace and renders the
+latest state immediately. Presentation never delays, rejects, or creates a game action.
 
 The shared Angular table uses a local 30-second activity perimeter only while the local participant
 owns the current decision in bot and private-PvP modes. Its context key changes with authoritative
@@ -1523,6 +1525,32 @@ state, or presentation backlog destroys/restarts the reminder and clears attenti
 It never submits a gameplay action. The exposed trump-source card reuses the shared card renderer
 with its combat-value badge and value announcement suppressed; playable cards retain ordinary
 value/trump presentation.
+
+### 15.19 R12 presentation and Hint stabilization
+
+R12 keeps authoritative gameplay unchanged while separating latest state from queued visible state.
+Each bot or mixed-room event carries the smallest participant-safe post-event projection required for
+the table, roles, public counts, final-bout outcome, and the viewer's own hand. The presentation queue
+selects that projection before its matching caption/motion and exposes no later packet early. After
+the final event it atomically returns to the latest state and enables controls. Restore/reconnect does
+not replay prior events.
+
+Packets occupy one full bout row. Attack and defense groups use readable compact cards with modest
+overlap and wrap/stack through a container-responsive fallback; ordinary five-versus-four packets do
+not create nested horizontal scrollers. The current bout retains its outer vertical scroll for long
+histories. Terminal tables size short bouts to content (up to a bounded maximum), mark the final
+packet from authoritative TAKE/BITO history, and never show Active/Awaiting after completion. Dense
+local hands preserve a left-side value/Hint strip while keeping horizontal hand scrolling.
+
+Hint Mode uses one stable decision key per match/state signature, actor, phase, actions, hand/table,
+and selection.
+An enabled Hint preference triggers exactly once when a new local decision becomes actionable and the
+presentation lock has cleared, including restore and mixed rooms; waiting or finished participants do
+not request hints. Cardless attacker-phase BITO suggestions are displayed as Pass/Пас, TAKE remains
+Take/Взять, and throw-in matching against the latest defense total uses its own structured reason
+instead of defense-sufficiency wording. Early-finished humans see a single observer message and the
+remaining table, with no hand, prompt, timer, Hint or action controls. Russian named TAKE summaries
+use the neutral present-tense `забирает` form with the existing 1/2/5/11/21 card inflection.
 
 ## 16. Suggested implementation phases
 

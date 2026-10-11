@@ -171,7 +171,7 @@ button:disabled {
 }
 
 .complete .game-board {
-  grid-template-rows: auto minmax(11rem, 16rem) auto auto;
+  grid-template-rows: auto auto auto auto;
   height: auto;
   overflow: visible;
 }
@@ -195,7 +195,17 @@ button:disabled {
 
 .complete .playfield {
   --top-seat-safe-zone: 0.4rem;
-  min-height: 11rem;
+  min-height: 0;
+  height: auto;
+}
+
+.complete .table-stage {
+  height: auto;
+  grid-template-rows: auto;
+}
+
+.complete .center-table {
+  overflow: visible;
 }
 
 .complete .playfield.has-top-seat {
@@ -577,8 +587,8 @@ button:disabled {
 
   .complete .playfield {
     --top-seat-safe-zone: 0.25rem;
-    height: clamp(18rem, 45dvh, 24rem);
-    min-height: 18rem;
+    height: auto;
+    min-height: 0;
   }
 
   .playfield.has-top-seat {

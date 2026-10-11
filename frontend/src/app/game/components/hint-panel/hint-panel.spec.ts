@@ -98,6 +98,51 @@ describe('HintPanelComponent', () => {
     expect(text).not.toContain('KC');
   });
 
+  it('labels cardless Pass and Take by their actual actions', () => {
+    i18n.setLocale('ru');
+    fixture.componentRef.setInput('combinations', [
+      {
+        action: 'BITO',
+        card_ids: [],
+        added_card_ids: [],
+        reason: 'pass',
+        selected_value: 0,
+        target_value: null,
+      },
+      {
+        action: 'TAKE',
+        card_ids: [],
+        added_card_ids: [],
+        reason: 'take',
+        selected_value: 0,
+        target_value: null,
+      },
+    ]);
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Пас');
+    expect(text).toContain('Взять');
+    expect(text).not.toContain('Бито');
+  });
+
+  it('uses a throw-in-specific latest-defense-total reason', () => {
+    i18n.setLocale('ru');
+    fixture.componentRef.setInput('combinations', [
+      {
+        action: 'THROW_IN',
+        card_ids: ['6S'],
+        added_card_ids: ['6S'],
+        reason: 'latest_defense_total',
+        selected_value: 6,
+        target_value: 6,
+      },
+    ]);
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('совпадает с суммой последней защиты');
+    expect(text).not.toContain('достаточная защита без лишних карт');
+  });
+
   it('formats exact duplicate and Joker hints from physical IDs', () => {
     const variantCards: readonly GameCard[] = [
       { ...card('KH', 'K', 'hearts', 18), id: 'deck-1:KH' },

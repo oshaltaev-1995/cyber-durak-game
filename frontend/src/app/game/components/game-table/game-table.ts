@@ -24,6 +24,7 @@ import { cardIdentity } from '../../../core/deck/deck-config';
   templateUrl: './game-table.html',
   styleUrl: './game-table.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.final]': 'final()' },
 })
 export class GameTableComponent implements AfterViewChecked {
   @ViewChild('scrollViewport') private scrollViewport?: ElementRef<HTMLElement>;
@@ -33,6 +34,7 @@ export class GameTableComponent implements AfterViewChecked {
   readonly activeAttackValue = input.required<number | null>();
   readonly directAnchors = input.required<readonly GameCard[]>();
   readonly final = input(false);
+  readonly finalOutcome = input<'TAKE' | 'BITO' | null>(null);
   protected readonly identity = cardIdentity;
   private followLatest = true;
   private renderedSignature = '';

@@ -20,6 +20,7 @@ from kiba_api.api.serialization import (
     _serialize_card,
     _serialize_last_bout_summary,
     _serialize_packets,
+    _serialize_presentation_state,
     serialize_progression_award,
 )
 from kiba_api.game import (
@@ -138,7 +139,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
             required_participant_id=None,
             required_seat=None,
             available_actions=[],
-            recent_events=_serialize_bot_events(room),
+            recent_events=_serialize_bot_events(room, viewer),
         )
 
     trump_state = state.current_trump_state
@@ -249,7 +250,7 @@ def serialize_pvp_state(room: PvPRoom, viewer: PvPParticipant) -> PvPStateRespon
         ),
         required_seat=actor.value if actor is not None else None,
         available_actions=([] if room_closed else list(available_actions_for(state, viewer.seat))),
-        recent_events=_serialize_bot_events(room),
+        recent_events=_serialize_bot_events(room, viewer),
     )
 
 
@@ -301,7 +302,9 @@ def _rematch_ready_participant_ids(room: PvPRoom) -> list[str]:
     ]
 
 
-def _serialize_bot_events(room: PvPRoom) -> list[BotPresentationEventResponse]:
+def _serialize_bot_events(
+    room: PvPRoom, viewer: PvPParticipant
+) -> list[BotPresentationEventResponse]:
     return [
         BotPresentationEventResponse(
             type=event.type.value,
@@ -310,6 +313,11 @@ def _serialize_bot_events(room: PvPRoom) -> list[BotPresentationEventResponse]:
             target=event.target,
             actor_seat=event.actor_seat.value,
             cards=[_serialize_card(card, event.trump_state) for card in event.cards],
+            presentation_state=(
+                _serialize_presentation_state(event.state_after, viewer.seat, event.resolved_bout)
+                if event.state_after is not None
+                else None
+            ),
         )
         for event in room.recent_events
     ]

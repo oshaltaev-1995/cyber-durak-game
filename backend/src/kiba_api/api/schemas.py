@@ -48,6 +48,7 @@ class HintCombinationResponse(BaseModel):
         "latest_defense_ranks",
         "arithmetic_equality",
         "defense_total",
+        "latest_defense_total",
         "transfer_exact",
         "same_rank_transfer",
         "existing_value",
@@ -229,6 +230,39 @@ class BotPresentationEventResponse(BaseModel):
     target: int | None
     actor_seat: str | None = Field(default=None, exclude_if=lambda value: value is None)
     cards: list[CardResponse] = Field(default_factory=list)
+    presentation_state: "PresentationStateResponse | None" = None
+
+
+class PresentationStateResponse(BaseModel):
+    """Participant-safe public state rendered while one queued event is narrated."""
+
+    phase: str
+    viewer_hand: list[CardResponse]
+    hand_counts: dict[str, int]
+    draw_pile_count: int
+    discard_count: int
+    exposed_top_card: CardResponse | None
+    trump: TrumpResponse
+    active_seats: list[str]
+    finished_seats: list[str]
+    finish_groups: list[list[str]]
+    table_cards: list[CardResponse]
+    table_arithmetic: TableArithmeticResponse
+    bout_starting_attacker: str | None
+    attacker: str | None
+    lead_attacker: str | None
+    defender: str | None
+    bout_phase: str | None
+    packets: list[PacketResponse]
+    active_packet: PacketResponse | None
+    direct_anchor_cards: list[CardResponse]
+    active_attack_value: int | None
+    attack_card_limit: int | None
+    max_attack_card_addition: int | None
+    total_attack_card_count: int | None
+    transfer_open: bool
+    required_seat: str | None
+    last_bout_summary: "LastBoutSummaryResponse | None"
 
 
 class BotSessionParticipantResponse(BaseModel):

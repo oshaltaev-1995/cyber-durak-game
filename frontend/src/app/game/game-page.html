@@ -1,6 +1,6 @@
 <div
   class="game-shell"
-  [class.complete]="game()?.phase === 'complete'"
+  [class.complete]="visibleGame()?.phase === 'complete'"
   [class.back-dark]="game()?.cosmetics?.card_back_code === 'LEVEL_3_BACK'"
   [class.back-snowball]="game()?.cosmetics?.card_back_code === 'SNOWBALL_BACK'"
   [class.back-avalanche]="game()?.cosmetics?.card_back_code === 'AVALANCHE_BACK'"
@@ -102,7 +102,7 @@
         </div>
       }
     </main>
-  } @else if (game(); as currentGame) {
+  } @else if (visibleGame(); as currentGame) {
     <main id="main-content" class="game-board" tabindex="-1">
       <app-card-motion-overlay [motions]="cardMotion.motions()" />
       <div class="game-utilities">
@@ -158,6 +158,7 @@
             [activeAttackValue]="currentGame.active_attack_value"
             [directAnchors]="currentGame.direct_anchor_cards"
             [final]="currentGame.phase === 'complete'"
+            [finalOutcome]="currentGame.last_bout_summary?.outcome ?? null"
           />
 
           <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
@@ -370,7 +371,7 @@
         <div class="error-message in-game" role="alert">{{ error }}</div>
       }
 
-      @if (currentGame.phase !== 'complete') {
+      @if (currentGame.phase !== 'complete' && !localFinishedWatching()) {
         <app-hand
           class="player-hand-region"
           [cards]="currentGame.human_hand"

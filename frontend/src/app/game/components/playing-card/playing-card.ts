@@ -19,6 +19,7 @@ export class PlayingCardComponent {
   readonly suggested = input(false);
   readonly selectable = input(false);
   readonly compact = input(false);
+  readonly dense = input(false);
   readonly showValueBadge = input(true);
   readonly announceValue = input(true);
   readonly contextLabel = input<string | null>(null);

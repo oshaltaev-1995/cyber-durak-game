@@ -1088,7 +1088,7 @@ class PvPRoomService:
             except BotActionError as error:
                 raise RuntimeError("baseline bot could not advance an owned decision") from error
             last_bout = remember_resolved_bout(previous_state, state, last_bout)
-            events.append(bot_presentation_event(previous_state, action, actor))
+            events.append(bot_presentation_event(previous_state, action, actor, state, last_bout))
             counters = record_accepted_action(
                 next(value.counters for value in summaries if value.seat is actor),
                 previous_state,

@@ -6,6 +6,7 @@ from fractions import Fraction
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from kiba_api.game import GameState
     from kiba_api.persistence import ProgressionAward
 
 from kiba_api.api.cards import card_to_code
@@ -21,6 +22,7 @@ from kiba_api.api.schemas import (
     HintResponse,
     LastBoutSummaryResponse,
     PacketResponse,
+    PresentationStateResponse,
     ProgressionAwardResponse,
     ResultResponse,
     TableArithmeticResponse,
@@ -129,6 +131,15 @@ def serialize_game_session(session: GameSession, locale: Locale = Locale.RU) -> 
                 target=event.target,
                 actor_seat=(event.actor_seat.value if session.total_players > 2 else None),
                 cards=[_serialize_card(card, event.trump_state) for card in event.cards],
+                presentation_state=(
+                    _serialize_presentation_state(
+                        event.state_after,
+                        session.human_seat,
+                        event.resolved_bout,
+                    )
+                    if event.state_after is not None
+                    else None
+                ),
             )
             for event in session.recent_events
         ],
@@ -207,6 +218,80 @@ def serialize_game_session(session: GameSession, locale: Locale = Locale.RU) -> 
         required_actor=_actor_label(actor, session),
         required_seat=(actor.value if actor is not None else None),
         available_actions=list(available_actions_for(state, session.human_seat)),
+    )
+
+
+def _serialize_presentation_state(
+    state: GameState,
+    viewer_seat: Seat,
+    resolved_bout: BoutState | None = None,
+) -> PresentationStateResponse:
+    """Serialize only public state plus the requesting participant's own hand."""
+    trump_state = state.current_trump_state
+    bout = state.active_bout or resolved_bout
+    table_trump = bout.trump_state if bout is not None else trump_state
+    table_cards = bout.table_cards if bout is not None else ()
+    summary = summarize_table_arithmetic(table_cards, table_trump)
+    packets = _serialize_packets(bout, table_trump) if bout is not None else []
+    active_packet = bout.active_packet if bout is not None else None
+    source_card = state.draw_pile[0] if state.draw_pile else None
+    actor = acting_seat(state)
+    return PresentationStateResponse(
+        phase=state.phase.value,
+        viewer_hand=[
+            _serialize_card(card, trump_state)
+            for card in sorted(state.hand(viewer_seat), key=_presentation_card_key)
+        ],
+        hand_counts={seat.value: len(state.hand(seat)) for seat in state.seat_order},
+        draw_pile_count=len(state.draw_pile),
+        discard_count=len(state.discard_pile),
+        exposed_top_card=(
+            _serialize_card(source_card, trump_state) if source_card is not None else None
+        ),
+        trump=TrumpResponse(
+            active=trump_state.active,
+            source_card=(
+                _serialize_card(source_card, trump_state) if source_card is not None else None
+            ),
+            trump_rank=trump_state.trump_rank.value if trump_state.trump_rank else None,
+            trump_suit=trump_state.trump_suit.value if trump_state.trump_suit else None,
+        ),
+        active_seats=[seat.value for seat in state.active_seats],
+        finished_seats=[seat.value for seat in state.finished_seats],
+        finish_groups=[[seat.value for seat in group] for group in state.finish_groups],
+        table_cards=[_serialize_card(card, table_trump) for card in table_cards],
+        table_arithmetic=TableArithmeticResponse(
+            total_effective_value=summary.total_effective_value,
+            physical_card_count=summary.physical_card_count,
+            arithmetic_mean=_format_fraction(summary.arithmetic_mean),
+        ),
+        bout_starting_attacker=(
+            state.bout_starting_attacker.value if state.bout_starting_attacker else None
+        ),
+        attacker=bout.attacker.value if bout is not None else None,
+        lead_attacker=bout.lead_attacker.value if bout is not None else None,
+        defender=bout.defender.value if bout is not None else None,
+        bout_phase=(
+            BoutPhase.COMPLETE.value
+            if resolved_bout is not None or state.phase is GamePhase.COMPLETE
+            else bout.phase.value
+            if bout is not None
+            else None
+        ),
+        packets=packets,
+        active_packet=packets[-1] if active_packet is not None and packets else None,
+        direct_anchor_cards=(
+            [_serialize_card(card, table_trump) for card in bout.direct_anchor_cards]
+            if bout is not None
+            else []
+        ),
+        active_attack_value=active_packet.attack_value if active_packet is not None else None,
+        attack_card_limit=bout.attack_card_limit if bout is not None else None,
+        max_attack_card_addition=bout.max_attack_card_addition if bout is not None else None,
+        total_attack_card_count=bout.total_attack_card_count if bout is not None else None,
+        transfer_open=(bout.transfer_open if state.active_bout is not None else False),
+        required_seat=actor.value if actor is not None else None,
+        last_bout_summary=_serialize_last_bout_summary(resolved_bout),
     )
 
 
