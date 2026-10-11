@@ -364,7 +364,12 @@ export class PvPWebSocketService {
     ) {
       return false;
     }
-    this.clearHints();
+    const sameGameplayVersion =
+      current !== null &&
+      state.invite_code === current.invite_code &&
+      state.match_id === current.match_id &&
+      state.version === current.version;
+    if (!sameGameplayVersion) this.clearHints();
     this.state.set(state);
     if (this.actionError()?.code !== 'STALE_VERSION') this.actionError.set(null);
     if (state.capacity !== 2 || state.opponent === null) {

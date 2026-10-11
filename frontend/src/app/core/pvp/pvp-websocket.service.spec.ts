@@ -228,6 +228,15 @@ describe('PvPWebSocketService', () => {
     expect(service.hints()).toEqual(currentHints);
     expect(service.hintPending()).toBe(false);
 
+    socket.message({
+      type: 'STATE',
+      state: {
+        ...active,
+        opponent: { ...opponent(true), connected: false },
+      },
+    });
+    expect(service.hints()).toEqual(currentHints);
+
     socket.message({ type: 'STATE', state: { ...active, version: 5 } });
     expect(service.hints()).toBeNull();
   });

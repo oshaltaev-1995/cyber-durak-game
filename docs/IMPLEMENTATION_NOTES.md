@@ -1546,7 +1546,8 @@ Hint Mode uses one stable decision key per match/state signature, actor, phase, 
 and selection.
 An enabled Hint preference triggers exactly once when a new local decision becomes actionable and the
 presentation lock has cleared, including restore and mixed rooms; waiting or finished participants do
-not request hints. Cardless attacker-phase BITO suggestions are displayed as Pass/Пас, TAKE remains
+not request hints. An equal-version connection-state rebroadcast retains the still-valid Hint payload;
+a new gameplay version invalidates it. Cardless attacker-phase BITO suggestions are displayed as Pass/Пас, TAKE remains
 Take/Взять, and throw-in matching against the latest defense total uses its own structured reason
 instead of defense-sufficiency wording. Early-finished humans see a single observer message and the
 remaining table, with no hand, prompt, timer, Hint or action controls. Russian named TAKE summaries
