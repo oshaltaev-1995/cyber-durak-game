@@ -95,19 +95,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Validate production Compose
-        env:
-          KIBA_POSTGRES_DB: kiba
-          KIBA_POSTGRES_USER: kiba
-          KIBA_POSTGRES_PASSWORD: ci-safe-password
-          KIBA_DATABASE_URL: postgresql+psycopg://kiba:ci-safe-password@database:5432/kiba
-          KIBA_PUBLIC_BASE_URL: https://kiba.example.test
-          KIBA_TRUSTED_HOSTS: kiba.example.test
-          KIBA_CSRF_TRUSTED_ORIGINS: https://kiba.example.test
-          KIBA_SMTP_HOST: smtp.example.test
-          KIBA_SMTP_USERNAME: ci
-          KIBA_SMTP_PASSWORD: ci-safe-password
-          KIBA_SMTP_FROM: no-reply@example.test
-        run: docker compose -f docker-compose.prod.yml config --quiet
+        run: ./scripts/check_production_compose.sh
 
       - name: Build production backend image
         run: docker build -f backend/Dockerfile.prod backend
