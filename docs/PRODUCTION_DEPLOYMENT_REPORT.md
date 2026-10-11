@@ -683,3 +683,66 @@ Husky, Kennel, Amnezia, Docker-runtime, firewall, SSH, OS-package, swap or kerne
 changed. `public-beta-v1` remains at `9402832343c72130f0bd319d13ee32af7d95041a` and
 `public-beta-v2` remains at `425fae41056906fcbbeb6754ee9c5e7d0467acf6`. No release tag was
 created or moved.
+
+## R13 final UI polish before v2.1 candidate (2026-10-11)
+
+Application commit `c45ce1025683b3bcf443ea9b60a3e939e90c0f59` closes the four remaining
+independent-audit minor findings without changing gameplay, backend behavior or persistence. Dense
+hands now replace the clipped full Suggested/Подходит label with a compact star in the visible
+leading strip while retaining the full localized accessibility label. Every attacker-phase `BITO`
+command is presented as Pass/Пас, including the two-player action button and mixed-room status;
+completed-bout and discard-area BITO/Бито terminology is unchanged. An early-finished observer sees
+neutral waiting-for-the-next-bout empty-table copy in English and Russian. Current-bout scrolling
+anchors a new active packet or new local decision at the packet start, ignores intermediate
+same-packet presentation mutations, preserves deliberate history reading, resumes following after a
+return to the live edge, and leaves terminal sizing unchanged.
+
+Local validation passed frontend lint and formatting, all 457 tests in 43 files, the production
+build, backend lint and formatting, all 859 backend tests, and `git diff --check`. Focused coverage
+exercised 7-, 20-, 26- and 31-card hands in English and Russian; two-player Pass labels and status;
+observer empty-table copy and observer-to-terminal transition; live-follow, same-packet mutation,
+manual history reading, subsequent packets and return-to-live behavior; plus the existing R12 bot
+presentation, packet, Hint, terminal, seat, attention and rematch regressions.
+
+A deterministic real-browser fixture was inspected at 1440x900, 1440x720, 1366x768, 1280x800,
+390x844 and 430x932, then removed before commit. Every viewport had zero page-level horizontal
+overflow and zero active-packet inner overflow. The five-card attack began below the sticky heading;
+the 31-card Suggested icon and effective value both remained wholly inside the exposed leading strip.
+A separate 26-card Russian check retained the full suggestion accessibility label. The mobile
+observer had neutral copy and no hand, Hint or actions, and the short terminal packet had equal
+client/scroll height with no active or awaiting state.
+
+Immediately before deployment, `kiba-backup.service` created and verified
+`/var/backups/kiba/kiba-20261011T133957Z.dump` (28,803 bytes, root-owned mode `0600`). The reviewed
+source archive SHA-256 was `6246426216ceb95d7ebc06b23dffc01766014dd30fa3c898c20921e08b7269d2`.
+The pre-R13 source remains at
+`/opt/kiba/releases/app-before-r13-8c10e4c0-20261011T134034Z`, and the prior frontend image is tagged
+`kiba-production-kiba-frontend:r13-rollback-8c10e4c0`.
+
+Only `kiba-frontend` was built and recreated. Production runs frontend image
+`sha256:8a70899e79ff89c334c3c8473193b8e1e08e5767768f9529bae29cec76a00855` at exact
+application revision `c45ce1025683b3bcf443ea9b60a3e939e90c0f59`. The backend container
+`249af0c21266` and PostgreSQL container `994cd603b40f` retained identity and the database volume was
+untouched; no migration was added or run.
+
+Live production acceptance exercised a fresh two-player bot game and a fresh 2H+2B room. Initial
+Hints arrived when enabled. After a real bot defense, the two-player status, cardless Hint and action
+button all showed Пас and the action advanced normally. In the mixed room, a real guest attack, bot
+defense and attacker handoff produced the host status `Можно подкинуть карты или выбрать
+«Пас»`, a cardless Пас Hint and a Пас button. The current attack cards were visible with the
+response context, presentation stayed synchronized, and the browser console had no warnings or
+errors. The rare early-finish observer and 26/31-card states were verified against the exact built
+frontend through the deterministic browser fixture and transition tests; the deployed bundle carries
+the corresponding English/Russian observer strings. Hint preference was restored to OFF after live
+acceptance.
+
+Final health showed approximately 1.9 GiB `MemAvailable`, 155.9 MiB resident swap, `si=0`/`so=0`
+through ten samples and zero current memory PSI. Swap remained exactly 159,596 KiB through the
+frontend build and recreate. Kiba, Kennel Operations and Husky Tracking returned HTTP 200; Kiba
+internal health/readiness returned 200; all Kiba containers were healthy with zero restarts and
+`OOMKilled=false`; Docker, Caddy and Amnezia remained running; backup and both monitor timers were
+active; both monitor services most recently exited successfully; and no systemd units were failed.
+No backend, database, Caddy, Husky, Kennel, Amnezia, Docker-runtime, firewall, SSH, OS-package, swap
+or kernel configuration was changed. `public-beta-v1` remains at
+`9402832343c72130f0bd319d13ee32af7d95041a` and `public-beta-v2` remains at
+`425fae41056906fcbbeb6754ee9c5e7d0467acf6`; no v2.1 or other release tag was created.
