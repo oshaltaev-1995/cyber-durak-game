@@ -552,3 +552,53 @@ Kennel Operations returned HTTP 200; all Kiba containers were healthy with zero 
 active; both monitor services most recently exited successfully; and no systemd units were failed.
 No PostgreSQL, Caddy, Husky, Kennel, Amnezia or Docker-runtime change/restart occurred. No release
 tag was created or moved; `public-beta-v1` and frozen `public-beta-v2` remain unchanged.
+
+## R11.2 stabilized table geometry deployment (2026-10-11)
+
+Application commit `f648c9433845312dbde0463f5d6276e2ef041560` was deployed as a frontend-only
+patch. The exact source archive had SHA-256
+`a6fff6781c7708ee81426f78b4228ee8ba6490bfd2f1428e2575c57a13f97628`. Production runs frontend
+image `sha256:03613173f508b9f57139d9bc86295466fc219d5e546f3836d41808167616da69`; only
+`kiba-production-kiba-frontend-1` was recreated. The unchanged backend image is
+`sha256:c03218c4cd41b84cf7dd585fba773540d5168d5b64953ac197939e96534d49b5`, and its container ID,
+start time, restart count and health remained unchanged. PostgreSQL was also unchanged. No migration,
+feature-flag, application configuration or infrastructure change was made. The preceding source is
+retained at `/opt/kiba/releases/app-before-r11-2-de5cb99-20261011T093022Z`, and the prior frontend
+image remains tagged `kiba-production-kiba-frontend:rollback-r11-1-de5cb99`.
+
+Live production acceptance used real bot games. Two-player layout retained the local player at the
+bottom and one horizontal portrait opponent hand at the top, with no side-seat artifacts; a legal
+continuation outside the five cyan suggestions remained selectable and was accepted by the server.
+Three-player layout placed opponents only at left and right, used seven individually visible 90-degree
+side cards, reserved no top seat, and kept side seats, table, hand and action dock disjoint. Four-player
+Extended double-deck layout placed opponents at left, top and right without overlap. Ordinary exposed
+source cards showed no numeric combat-value badge while playable trump cards retained effective-value
+badges. Hint OFF removed suggestion and continuation decoration. A physical incremental Street was not
+naturally reproduced in this rollout; the previously accepted deterministic partial-Street coverage
+remained green in the 413-test frontend baseline.
+
+A live four-player bout reached three packets. At 430x932 its current-bout viewport measured 298 px
+high with 735 px scroll height; at 1280x800 another live bout measured 240 px client height and 342 px
+scroll height. Both used `overflow-y: auto`, `scrollbar-gutter: stable`, a sticky heading and reserved
+right padding. Wheel navigation reached both the oldest and active packets. Responsive acceptance
+covered 1440x720, 1366x768, 1280x800, 390x844 and 430x932 with no page-level horizontal overflow.
+Mobile hands used internal horizontal scrolling and all action controls remained reachable. English and
+Russian active layouts contained no raw localization keys or label collisions.
+
+Live bot presentation showed ordered `Rina attacks` then `Olli transfers` states, kept gameplay
+controls disabled during visual catch-up, and enabled the valid human action only afterward. The
+30-second attention state did not mutate the game and cleared on the next user action. Terminal layout
+regression was covered by the accepted deterministic terminal fixtures and component assertions: one
+result heading, final bout and ranking retained, with no active roles, status, empty hand, Hint or action
+dock. All production browser consoles used for two-, three-, four-player, long-bout, Hint and mobile
+acceptance were free of application, CSP and chunk errors.
+
+Final health showed approximately 2.0 GiB `MemAvailable`, 154.6 MiB resident swap with `si=0`/`so=0`
+through ten samples, zero current memory PSI and no kernel OOM evidence. The frontend build increased
+swap by approximately 0.5 MiB without sustained paging. Kiba, Husky Tracking and Kennel Operations
+returned HTTP 200; Kiba health and readiness returned 200 inside the unchanged backend container.
+Frontend, backend and PostgreSQL were healthy with zero restarts and `OOMKilled=false`; Docker, Caddy
+and Amnezia remained running; backup and both monitor timers were active; both monitor services most
+recently exited successfully with zero active conditions. `public-beta-v1` remained at
+`9402832343c72130f0bd319d13ee32af7d95041a` and `public-beta-v2` remained at
+`425fae41056906fcbbeb6754ee9c5e7d0467acf6`. No release tag was created or moved.
