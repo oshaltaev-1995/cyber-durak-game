@@ -602,3 +602,84 @@ and Amnezia remained running; backup and both monitor timers were active; both m
 recently exited successfully with zero active conditions. `public-beta-v1` remained at
 `9402832343c72130f0bd319d13ee32af7d95041a` and `public-beta-v2` remained at
 `425fae41056906fcbbeb6754ee9c5e7d0467acf6`. No release tag was created or moved.
+
+## R12 final gameplay presentation and Hint UX stabilization (2026-10-11)
+
+Application commits `cbc7a82131edd51e53c12cf3f9baa511eae57ee2` and
+`8c10e4c0404ffd8acb87a2e50eb2e4dc2ec6ef1d` correct the nine independently
+reported presentation defects without changing gameplay canon. Public bot and mixed-room events now
+carry participant-safe event-time presentation snapshots; the frontend retains the latest
+authoritative state separately and advances caption, visible table, packet status, roles and card
+motion through the same queued snapshot before enabling human controls. Reload and reconnect still
+render the latest state directly. The additive snapshot contains only public state and the recipient's
+own hand—never another hand, future deck state or credentials.
+
+Packets now consume the useful bout width. Normal laptop/desktop 5-card attack versus 4-card defense
+uses two wide, readable groups without nested horizontal scrolling; narrow containers stack the
+groups, while extreme groups keep a contained overflow fallback. Dense hands move value badges and
+Hint markers into the visible leading strip of each overlapped card. Terminal packets use the
+authoritative bout outcome (`Taken`/`Забран` for TAKE), never remain active or awaiting a response,
+and short terminal bouts grow to content with a bounded 32 rem maximum for long results. A human who
+finishes early now enters observer presentation: the table and remaining play stay visible while the
+local hand, prompts, timer, Hint UI and actions disappear.
+
+Hint labels now distinguish Pass/`Пас`, Take/`Взять` and BITO. Throw-in reasons are generated from
+the accepted attack basis rather than a defense reason family, including the latest-defense-total
+basis. A stable decision-context trigger requests Hints once after presentation catch-up when the
+human becomes actionable. During live acceptance, a same-version WebSocket state broadcast exposed
+one remaining edge case by clearing a valid initial Hint response; the focused second commit preserves
+Hints for the same invite, match and gameplay version while still invalidating them on a new version.
+Russian TAKE event copy now uses the gender-neutral present-tense `забирает` with the existing
+1/2/5/11/21 contextual plural forms.
+
+Local validation passed `npm ci`, frontend formatting and lint, all 445 tests in 43 files, the
+production build, backend lint and formatting, all 859 backend tests, and `git diff --check`.
+Deterministic coverage includes a fake-timer five-event bot cascade and its mixed-room counterpart;
+5/no-defense, 5v4 and 7v5 packet groups with duplicates and Jokers; 14/20/23/26/31-card hands;
+terminal TAKE, defended, short and long bouts; action-specific Pass, Take and throw-in reasons;
+automatic initial Hints for 2-player, 3-/4-human, 3-/4-bot and mixed decisions; waiting/finished
+participants; observer mode; and all required Russian card-count forms.
+
+Real local browser acceptance covered 1440x900, 1440x720, 1366x768, 1280x800, 390x844 and 430x932.
+At every desktop/laptop size the 5v4 packet occupied approximately 1135 px with two approximately
+539 px groups and no nested horizontal overflow; at 390 and 430 px it stacked into one column without
+page overflow. Short terminal content had no internal scroll, mobile terminal controls remained
+reachable, dense 26-card badges and markers stayed visible, and a real four-player cascade and real
+2H+2B cascade kept event caption, cards and roles synchronized until human control unlocked. English
+and Russian Pass, Take, terminal and observer copy were also checked through the UI.
+
+Immediately before deployment, `kiba-backup.service` created and verified
+`/var/backups/kiba/kiba-20261011T113625Z.dump` (28,802 bytes, root-owned mode `0600`). The final source
+archive SHA-256 was `ab77b1b23caa1168dc7ba4b133fbff0f347d04cf1a1792bfd0c1ace53f8c8e40`.
+The pre-R12 source remains at
+`/opt/kiba/releases/app-before-r12-f648c943-20261011T1138Z`; the pre-Hint-hotfix R12 source remains at
+`/opt/kiba/releases/app-before-r12-hint-hotfix-cbc7a821-20261011T1144Z`. The prior R11.2 images and the
+pre-hotfix R12 frontend are retained under their rollback tags.
+
+Backend and frontend were initially built serially; after the live Hint edge case, only the frontend
+was rebuilt and recreated. Production runs backend image
+`sha256:c6b14841b885e9b09b6422eba459d185faa49e03dba11d788b69e0712c041fad` and final frontend image
+`sha256:581a0ee4791b642f17793d47ee15b1a24dd2fe8a49d3413e4e739ee690f1dff1` at exact application
+revision `8c10e4c0404ffd8acb87a2e50eb2e4dc2ec6ef1d`. PostgreSQL retained container identity
+`994cd603b40f`; no migration was added or run.
+
+Live production acceptance exercised a four-player Extended double-deck bot game, a three-player
+Hint/Pass/throw-in game and a fresh 2H+2B room. The four-player sequence presented attack, transfer,
+defense and throw-in snapshots in order with no future packet under an earlier caption. The fresh
+post-hotfix mixed game displayed four defense suggestions plus cardless Take immediately for the
+acting host with no card selection or toggle, then presented both bots' Pass steps coherently before
+the waiting human became required; the browser console was clean. Deterministic component and real
+local UI fixtures cover the rare 23–26-card, terminal, early-finish, 5v4 and exact responsive states
+that were not forced by a live random deal.
+
+Final health showed approximately 1.9 GiB `MemAvailable`, 156.6 MiB resident swap, `si=0`/`so=0`
+through ten samples, zero current memory PSI and no kernel OOM evidence. The two serial build phases
+increased resident swap by approximately 2 MiB and it remained resident without active paging. Kiba,
+Husky Tracking and Kennel Operations returned HTTP 200; Kiba health/readiness returned 200 inside the
+backend container; all Kiba containers were healthy with zero restarts and `OOMKilled=false`;
+Docker, Caddy and Amnezia remained running; backup and both existing monitor timers were active; both
+monitor services most recently exited successfully; and no systemd units were failed. No Caddy,
+Husky, Kennel, Amnezia, Docker-runtime, firewall, SSH, OS-package, swap or kernel configuration was
+changed. `public-beta-v1` remains at `9402832343c72130f0bd319d13ee32af7d95041a` and
+`public-beta-v2` remains at `425fae41056906fcbbeb6754ee9c5e7d0467acf6`. No release tag was
+created or moved.
