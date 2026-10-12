@@ -626,7 +626,10 @@ def play_transfer(
         hand_counts=_spend_hand_count(state, actor, len(selected)),
         packets=(*state.packets[:-1], extended_packet),
         lead_attacker=new_lead,
-        attacker=actor,
+        # No attacking phase belongs to the transferor while the new defender is
+        # answering. Keep ``attacker`` aligned with the phase owner that will act
+        # after a successful defense: the current lead attacker.
+        attacker=new_lead,
         defender=new_defender,
         attacker_order=_attacker_order(
             state.seat_order,

@@ -38,7 +38,10 @@ import {
   MotionSnapshot,
   planCardMotions,
 } from '../game/presentation/card-motion';
-import { BotPresentationQueue } from '../game/presentation/bot-presentation-queue';
+import {
+  BotPresentationQueue,
+  BotPresentationSpeed,
+} from '../game/presentation/bot-presentation-queue';
 import {
   HiddenTableSeat,
   RemoteTableSeatPosition,
@@ -250,6 +253,14 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     const state = this.state();
     return state?.game_phase !== 'complete' && this.localPlayer()?.finished === true;
   });
+  protected readonly nextTransferDefenderHandCount = computed(() => {
+    const state = this.state();
+    if (state === null || !state.transfer_open || state.defender === null) return null;
+    const index = state.active_seats.indexOf(state.defender);
+    if (index < 0 || state.active_seats.length < 2) return null;
+    const target = state.active_seats[(index + 1) % state.active_seats.length];
+    return state.players.find((player) => player.seat === target)?.hand_count ?? null;
+  });
   protected placeLabel(rank: number): string {
     const safeRank = Math.min(4, Math.max(1, rank)) as 1 | 2 | 3 | 4;
     return this.i18n.t(`pvp.place${safeRank}`);
@@ -375,6 +386,13 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     else {
       this.lastHintDecisionKey = null;
       this.socket.clearHints();
+    }
+  }
+
+  protected setPresentationSpeed(event: Event): void {
+    const speed = (event.target as HTMLSelectElement).value;
+    if (speed === 'relaxed' || speed === 'normal' || speed === 'fast') {
+      this.presentation.setSpeed(speed as BotPresentationSpeed);
     }
   }
 
@@ -700,7 +718,9 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     if (state.available_actions.includes('INITIAL_ATTACK')) return this.i18n.t('pvp.attackPrompt');
     if (state.available_actions.includes('DEFEND'))
       return this.i18n.t('game.defendAgainst', { value: state.active_attack_value ?? 0 });
-    if (state.available_actions.includes('THROW_IN')) return this.i18n.t('game.mayThrow');
+    if (state.available_actions.includes('THROW_IN')) {
+      return this.i18n.t(state.capacity > 2 ? 'game.mayThrowOrPass' : 'game.mayThrow');
+    }
     return this.i18n.t('game.yourTurn');
   }
 
@@ -894,7 +914,7 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
       BOT_TRANSFER: 'game.botNamedTransfers',
       BOT_THROW_IN: 'game.botNamedThrows',
       BOT_TAKE: 'game.botNamedTakes',
-      BOT_BITO: 'game.botNamedPasses',
+      BOT_BITO: (state?.capacity ?? 2) > 2 ? 'game.botNamedPasses' : 'game.botNamedBito',
     };
     return this.i18n.t(key[event.type], {
       name,

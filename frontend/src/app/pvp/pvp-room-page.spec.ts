@@ -261,6 +261,7 @@ describe('PvPRoomPageComponent', () => {
   beforeEach(async () => {
     localStorage.removeItem('kiba.hintsEnabled');
     localStorage.removeItem('kiba.deckVariantsOnboarding.v1');
+    localStorage.removeItem('kiba.botPresentationSpeed');
     socket.state.set(makeState());
     socket.status.set('connected');
     socket.actionError.set(null);
@@ -311,6 +312,21 @@ describe('PvPRoomPageComponent', () => {
     expect(element.textContent).not.toContain('draw_pile');
   });
 
+  it('surfaces the local presentation-speed control only in a room containing bots', () => {
+    expect((fixture.nativeElement as HTMLElement).querySelector('.bot-speed-control')).toBeNull();
+
+    socket.state.set(makeMixedState(4, 2));
+    fixture.detectChanges();
+
+    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
+      '.bot-speed-control select',
+    )!;
+    expect(select.getAttribute('aria-label')).toBe('Темп ботов');
+    select.value = 'fast';
+    select.dispatchEvent(new Event('change'));
+    expect(localStorage.getItem('kiba.botPresentationSpeed')).toBe('fast');
+  });
+
   it.each([3, 4] as const)(
     'requests untouched initial hints when a %i-human decision becomes active',
     (capacity) => {
@@ -345,7 +361,7 @@ describe('PvPRoomPageComponent', () => {
       fixture.detectChanges();
       expect(socket.requestHints).not.toHaveBeenCalled();
 
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(1_500);
       fixture.detectChanges();
       expect(socket.requestHints).toHaveBeenCalledOnce();
       expect(socket.requestHints).toHaveBeenCalledWith([]);
@@ -420,6 +436,40 @@ describe('PvPRoomPageComponent', () => {
     expect(pass).toBeDefined();
     pass.click();
     expect(socket.sendAction).toHaveBeenCalledWith('BITO', []);
+  });
+
+  it('renders the same protocol action as BITO in a native two-player PvP match', () => {
+    socket.state.set(
+      makeState({
+        bout_phase: 'waiting_for_attacker_decision',
+        available_actions: ['BITO'],
+      }),
+    );
+    fixture.detectChanges();
+
+    const bito = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Бито',
+    ) as HTMLButtonElement;
+    expect(bito).toBeDefined();
+    bito.click();
+    expect(socket.sendAction).toHaveBeenCalledWith('BITO', []);
+  });
+
+  it('keeps Pass semantics when a multiplayer match is reduced to two active seats', () => {
+    socket.state.set(
+      makeMultiplayerState(4, 'one', {
+        active_seats: ['one', 'two'],
+        finished_seats: ['three', 'four'],
+        available_actions: ['BITO'],
+      }),
+    );
+    fixture.detectChanges();
+
+    const labels = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].map(
+      (button) => button.textContent?.trim(),
+    );
+    expect(labels).toContain('Пас');
+    expect(labels).not.toContain('Бито');
   });
 
   it('keeps stable seats while transfer changes defender and attacker roles', () => {
@@ -640,7 +690,7 @@ describe('PvPRoomPageComponent', () => {
       const element = fixture.nativeElement as HTMLElement;
       expect(element.textContent).toContain('Milo атакует');
       expect(element.querySelector('.motion-card.from-top.to-table')).not.toBeNull();
-      vi.advanceTimersByTime(520);
+      vi.advanceTimersByTime(1_500);
       fixture.detectChanges();
       expect(element.textContent).toContain('Нужно покрыть больше');
     } finally {
@@ -725,13 +775,13 @@ describe('PvPRoomPageComponent', () => {
       expect(element.querySelectorAll('.packet app-playing-card')).toHaveLength(1);
       expect(element.querySelector('.table-seat.is-required .seat-name')?.textContent).toBe('Nika');
 
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(1_500);
       fixture.detectChanges();
       element = fixture.nativeElement as HTMLElement;
       expect(element.textContent).toContain('Nika переводит');
       expect(element.querySelectorAll('.packet app-playing-card')).toHaveLength(2);
 
-      vi.advanceTimersByTime(800);
+      vi.advanceTimersByTime(1_800);
       fixture.detectChanges();
       expect(socket.requestHints).toHaveBeenCalledWith([]);
     } finally {

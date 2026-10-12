@@ -204,6 +204,7 @@ describe('GamePageComponent', () => {
     localStorage.removeItem('kiba.hintsEnabled');
     localStorage.removeItem('kiba.multiplayerOnboarding.v1');
     localStorage.removeItem('kiba.deckVariantsOnboarding.v1');
+    localStorage.removeItem('kiba.botPresentationSpeed');
     api = {
       getCapabilities: vi.fn().mockReturnValue(of({ multiplayer_3_4_enabled: false })),
       createGame: vi.fn(),
@@ -276,6 +277,24 @@ describe('GamePageComponent', () => {
     fixture.detectChanges();
     expect(element.textContent).toContain('Игра с ботами');
     expect(element.textContent).not.toContain('Не удалось начать игру');
+  });
+
+  it('shows a keyboard-native bot speed preference in setup and stores changes locally', () => {
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: true, deck_variants_enabled: true }),
+    );
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+
+    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
+      '.setup-speed select',
+    )!;
+    expect(select.getAttribute('aria-label')).toBe('Темп ботов');
+    expect(select.value).toBe('normal');
+    select.value = 'relaxed';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(localStorage.getItem('kiba.botPresentationSpeed')).toBe('relaxed');
   });
 
   it('keeps a genuine fresh-game creation failure visible after startup completes', () => {
@@ -456,7 +475,7 @@ describe('GamePageComponent', () => {
     expect(text).toContain('3-е место');
     expect(text).toContain('Матчи на 3–4 игроков пока не влияют');
     expect(text).not.toContain('XP');
-    expect(text).toContain('Изменить число игроков');
+    expect(text).toContain('В меню');
   });
 
   it('keeps the table visible and removes controls while the finished human observes bots', () => {
@@ -750,6 +769,21 @@ describe('GamePageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.motion-card')).toBeNull();
   });
 
+  it('keeps setup visible after an explicit leave and refresh instead of resurrecting a game', () => {
+    sessionStorage.setItem('kiba.botSetupRequested', 'true');
+    api.getCapabilities.mockReturnValue(
+      of({ multiplayer_3_4_enabled: true, deck_variants_enabled: true }),
+    );
+
+    fixture = TestBed.createComponent(GamePageComponent);
+    fixture.detectChanges();
+
+    expect(api.getGame).not.toHaveBeenCalled();
+    expect(api.createGame).not.toHaveBeenCalled();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.bot-setup')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Игра с ботами');
+  });
+
   it('shows a recovery loading state without flashing a replacement game', () => {
     sessionStorage.setItem('kiba.activeBotGameId', 'progressed-game');
     const recovery = new Subject<GameResponse>();
@@ -1026,7 +1060,7 @@ describe('GamePageComponent', () => {
         ['Milo подкидывает', 4, 'Otto'],
         ['Nika покрывает', 5, null],
       ] as const;
-      const durations = [500, 800, 600, 650, 600];
+      const durations = [1_500, 1_800, 1_600, 1_650, 1_600];
       for (let index = 0; index < expected.length; index += 1) {
         fixture.detectChanges();
         const element = fixture.nativeElement as HTMLElement;
@@ -1453,7 +1487,7 @@ describe('GamePageComponent', () => {
     expect(text).toContain('Перевести');
     expect(text).toContain('Подкинуть');
     expect(text).toContain('Взять');
-    expect(text).toContain('Пас');
+    expect(text).toContain('Бито');
     api.submitAction.mockReturnValue(of(makeGame()));
     clickButton('Взять');
     expect(api.submitAction).toHaveBeenCalledWith('game-1', 'TAKE', []);
@@ -1478,6 +1512,65 @@ describe('GamePageComponent', () => {
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'совпадает с целью перевода',
+    );
+  });
+
+  it('prevents the screenshot-style exact transfer when the next defender has only five cards', () => {
+    const base = makeMultiplayerGame(3);
+    const transferCards = [
+      card('6C', '6', 'clubs', 12, true),
+      card('7H', '7', 'hearts', 14, true),
+      card('7S', '7', 'spades', 14, true),
+    ];
+    const attackCards = [
+      card('10D', '10', 'diamonds', 10),
+      card('10H', '10', 'hearts', 10),
+      card('8H', '8', 'hearts', 8),
+      card('JD', 'J', 'diamonds', 12),
+    ];
+    const packet = {
+      attack_cards: attackCards,
+      attack_value: 40,
+      defense_cards: [],
+      defense_value: null,
+      closed: false,
+      throw_in_reasons: [],
+    };
+    create(
+      makeMultiplayerGame(3, {
+        human_hand: transferCards,
+        participants: base.participants.map((participant) =>
+          participant.seat === 'two' ? { ...participant, hand_count: 5 } : participant,
+        ),
+        attacker: 'two',
+        lead_attacker: 'two',
+        defender: 'one',
+        required_actor: 'HUMAN',
+        required_seat: 'one',
+        bout_phase: 'waiting_for_defender_response',
+        table_cards: attackCards,
+        packets: [packet],
+        active_packet: packet,
+        active_attack_value: 40,
+        attack_card_limit: 7,
+        total_attack_card_count: 4,
+        max_attack_card_addition: 3,
+        transfer_open: true,
+        available_actions: ['DEFEND', 'TRANSFER', 'TAKE'],
+      }),
+    );
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelectorAll<HTMLButtonElement>('app-hand .playing-card')
+      .forEach((button) => button.click());
+    fixture.detectChanges();
+
+    const transfer = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Перевести',
+    ) as HTMLButtonElement;
+    expect(transfer.disabled).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'После перевода будет 7 атакующих карт, а у следующего защитника только 5 карт',
     );
   });
 
@@ -1536,28 +1629,29 @@ describe('GamePageComponent', () => {
     expect(defend?.disabled).toBe(true);
   });
 
-  it('asks before replacing an active game', () => {
+  it('asks before leaving an active game', () => {
     create();
-    clickButton('Новая игра');
+    clickButton('Покинуть игру');
 
     const dialog = (fixture.nativeElement as HTMLElement).querySelector('[role="dialog"]');
-    expect(dialog?.textContent).toContain('Текущая партия будет потеряна');
+    expect(dialog?.textContent).toContain('Незавершённая партия не будет засчитана');
     expect(api.createGame).toHaveBeenCalledOnce();
 
-    clickButton('Отмена');
+    clickButton('Остаться');
     expect((fixture.nativeElement as HTMLElement).querySelector('[role="dialog"]')).toBeNull();
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-1');
   });
 
-  it('suppresses the turn reminder behind the New Game modal and restarts it after cancel', () => {
+  it('suppresses the turn reminder behind the Leave modal and restarts it after cancel', () => {
     create();
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('app-turn-reminder'),
     ).not.toBeNull();
 
-    clickButton('Новая игра');
+    clickButton('Покинуть игру');
     expect((fixture.nativeElement as HTMLElement).querySelector('app-turn-reminder')).toBeNull();
 
-    clickButton('Отмена');
+    clickButton('Остаться');
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('app-turn-reminder'),
     ).not.toBeNull();
@@ -1595,10 +1689,10 @@ describe('GamePageComponent', () => {
     );
   });
 
-  it('keeps keyboard focus inside the New Game dialog and restores it on Escape', async () => {
+  it('keeps keyboard focus inside the Leave dialog and restores it on Escape', async () => {
     create();
     const trigger = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === 'Новая игра',
+      (button) => button.textContent?.trim() === 'Покинуть игру',
     ) as HTMLButtonElement;
     trigger.focus();
     trigger.click();
@@ -1626,29 +1720,21 @@ describe('GamePageComponent', () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it('keeps the previous recovery reference when replacement creation fails', () => {
+  it('confirmed abandonment clears resume state and returns to setup without creating a result', () => {
     create();
-    api.createGame.mockReturnValue(
-      throwError(() => new HttpErrorResponse({ status: 503, statusText: 'Unavailable' })),
-    );
-
-    clickButton('Новая игра');
-    clickButton('Начать');
-
-    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-1');
-    expect((fixture.nativeElement as HTMLElement).querySelector('.game-board')).not.toBeNull();
-  });
-
-  it('replaces the recovery reference only after a confirmed new game succeeds', () => {
-    create();
-    api.createGame.mockReturnValue(of(makeGame({ game_id: 'game-2' })));
-
-    clickButton('Новая игра');
+    clickButton('Покинуть игру');
     expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-1');
 
-    clickButton('Начать');
-    expect(api.createGame).toHaveBeenCalledTimes(2);
-    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-2');
+    const confirm = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.restart-confirmation button:last-child',
+    )!;
+    confirm.click();
+    fixture.detectChanges();
+    expect(api.createGame).toHaveBeenCalledOnce();
+    expect(api.restartGame).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem('kiba.activeBotGameId')).toBeNull();
+    expect(sessionStorage.getItem('kiba.botSetupRequested')).toBe('true');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.bot-setup')).not.toBeNull();
   });
 
   it.each([
@@ -1690,6 +1776,23 @@ describe('GamePageComponent', () => {
     expect(api.restartGame).toHaveBeenCalledWith('game-1');
     expect(sessionStorage.getItem('kiba.activeBotGameId')).toBe('game-2');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Ваш ход');
+  });
+
+  it('returns a completed result to setup without replaying or duplicating persistence', () => {
+    create(
+      makeGame({
+        phase: 'complete',
+        result: { outcome: 'WIN', winner: 'HUMAN', winner_seat: 'one' },
+        result_saved: true,
+        available_actions: [],
+      }),
+    );
+
+    clickButton('В меню');
+
+    expect(api.restartGame).not.toHaveBeenCalled();
+    expect(api.createGame).toHaveBeenCalledOnce();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.bot-setup')).not.toBeNull();
   });
 
   it('restores a completed result and keeps Play Again available', () => {
@@ -1846,7 +1949,7 @@ describe('GamePageComponent', () => {
     const actions = (fixture.nativeElement as HTMLElement).querySelector('.result-actions');
     expect(actions?.querySelector('button')?.textContent).toContain('Сыграть ещё');
     expect(actions?.querySelector('.result-register')?.textContent).toContain('Создать аккаунт');
-    expect(actions?.children).toHaveLength(2);
+    expect(actions?.children).toHaveLength(3);
   });
 
   it('keeps physical table-card ghosts visible while presenting a confirmed bot TAKE', () => {
@@ -1898,7 +2001,7 @@ describe('GamePageComponent', () => {
       expect(element.querySelector('app-game-table')?.textContent).toContain('Стол пуст');
       expect(element.querySelectorAll('.motion-card.from-table.to-top')).toHaveLength(1);
 
-      vi.advanceTimersByTime(1_000);
+      vi.advanceTimersByTime(1_800);
       fixture.detectChanges();
       element = fixture.nativeElement as HTMLElement;
       expect(element.querySelector('app-game-table')?.textContent).toContain('Стол пуст');
@@ -1954,10 +2057,10 @@ describe('GamePageComponent', () => {
 
       expect(TestBed.inject(GameSessionState).game()).toBe(updated);
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milo атакует');
-      vi.advanceTimersByTime(520);
+      vi.advanceTimersByTime(1_500);
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('Nika переводит');
-      vi.advanceTimersByTime(800);
+      vi.advanceTimersByTime(1_800);
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('Otto: пас');
     } finally {
@@ -2143,9 +2246,9 @@ describe('GamePageComponent', () => {
     fixture.detectChanges();
     clickButton('Покрыть');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
-      'Можно подкинуть карты или выбрать «Пас»',
+      'Можно подкинуть карты или объявить «Бито»',
     );
-    clickButton('Пас');
+    clickButton('Бито');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Вы победили! 🏆');
     expect(api.submitAction).toHaveBeenCalledTimes(3);
   });

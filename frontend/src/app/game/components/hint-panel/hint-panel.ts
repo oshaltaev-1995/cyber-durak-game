@@ -22,6 +22,7 @@ export class HintPanelComponent {
   readonly loading = input(false);
   readonly cards = input<readonly GameCard[]>([]);
   readonly combinations = input<readonly HintCombination[]>([]);
+  readonly bitoAsPass = input(false);
   readonly enabledChange = output<boolean>();
 
   protected reason(reason: HintReasonType): string {
@@ -29,7 +30,9 @@ export class HintPanelComponent {
   }
 
   protected action(action: HumanActionType, reason: HintReasonType): string {
-    if (action === 'BITO' && reason === 'pass') return this.i18n.t('action.PASS');
+    if (action === 'BITO' && reason === 'pass' && this.bitoAsPass()) {
+      return this.i18n.t('action.PASS');
+    }
     return this.i18n.t(`action.${action}` as TranslationKey);
   }
 

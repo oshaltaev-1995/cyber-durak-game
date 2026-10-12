@@ -23,6 +23,7 @@ import {
   GameResponse,
   HintResponse,
   HumanActionType,
+  Seat,
 } from '../core/api/game-api.models';
 import { GameApiService } from '../core/api/game-api.service';
 import { AuthService } from '../core/auth/auth.service';
@@ -45,7 +46,7 @@ import { TrumpIndicatorComponent } from './components/trump-indicator/trump-indi
 import { TurnReminderComponent } from './components/turn-reminder/turn-reminder';
 import { GameSessionState } from './game-session-state';
 import { CardMotionController, MotionSnapshot, planCardMotions } from './presentation/card-motion';
-import { BotPresentationQueue } from './presentation/bot-presentation-queue';
+import { BotPresentationQueue, BotPresentationSpeed } from './presentation/bot-presentation-queue';
 import {
   HiddenTableSeat,
   RemoteTableSeatPosition,
@@ -230,6 +231,12 @@ export class GamePageComponent implements OnInit, OnDestroy {
       participant: game.participants.find((participant) => participant.seat === placement.seat),
     }));
   });
+  protected readonly nextTransferDefenderHandCount = computed(() => {
+    const game = this.game();
+    if (game === null || !game.transfer_open || game.defender === null) return null;
+    const target = this.nextActiveSeat(game.active_seats, game.defender);
+    return game.participants.find((participant) => participant.seat === target)?.hand_count ?? null;
+  });
   private submittedAction: HumanActionType | null = null;
   private submittedCards: readonly GameCard[] = [];
   private hintSubscription: Subscription | null = null;
@@ -260,6 +267,11 @@ export class GamePageComponent implements OnInit, OnDestroy {
     if (gameId !== null) {
       this.loadCapabilities(false);
       this.restoreGame(gameId);
+      return;
+    }
+    if (this.storedSession.setupRequested()) {
+      this.showSetup.set(true);
+      this.loadCapabilities(false);
       return;
     }
     this.loadCapabilities(true);
@@ -384,6 +396,13 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.errorKey.set(null);
   }
 
+  protected setPresentationSpeed(event: Event): void {
+    const speed = (event.target as HTMLSelectElement).value;
+    if (speed === 'relaxed' || speed === 'normal' || speed === 'fast') {
+      this.presentation.setSpeed(speed as BotPresentationSpeed);
+    }
+  }
+
   protected playAgain(): void {
     const game = this.game();
     if (game === null || this.interactionLocked()) return;
@@ -422,15 +441,13 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.restartConfirmation.set(false);
     this.onboardingVisible.set(false);
     this.deckOnboardingVisible.set(false);
-    this.storedSession.clear();
+    this.storedSession.requestSetup();
     this.game.set(null);
-    if (this.multiplayerEnabled() || this.deckVariantsEnabled()) this.showSetup.set(true);
-    else this.startNewGame(2);
+    this.showSetup.set(true);
   }
 
   protected confirmNewGame(): void {
-    if (this.isMultiplayer()) this.changePlayers();
-    else this.startNewGame(this.game()?.total_players ?? 2);
+    this.changePlayers();
   }
 
   protected dismissOnboarding(): void {
@@ -964,7 +981,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
             })
           : this.i18n.t('game.botTakesCards');
       case 'BOT_BITO':
-        return this.i18n.t('game.endBout');
+        return this.i18n.t('game.botNamedBito', { name });
     }
   }
 
@@ -1016,6 +1033,12 @@ export class GamePageComponent implements OnInit, OnDestroy {
       game?.participants.find((participant) => participant.seat === seat)?.display_name ??
       this.i18n.t('game.bot')
     );
+  }
+
+  private nextActiveSeat(activeSeats: readonly Seat[], seat: Seat): Seat | null {
+    if (activeSeats.length < 2) return null;
+    const index = activeSeats.indexOf(seat);
+    return index < 0 ? null : (activeSeats[(index + 1) % activeSeats.length] ?? null);
   }
 
   private opponentSeatsFor(game: GameResponse): readonly HiddenTableSeat[] {

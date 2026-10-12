@@ -16,7 +16,11 @@ export class ActionBarComponent {
   readonly selectedCards = input.required<readonly GameCard[]>();
   readonly legalActionTypes = input<readonly HumanActionType[] | null>(null);
   readonly activeAttackValue = input<number | null>(null);
+  readonly activeAttackCards = input<readonly GameCard[]>([]);
+  readonly totalAttackCardCount = input<number | null>(null);
+  readonly nextDefenderHandCount = input<number | null>(null);
   readonly maxAttackCardAddition = input<number | null>(null);
+  readonly bitoAsPass = input(false);
   readonly pending = input(false);
   readonly actionSelected = output<HumanActionType>();
 
@@ -72,6 +76,13 @@ export class ActionBarComponent {
     ) {
       return true;
     }
+    if (action === 'TRANSFER') {
+      return (
+        this.nextDefenderHandCount() === null ||
+        !this.transferValueMatches() ||
+        this.transferExceedsNewDefenderCap()
+      );
+    }
     return action === 'DEFEND' && this.defenseHasRedundantCard();
   }
 
@@ -90,7 +101,16 @@ export class ActionBarComponent {
     const target = this.activeAttackValue();
     if (target === null) return null;
     const selected = this.selectedTotal();
-    if (this.actions().includes('TRANSFER') && selected === target) {
+    if (this.actions().includes('TRANSFER') && this.nextDefenderHandCount() === null) {
+      return this.i18n.t('game.transferNoTarget');
+    }
+    if (this.actions().includes('TRANSFER') && this.transferExceedsNewDefenderCap()) {
+      return this.i18n.t('game.transferExceedsDefenderCap', {
+        count: (this.totalAttackCardCount() ?? 0) + count,
+        limit: this.nextDefenderHandCount() ?? 0,
+      });
+    }
+    if (this.actions().includes('TRANSFER') && this.transferValueMatches()) {
       return this.i18n.t('game.transferMatches', { selected, target });
     }
     if (this.actions().includes('DEFEND')) {
@@ -103,12 +123,42 @@ export class ActionBarComponent {
       });
     }
     if (this.actions().includes('TRANSFER')) {
-      return this.i18n.t(selected === target ? 'game.transferMatches' : 'game.transferNeedsExact', {
-        selected,
-        target,
-      });
+      return this.i18n.t(
+        this.transferValueMatches() ? 'game.transferMatches' : 'game.transferNeedsExact',
+        {
+          selected,
+          target,
+        },
+      );
     }
     return null;
+  }
+
+  private transferExceedsNewDefenderCap(): boolean {
+    const existing = this.totalAttackCardCount();
+    const cap = this.nextDefenderHandCount();
+    return existing !== null && cap !== null && existing + this.selectedCards().length > cap;
+  }
+
+  private transferValueMatches(): boolean {
+    const target = this.activeAttackValue();
+    const selected = this.selectedCards();
+    if (target === null || selected.length === 0) return false;
+    if (this.selectedTotal() === target) return true;
+    const attack = this.activeAttackCards();
+    if (attack.length === 0) return false;
+    const rank = attack[0].rank;
+    if (
+      !attack.every((card) => card.rank === rank) ||
+      !selected.every((card) => card.rank === rank)
+    ) {
+      return false;
+    }
+    let totals = new Set([0]);
+    for (const card of selected) {
+      totals = new Set([...totals, ...[...totals].map((value) => value + card.effective_value)]);
+    }
+    return totals.has(target);
   }
 
   private defenseHasRedundantCard(): boolean {
@@ -122,7 +172,7 @@ export class ActionBarComponent {
   }
 
   protected actionLabel(action: HumanActionType): string {
-    if (action === 'BITO') return this.i18n.t('action.PASS');
+    if (action === 'BITO' && this.bitoAsPass()) return this.i18n.t('action.PASS');
     return this.i18n.t(`action.${action}` as TranslationKey);
   }
 }

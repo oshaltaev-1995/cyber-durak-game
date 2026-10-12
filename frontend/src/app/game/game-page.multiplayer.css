@@ -81,6 +81,11 @@
   font-size: 0.82rem;
 }
 
+.setup-speed {
+  justify-content: space-between;
+  font-size: 0.82rem;
+}
+
 .multiplayer-guide-link {
   min-height: 2.75rem;
   display: inline-grid;

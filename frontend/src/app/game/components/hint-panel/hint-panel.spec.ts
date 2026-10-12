@@ -98,7 +98,7 @@ describe('HintPanelComponent', () => {
     expect(text).not.toContain('KC');
   });
 
-  it('labels cardless Pass and Take by their actual actions', () => {
+  it('labels native two-player BITO and Take by their actual actions', () => {
     i18n.setLocale('ru');
     fixture.componentRef.setInput('combinations', [
       {
@@ -120,8 +120,26 @@ describe('HintPanelComponent', () => {
     ]);
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Пас');
+    expect(text).toContain('Бито');
     expect(text).toContain('Взять');
+  });
+
+  it('labels the same protocol action as Pass in multiplayer', () => {
+    i18n.setLocale('ru');
+    fixture.componentRef.setInput('bitoAsPass', true);
+    fixture.componentRef.setInput('combinations', [
+      {
+        action: 'BITO',
+        card_ids: [],
+        added_card_ids: [],
+        reason: 'pass',
+        selected_value: 0,
+        target_value: null,
+      },
+    ]);
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Пас');
     expect(text).not.toContain('Бито');
   });
 

@@ -38,6 +38,20 @@
             })
           }}</span>
         }
+        @if (game.bot_count > 0) {
+          <label class="bot-speed-control compact-speed">
+            <span>{{ i18n.t('game.botSpeed') }}</span>
+            <select
+              [value]="presentation.speed()"
+              [attr.aria-label]="i18n.t('game.botSpeed')"
+              (change)="setPresentationSpeed($event)"
+            >
+              <option value="relaxed">{{ i18n.t('game.botSpeedRelaxed') }}</option>
+              <option value="normal">{{ i18n.t('game.botSpeedNormal') }}</option>
+              <option value="fast">{{ i18n.t('game.botSpeedFast') }}</option>
+            </select>
+          </label>
+        }
         @if (game.room_phase !== 'CLOSED') {
           <button #leaveTrigger class="new-game" type="button" (click)="requestLeave()">
             {{ i18n.t('pvp.exit') }}
@@ -603,6 +617,7 @@
               [loading]="socket.hintPending()"
               [cards]="game.hand"
               [combinations]="socket.hints()?.combinations ?? []"
+              [bitoAsPass]="game.capacity > 2"
               (enabledChange)="setHintsEnabled($event)"
             />
             <app-action-bar
@@ -610,7 +625,11 @@
               [selectedCards]="selectedCards()"
               [legalActionTypes]="socket.hints()?.legal_action_types ?? null"
               [activeAttackValue]="game.active_attack_value"
+              [activeAttackCards]="game.active_packet?.attack_cards ?? []"
+              [totalAttackCardCount]="game.total_attack_card_count"
+              [nextDefenderHandCount]="nextTransferDefenderHandCount()"
               [maxAttackCardAddition]="game.max_attack_card_addition"
+              [bitoAsPass]="game.capacity > 2"
               [pending]="socket.actionPending() || gameplayPaused()"
               (actionSelected)="submitAction($event)"
             />

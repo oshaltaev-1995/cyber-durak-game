@@ -31,4 +31,16 @@ describe('BotGameSessionStore', () => {
     expect(store.get()).toBeNull();
     expect(sessionStorage.getItem('kiba.activeBotGameId')).toBeNull();
   });
+
+  it('persists an explicit setup request across refresh and clears it on the next game', () => {
+    store.save('game-42');
+    store.requestSetup();
+
+    expect(store.get()).toBeNull();
+    expect(store.setupRequested()).toBe(true);
+
+    store.save('game-43');
+    expect(store.get()).toBe('game-43');
+    expect(store.setupRequested()).toBe(false);
+  });
 });

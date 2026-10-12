@@ -568,6 +568,10 @@ button:disabled {
 }
 
 @media (max-width: 35rem) {
+  .game-utilities {
+    flex-wrap: wrap;
+  }
+
   .game-shell {
     height: auto;
     overflow: visible;

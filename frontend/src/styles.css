@@ -18,6 +18,36 @@
   text-rendering: optimizeLegibility;
 }
 
+.bot-speed-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.bot-speed-control select {
+  min-height: 2.25rem;
+  padding: 0.25rem 1.8rem 0.25rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  color: var(--text-strong);
+  background: #0b2725;
+  font: inherit;
+}
+
+.bot-speed-control select:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 35rem) {
+  .compact-speed {
+    order: 3;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

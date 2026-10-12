@@ -1547,8 +1547,9 @@ and selection.
 An enabled Hint preference triggers exactly once when a new local decision becomes actionable and the
 presentation lock has cleared, including restore and mixed rooms; waiting or finished participants do
 not request hints. An equal-version connection-state rebroadcast retains the still-valid Hint payload;
-a new gameplay version invalidates it. Cardless attacker-phase BITO suggestions are displayed as Pass/Пас, TAKE remains
-Take/Взять, and throw-in matching against the latest defense total uses its own structured reason
+a new gameplay version invalidates it. R12 displayed the overloaded cardless attacker-phase `BITO`
+transport intent as Pass/Пас in every mode; the post-v2.1 semantic split in 15.21 supersedes that
+presentation choice. TAKE remains Take/Взять, and throw-in matching against the latest defense total uses its own structured reason
 instead of defense-sufficiency wording. Early-finished humans see a single observer message and the
 remaining table, with no hand, prompt, timer, Hint or action controls. Russian named TAKE summaries
 use the neutral present-tense `забирает` form with the existing 1/2/5/11/21 card inflection.
@@ -1557,9 +1558,10 @@ use the neutral present-tense `забирает` form with the existing 1/2/5/11
 
 R13 changes presentation only. In hands of 17 or more cards, a suggested card uses a compact star
 badge in the exposed leading strip while its button accessibility label retains the complete
-localized Hint meaning. Effective-value and selected-card treatments remain unchanged. Every
-attacker command represented by the transport `BITO` action is labeled Pass/Пас in controls and
-attacker-phase status copy; actual completed-bout/discard terminology remains BITO/Бито. A local
+localized Hint meaning. Effective-value and selected-card treatments remain unchanged. R13
+temporarily labeled every attacker command represented by the transport `BITO` action as Pass/Пас;
+the original-match-mode distinction in 15.21 supersedes that over-normalization. Actual
+completed-bout/discard terminology remains BITO/Бито. A local
 participant who has already finished sees neutral empty-table observer copy until the match becomes
 terminal.
 
@@ -1569,6 +1571,65 @@ packet, below the sticky heading. Mutations within the same packet do not repeat
 viewport. A user scroll away from the live edge suspends automatic positioning; returning to the
 bottom restores it. Terminal tables retain their content-sized, bounded layout and do not
 auto-position.
+
+### 15.21 Post-v2.1 turn-flow and bot-game lifecycle hardening
+
+The production three-player screenshot was a legal uninterrupted transfer chain, not a second
+attacker acting before defense. With exposed `7♣`, Yuki's initial `10♦ + 10♥` made target 20 and
+reduced Yuki from seven cards to five. Mika, then the defender, transferred with `8♥ + J♦ = 20`,
+joined those cards to the same unresolved packet, reduced Mika from seven to five, and made the
+human the new defender against target 40. No independent attacker phase occurred. The attempted
+human transfer `6♣ + 7♥ + 7♠ = 40` would have made seven physical attack cards against the next
+defender's five-card hand, so the authoritative rejection was correct.
+
+The role projection follows the canonical meanings from `MULTIPLAYER_RULES.md`: the lead attacker
+anchors the bout's eventual phase order; `attacker` is the non-defender who owns the current or next
+attacker phase; the defender alone owns an unresolved-packet response; and the required actor is
+derived from the phase. A transferor is not presented as an independently active attacker while the
+new defender is answering. The lead remains the projected attacker unless a wraparound transfer
+makes that lead the new defender, in which case the transferor becomes both new lead and projected
+attacker. Test-only traces record phase, lead, attacker, defender, required seat, physical attack
+count, current defender cap, and closed attacker phases without exposing hidden hands.
+
+Lead-only atomic opening was already enforced by the engine and both bot/PvP cascade adapters stop
+at the authoritative defender after it. A bot cascade also stops when attacker priority reaches a
+human with a legal throw-in. The existing automatic close of a multiplayer attacker phase with no
+legal addition is deliberately retained because section 5.3 of `MULTIPLAYER_RULES.md` defines that
+rules-level transition; it is not a synthesized human Pass. A human with a legal addition always
+receives `THROW_IN` plus the explicit overloaded `BITO` transport intent.
+
+Transfer prevalidation remains advisory and the backend remains final. The client now checks the
+public transfer window/action, exact or same-rank-extended value basis, next active clockwise
+defender, existing plus selected physical attack count, and that defender's current hand cap. A
+matching sum that exceeds the new cap is disabled with a cap-specific explanation instead of being
+advertised as valid.
+
+The `BITO` transport action has two UI meanings derived from original match capacity, never from
+the current unfinished-player count. Native two-player bot and human PvP show **BITO / Бито**.
+Three/four-player and mixed matches show **Pass / Пас**, including after reduction to two active
+seats. Buttons, Hint suggestions, status copy, bot captions, and accessible names use the same
+mode-aware mapping.
+
+Bot transition pacing remains client-only. A local `kiba.botPresentationSpeed` preference defaults
+to Normal and is available only where bots are present. Meaningful action dwell is:
+
+- Relaxed: attack 2000 ms, defense/throw-in 2100 ms, transfer/take 2300 ms;
+- Normal: attack 1500 ms, defense 1600 ms, throw-in 1650 ms, transfer/take 1800 ms;
+- Fast: attack 500 ms, defense/throw-in 550 ms, transfer 650 ms, take 700 ms.
+
+Pass/BITO uses the shorter 800/600/350 ms dwell. Long sequences are bounded at 30/20/9 seconds
+without dropping or reordering events. A speed change affects only subsequently scheduled steps.
+Reduced-motion removes travel elsewhere but retains a readable sequential dwell of at least 600
+ms.
+
+An active bot game exposes one secondary **Leave game / Покинуть игру** path. Confirmation is local
+and truthful: process-local server sessions persist only until TTL, while completed results, XP,
+and rewards are recorded only at terminal completion. Confirming stops presentation, clears the
+tab's active-game resume ID, records a tab-local setup request, and returns to setup without an API
+action, replacement match, or fake result. Reload resumes before explicit leave; after leave it
+keeps setup visible. A terminal **Play Again** still restarts the same server session/configuration;
+**Back to menu** clears only the active result view and returns to setup without replaying or
+duplicating the already persisted result.
 
 ## 16. Suggested implementation phases
 

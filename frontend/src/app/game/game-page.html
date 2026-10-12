@@ -44,6 +44,18 @@
               (deckCountChange)="selectDeckCount($event)"
             />
           }
+          <label class="bot-speed-control setup-speed">
+            <span>{{ i18n.t('game.botSpeed') }}</span>
+            <select
+              [value]="presentation.speed()"
+              [attr.aria-label]="i18n.t('game.botSpeed')"
+              (change)="setPresentationSpeed($event)"
+            >
+              <option value="relaxed">{{ i18n.t('game.botSpeedRelaxed') }}</option>
+              <option value="normal">{{ i18n.t('game.botSpeedNormal') }}</option>
+              <option value="fast">{{ i18n.t('game.botSpeedFast') }}</option>
+            </select>
+          </label>
           <p class="player-composition">
             {{
               i18n.t(
@@ -120,6 +132,18 @@
             })
           }}</span>
         }
+        <label class="bot-speed-control compact-speed">
+          <span>{{ i18n.t('game.botSpeed') }}</span>
+          <select
+            [value]="presentation.speed()"
+            [attr.aria-label]="i18n.t('game.botSpeed')"
+            (change)="setPresentationSpeed($event)"
+          >
+            <option value="relaxed">{{ i18n.t('game.botSpeedRelaxed') }}</option>
+            <option value="normal">{{ i18n.t('game.botSpeedNormal') }}</option>
+            <option value="fast">{{ i18n.t('game.botSpeedFast') }}</option>
+          </select>
+        </label>
         <button
           #newGameTrigger
           class="new-game"
@@ -127,7 +151,7 @@
           [disabled]="pending()"
           (click)="requestNewGame()"
         >
-          {{ i18n.t('game.new') }}
+          {{ i18n.t('game.leaveGame') }}
         </button>
       </div>
 
@@ -320,20 +344,15 @@
             <button type="button" [disabled]="pending()" (click)="playAgain()">
               {{ i18n.t('game.playAgain') }}
             </button>
-            @if (
-              currentGame.total_players > 2 ||
-              currentGame.deck_profile !== 'classic' ||
-              currentGame.deck_count !== 1
-            ) {
-              <button
-                type="button"
-                class="secondary"
-                [disabled]="pending()"
-                (click)="changePlayers()"
-              >
-                {{ i18n.t('game.changePlayers') }}
-              </button>
-            } @else if (!currentGame.account_associated && !auth.currentUser()) {
+            <button
+              type="button"
+              class="secondary"
+              [disabled]="pending()"
+              (click)="changePlayers()"
+            >
+              {{ i18n.t('game.backToMenu') }}
+            </button>
+            @if (!currentGame.account_associated && !auth.currentUser()) {
               <a class="result-register" routerLink="/register">{{
                 i18n.t('game.createAccount')
               }}</a>
@@ -392,6 +411,7 @@
             [loading]="hintsLoading()"
             [cards]="currentGame.human_hand"
             [combinations]="hints()?.combinations ?? []"
+            [bitoAsPass]="currentGame.total_players > 2"
             (enabledChange)="setHintsEnabled($event)"
           />
           <app-action-bar
@@ -399,7 +419,11 @@
             [selectedCards]="selectedCards()"
             [legalActionTypes]="hints()?.legal_action_types ?? null"
             [activeAttackValue]="currentGame.active_attack_value"
+            [activeAttackCards]="currentGame.active_packet?.attack_cards ?? []"
+            [totalAttackCardCount]="currentGame.total_attack_card_count"
+            [nextDefenderHandCount]="nextTransferDefenderHandCount()"
             [maxAttackCardAddition]="currentGame.max_attack_card_addition"
+            [bitoAsPass]="currentGame.total_players > 2"
             [pending]="interactionLocked()"
             (actionSelected)="submitAction($event)"
           />
@@ -418,13 +442,13 @@
           (keydown)="handleRestartKeydown($event)"
         >
           <div>
-            <strong id="restart-title">{{ i18n.t('game.restartTitle') }}</strong>
-            <span id="restart-description">{{ i18n.t('game.restartDescription') }}</span>
+            <strong id="restart-title">{{ i18n.t('game.leaveTitle') }}</strong>
+            <span id="restart-description">{{ i18n.t('game.leaveDescription') }}</span>
           </div>
           <button #restartCancel type="button" class="cancel" (click)="cancelNewGame()">
-            {{ i18n.t('common.cancel') }}
+            {{ i18n.t('game.stay') }}
           </button>
-          <button type="button" (click)="confirmNewGame()">{{ i18n.t('game.start') }}</button>
+          <button type="button" (click)="confirmNewGame()">{{ i18n.t('game.leaveGame') }}</button>
         </section>
       </div>
     }

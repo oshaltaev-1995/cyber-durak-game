@@ -253,6 +253,8 @@ def test_three_player_bot_transfers_to_next_clockwise_seat() -> None:
     assert action == BotAction(BotActionType.TRANSFER, nines)
     assert transferred.active_bout is not None
     assert transferred.active_bout.defender is Seat.THREE
+    assert transferred.active_bout.lead_attacker is Seat.ONE
+    assert transferred.active_bout.attacker is Seat.ONE
 
 
 def test_four_player_bot_transfer_chain_can_wrap_to_human() -> None:
