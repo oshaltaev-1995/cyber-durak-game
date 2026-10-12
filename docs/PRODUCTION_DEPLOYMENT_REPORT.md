@@ -746,3 +746,57 @@ No backend, database, Caddy, Husky, Kennel, Amnezia, Docker-runtime, firewall, S
 or kernel configuration was changed. `public-beta-v1` remains at
 `9402832343c72130f0bd319d13ee32af7d95041a` and `public-beta-v2` remains at
 `425fae41056906fcbbeb6754ee9c5e7d0467acf6`; no v2.1 or other release tag was created.
+
+## Post-v2.1 game-flow hardening deployment (2026-10-12)
+
+Application commit `5825cf02d5d1b16e95b954fd595b214135c789e0` was deployed over application
+revision `c45ce1025683b3bcf443ea9b60a3e939e90c0f59`. The reported three-player state was
+reproduced as a legal transfer chain: the lead bot's two-card atomic opening was followed by the
+initial defender's equal-value two-card Transfer, not an independent second-attacker throw-in. The
+backend now projects the actual next attacker-phase owner after Transfer, while the frontend also
+checks the next active defender's public hand cap before advertising a Transfer as legal. Native
+two-player controls and Hints again say BITO/Бито; multiplayer retains Pass/Пас. Bot games add
+client-local Relaxed/Normal/Fast presentation pacing, confirmed Leave-to-setup behavior, and terminal
+Back to menu without changing engine timing or persistence.
+
+Local validation passed `npm ci`, frontend lint and formatting, all 476 tests in 43 files, the
+production build, backend lint and formatting, all 867 backend tests, and `git diff --check`.
+Deterministic coverage includes 3-/4-player lead-only atomic openings, bot-cascade stops, human
+attacker priority, 3-/4-player and finished-seat Transfer tables, the exact 4+3 versus five-card cap
+rejection, bot Transfer, native-2p versus multiplayer BITO/Pass presentation, setup/resume/Leave/
+Play Again/Back to menu lifecycle, and all three presentation speeds. Local browser acceptance
+covered 1440x900, 1440x720, 1366x768, 1280x800, 390x844 and 430x932 without horizontal overflow.
+
+Immediately before deployment, `kiba-backup.service` created and verified
+`/var/backups/kiba/kiba-20261012T081700Z.dump` (28,796 bytes). The reviewed source archive SHA-256
+was `9412b542ee6fa47d223179bb7b9e47312d82d05457d2605ebc72c41c22f36631`. The prior source remains
+at `/opt/kiba/releases/app-before-post-v21-c45ce102-20261012T0818Z`; the prior backend and frontend
+images are retained under the `post-v21-rollback-c45ce102` tags. Backend and frontend were built
+serially and recreated separately. PostgreSQL retained container identity `994cd603b40f`; no
+migration was added or run and its volume was untouched.
+
+Production runs backend image
+`sha256:292b345759ca68a495cc2bad6b0aef7e021da9bb8a4081fabda92a3684672d78` and frontend image
+`sha256:b465c2dba0bb3b4e70aa824aee0a55804e735894c990b830b1d7274543914b05`. Live bot acceptance
+showed a single four-player atomic opening, then a distinct defender Transfer with coherent
+attacker/defender roles. A native two-player defense exposed Бито/BITO consistently in status,
+Hint and action button. Active refresh resumed the same game; confirmed Leave returned to setup and
+prevented resurrection after reload. Four-player Extended x2 setup, speed persistence, EN/RU copy,
+mobile dialog bounds and all six required viewports passed. A fresh 2H+2B Extended room connected
+two real browser clients over WebSocket and began with one bot's single-card atomic opening; both
+browser consoles were clean. Hint preference and bot speed were restored to OFF and Normal.
+
+Final health showed approximately 1.9 GiB `MemAvailable`, 773 MiB resident swap, ten current
+`si=0`/`so=0` samples and zero memory PSI. Swap decreased during the serial builds rather than
+growing. Kiba internal health/readiness and the Kiba, Kennel Operations and Husky Tracking public
+sites returned HTTP 200. All Kiba containers were healthy with zero restarts and
+`OOMKilled=false`; Docker, the existing Caddy container and Amnezia remained running; backup and
+both monitor timers were active; backup and monitor services most recently exited successfully; no
+systemd units were failed and no kernel OOM event was present. No Caddy, Husky, Kennel, Amnezia,
+Docker-runtime, firewall, SSH, OS-package, swap or kernel configuration was changed.
+
+Historical tag objects remain unchanged: `public-beta-v1` at
+`9402832343c72130f0bd319d13ee32af7d95041a`, `public-beta-v2` at
+`425fae41056906fcbbeb6754ee9c5e7d0467acf6`, and `public-beta-v2.1` at
+`05b843eb96cbc5a95042eb769283696120f76f68` targeting
+`c45ce1025683b3bcf443ea9b60a3e939e90c0f59`. No tag was created or moved.
