@@ -14,6 +14,22 @@
   filter: drop-shadow(0 0 0.65rem rgb(73 229 190 / 45%));
 }
 
+.table-seat.is-presenting {
+  filter: drop-shadow(0 0 0.9rem rgb(255 224 138 / 78%));
+  animation: actor-pulse 760ms ease-in-out infinite alternate;
+}
+
+.table-seat.is-presenting .seat-badge {
+  outline: 2px solid #ffe08a;
+  outline-offset: 2px;
+}
+
+@keyframes actor-pulse {
+  to {
+    filter: drop-shadow(0 0 1.25rem rgb(255 224 138 / 96%));
+  }
+}
+
 .table-seat.is-finished {
   opacity: 0.66;
 }
@@ -333,6 +349,13 @@
   .position-left .hand-huge,
   .position-right .hand-huge {
     --hidden-overlap: -3.48rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table-seat.is-presenting {
+    animation: none;
+    filter: drop-shadow(0 0 1rem rgb(255 224 138 / 88%));
   }
 }
 

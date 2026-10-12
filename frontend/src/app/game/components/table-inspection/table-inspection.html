@@ -1,0 +1,84 @@
+<app-game-table
+  #normalTable
+  [packets]="packets()"
+  [arithmetic]="arithmetic()"
+  [activeAttackValue]="activeAttackValue()"
+  [directAnchors]="directAnchors()"
+  [final]="final()"
+  [finalOutcome]="finalOutcome()"
+  [observer]="observer()"
+  [followContextKey]="followContextKey()"
+  [showExpandControl]="true"
+  (expandRequested)="open()"
+/>
+
+<dialog
+  #dialog
+  class="inspection-dialog"
+  aria-modal="true"
+  tabindex="-1"
+  [attr.aria-label]="i18n.t('game.tableInspectionTitle')"
+  (cancel)="handleCancel($event)"
+  (close)="handleClosed()"
+  (keydown)="handleKeydown($event)"
+>
+  @if (opened()) {
+    <div class="inspection-shell">
+      <header class="inspection-header">
+        <div>
+          <span>{{ i18n.t('game.tableLabel') }}</span>
+          <h2>{{ i18n.t('game.tableInspectionTitle') }}</h2>
+        </div>
+        <button #closeButton type="button" (click)="close()">
+          {{ i18n.t('game.collapseTable') }}
+        </button>
+      </header>
+
+      <section class="participant-hud" [attr.aria-label]="i18n.t('game.tableParticipants')">
+        @for (participant of participants(); track participant.id) {
+          <article [class.local]="participant.isLocal">
+            <span aria-hidden="true">{{
+              participant.isBot ? '🤖' : participant.isLocal ? '●' : 'P'
+            }}</span>
+            <strong>{{ participant.name }}</strong>
+            <small>{{ participant.cardCount }} {{ i18n.cardCount(participant.cardCount) }}</small>
+            @for (role of participant.roles; track role) {
+              <em>{{ role }}</em>
+            }
+          </article>
+        }
+      </section>
+
+      <section class="table-context" [attr.aria-label]="i18n.t('game.tableContext')">
+        <span
+          >{{ i18n.t('game.deck') }} <strong>{{ drawPileCount() }}</strong></span
+        >
+        <span
+          >{{ i18n.t('game.discard') }} <strong>{{ discardCount() }}</strong></span
+        >
+        <span
+          >{{ i18n.t('game.exposed') }} <strong>{{ exposedLabel() }}</strong></span
+        >
+        @if (actorCue(); as cue) {
+          <span class="inspection-cue" aria-hidden="true">{{ cue }}</span>
+        }
+      </section>
+
+      @if (humanTurn() && !final()) {
+        <p class="human-turn-notice">{{ i18n.t('game.expandedHumanTurn') }}</p>
+      }
+
+      <app-game-table
+        class="expanded-table"
+        [packets]="packets()"
+        [arithmetic]="arithmetic()"
+        [activeAttackValue]="activeAttackValue()"
+        [directAnchors]="directAnchors()"
+        [final]="final()"
+        [finalOutcome]="finalOutcome()"
+        [observer]="observer()"
+        [expanded]="true"
+      />
+    </div>
+  }
+</dialog>

@@ -18,6 +18,7 @@ export interface HiddenTableSeat {
   readonly leadAttacker?: boolean;
   readonly defender?: boolean;
   readonly required?: boolean;
+  readonly presenting?: boolean;
 }
 
 export function relativeSeatPosition(

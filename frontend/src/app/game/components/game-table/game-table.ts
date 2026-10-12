@@ -6,6 +6,7 @@ import {
   ViewChild,
   inject,
   input,
+  output,
 } from '@angular/core';
 import {
   AttackPacket,
@@ -24,10 +25,11 @@ import { cardIdentity } from '../../../core/deck/deck-config';
   templateUrl: './game-table.html',
   styleUrl: './game-table.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.final]': 'final()' },
+  host: { '[class.final]': 'final()', '[class.expanded]': 'expanded()' },
 })
 export class GameTableComponent implements AfterViewChecked {
   @ViewChild('scrollViewport') private scrollViewport?: ElementRef<HTMLElement>;
+  @ViewChild('expandControl') private expandControl?: ElementRef<HTMLButtonElement>;
   protected readonly i18n = inject(TranslationService);
   readonly packets = input.required<readonly AttackPacket[]>();
   readonly arithmetic = input.required<TableArithmetic>();
@@ -37,6 +39,9 @@ export class GameTableComponent implements AfterViewChecked {
   readonly finalOutcome = input<'TAKE' | 'BITO' | null>(null);
   readonly observer = input(false);
   readonly followContextKey = input<string | null>(null);
+  readonly expanded = input(false);
+  readonly showExpandControl = input(false);
+  readonly expandRequested = output<void>();
   protected readonly identity = cardIdentity;
   private followLatest = true;
   private renderedSignature = '';
@@ -89,6 +94,10 @@ export class GameTableComponent implements AfterViewChecked {
     }
     this.programmaticScrollTop = null;
     this.followLatest = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 48;
+  }
+
+  focusExpandControl(): void {
+    this.expandControl?.nativeElement.focus();
   }
 
   private positionCurrentPacket(viewport: HTMLElement): void {

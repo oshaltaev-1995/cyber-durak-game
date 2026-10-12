@@ -1,0 +1,17 @@
+<fieldset class="pace-control" [class.compact]="compact()">
+  <legend>{{ i18n.t('game.botSpeed') }}</legend>
+  <div class="pace-options">
+    @for (option of speeds; track option) {
+      <label [class.selected]="speed() === option">
+        <input
+          type="radio"
+          name="botPresentationSpeed"
+          [value]="option"
+          [checked]="speed() === option"
+          (change)="speedChange.emit(option)"
+        />
+        <span>{{ label(option) }}</span>
+      </label>
+    }
+  </div>
+</fieldset>

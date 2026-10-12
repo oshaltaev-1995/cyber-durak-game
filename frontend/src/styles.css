@@ -18,33 +18,34 @@
   text-rendering: optimizeLegibility;
 }
 
-.bot-speed-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 720;
-}
-
-.bot-speed-control select {
-  min-height: 2.25rem;
-  padding: 0.25rem 1.8rem 0.25rem 0.55rem;
-  border: 1px solid var(--border);
-  border-radius: 0.65rem;
-  color: var(--text-strong);
-  background: #0b2725;
-  font: inherit;
-}
-
-.bot-speed-control select:focus-visible {
-  outline: 3px solid #fff;
-  outline-offset: 2px;
-}
-
 @media (max-width: 35rem) {
   .compact-speed {
     order: 3;
+  }
+}
+
+.game-shell.setup {
+  height: auto;
+  min-height: calc(100dvh - 4rem);
+  overflow: visible;
+}
+
+.status-banner.actor-cue {
+  border-color: rgb(255 224 138 / 52%);
+  background: linear-gradient(90deg, rgb(64 53 20 / 92%), rgb(9 45 37 / 88%));
+  box-shadow: 0 0 1.1rem rgb(255 224 138 / 12%);
+}
+
+.status-banner.actor-cue .status-dot {
+  background: #ffe08a;
+  box-shadow: 0 0 0.9rem #ffe08a;
+}
+
+@media (min-width: 48rem) and (max-height: 50rem) {
+  .setup .welcome {
+    min-height: calc(100dvh - 4.5rem);
+    padding-block: 0.5rem 1rem;
+    place-items: start center;
   }
 }
 

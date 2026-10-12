@@ -7,6 +7,7 @@
   [class.table-night]="game()?.cosmetics?.table_theme_code === 'NIGHT_TABLE'"
   [class.table-mathematician]="game()?.cosmetics?.table_theme_code === 'MATHEMATICIAN_TABLE'"
   [class.multiplayer]="isMultiplayer()"
+  [class.setup]="game() === null"
 >
   @if (game() === null) {
     <main id="main-content" class="welcome" tabindex="-1">
@@ -44,18 +45,11 @@
               (deckCountChange)="selectDeckCount($event)"
             />
           }
-          <label class="bot-speed-control setup-speed">
-            <span>{{ i18n.t('game.botSpeed') }}</span>
-            <select
-              [value]="presentation.speed()"
-              [attr.aria-label]="i18n.t('game.botSpeed')"
-              (change)="setPresentationSpeed($event)"
-            >
-              <option value="relaxed">{{ i18n.t('game.botSpeedRelaxed') }}</option>
-              <option value="normal">{{ i18n.t('game.botSpeedNormal') }}</option>
-              <option value="fast">{{ i18n.t('game.botSpeedFast') }}</option>
-            </select>
-          </label>
+          <app-bot-speed-control
+            class="bot-speed-control setup-speed"
+            [speed]="presentation.speed()"
+            (speedChange)="setPresentationSpeed($event)"
+          />
           <p class="player-composition">
             {{
               i18n.t(
@@ -132,18 +126,12 @@
             })
           }}</span>
         }
-        <label class="bot-speed-control compact-speed">
-          <span>{{ i18n.t('game.botSpeed') }}</span>
-          <select
-            [value]="presentation.speed()"
-            [attr.aria-label]="i18n.t('game.botSpeed')"
-            (change)="setPresentationSpeed($event)"
-          >
-            <option value="relaxed">{{ i18n.t('game.botSpeedRelaxed') }}</option>
-            <option value="normal">{{ i18n.t('game.botSpeedNormal') }}</option>
-            <option value="fast">{{ i18n.t('game.botSpeedFast') }}</option>
-          </select>
-        </label>
+        <app-bot-speed-control
+          class="bot-speed-control compact-speed"
+          [speed]="presentation.speed()"
+          [compact]="true"
+          (speedChange)="setPresentationSpeed($event)"
+        />
         <button
           #newGameTrigger
           class="new-game"
@@ -175,7 +163,7 @@
             />
           </aside>
 
-          <app-game-table
+          <app-table-inspection
             class="center-table"
             [packets]="currentGame.packets"
             [arithmetic]="currentGame.table_arithmetic"
@@ -185,6 +173,12 @@
             [finalOutcome]="currentGame.last_bout_summary?.outcome ?? null"
             [observer]="localFinishedWatching()"
             [followContextKey]="localDecisionContext(currentGame)"
+            [participants]="inspectionParticipants()"
+            [drawPileCount]="currentGame.draw_pile_count"
+            [discardCount]="currentGame.discard_count"
+            [exposedTopCard]="currentGame.exposed_top_card"
+            [actorCue]="botPresentation() === null ? null : statusText()"
+            [humanTurn]="currentGame.required_actor === 'HUMAN'"
           />
 
           <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
@@ -360,7 +354,11 @@
           </div>
         </section>
       } @else {
-        <div class="status-banner status-transition" aria-live="polite">
+        <div
+          class="status-banner status-transition"
+          [class.actor-cue]="botPresentation() !== null"
+          aria-live="polite"
+        >
           @if (localDecisionContext(currentGame); as context) {
             <app-turn-reminder [contextKey]="context" />
           }

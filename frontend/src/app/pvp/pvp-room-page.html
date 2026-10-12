@@ -39,18 +39,12 @@
           }}</span>
         }
         @if (game.bot_count > 0) {
-          <label class="bot-speed-control compact-speed">
-            <span>{{ i18n.t('game.botSpeed') }}</span>
-            <select
-              [value]="presentation.speed()"
-              [attr.aria-label]="i18n.t('game.botSpeed')"
-              (change)="setPresentationSpeed($event)"
-            >
-              <option value="relaxed">{{ i18n.t('game.botSpeedRelaxed') }}</option>
-              <option value="normal">{{ i18n.t('game.botSpeedNormal') }}</option>
-              <option value="fast">{{ i18n.t('game.botSpeedFast') }}</option>
-            </select>
-          </label>
+          <app-bot-speed-control
+            class="bot-speed-control compact-speed"
+            [speed]="presentation.speed()"
+            [compact]="true"
+            (speedChange)="setPresentationSpeed($event)"
+          />
         }
         @if (game.room_phase !== 'CLOSED') {
           <button #leaveTrigger class="new-game" type="button" (click)="requestLeave()">
@@ -252,7 +246,7 @@
                 [drawPileCount]="game.draw_pile_count"
               />
             </aside>
-            <app-game-table
+            <app-table-inspection
               class="center-table"
               [packets]="game.packets"
               [arithmetic]="game.table_arithmetic"
@@ -262,6 +256,12 @@
               [finalOutcome]="game.last_bout_summary?.outcome ?? null"
               [observer]="localFinishedWatching()"
               [followContextKey]="localDecisionContext()"
+              [participants]="inspectionParticipants()"
+              [drawPileCount]="game.draw_pile_count"
+              [discardCount]="game.discard_count"
+              [exposedTopCard]="game.exposed_top_card"
+              [actorCue]="botPresentation() === null ? null : statusText()"
+              [humanTurn]="game.required_participant_id === game.you.participant_id"
             />
             <aside class="discard-zone" [attr.aria-label]="i18n.t('game.discardLabel')">
               <span class="pile-label">{{ i18n.t('game.discard') }}</span>
@@ -553,7 +553,11 @@
               {{ i18n.t('pvp.youFinishedWatching') }}
             </p>
           }
-          <div class="status-banner" aria-live="polite">
+          <div
+            class="status-banner"
+            [class.actor-cue]="botPresentation() !== null"
+            aria-live="polite"
+          >
             @if (localDecisionContext(); as context) {
               <app-turn-reminder [contextKey]="context" />
             }

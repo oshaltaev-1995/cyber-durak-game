@@ -27,44 +27,53 @@ describe('BotPresentationQueue', () => {
 
     expect(queue.locked()).toBe(true);
     expect(queue.current()?.type).toBe('BOT_INITIAL_ATTACK');
-    vi.advanceTimersByTime(1_500);
+    expect(queue.revealed()).toBeNull();
+    expect(queue.phase()).toBe('anticipating');
+    vi.advanceTimersByTime(299);
+    expect(queue.revealed()).toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(queue.revealed()?.type).toBe('BOT_INITIAL_ATTACK');
+    expect(queue.phase()).toBe('dwelling');
+    vi.advanceTimersByTime(2_000);
     expect(queue.current()?.type).toBe('BOT_TRANSFER');
-    vi.advanceTimersByTime(1_800);
+    expect(queue.revealed()?.type).toBe('BOT_INITIAL_ATTACK');
+    vi.advanceTimersByTime(2_300);
     expect(queue.current()?.type).toBe('BOT_BITO');
-    vi.advanceTimersByTime(600);
+    vi.advanceTimersByTime(2_300);
     expect(queue.current()).toBeNull();
+    expect(queue.revealed()).toBeNull();
     expect(queue.locked()).toBe(false);
     expect(complete).toHaveBeenCalledOnce();
   });
 
-  it('keeps reduced-motion actions sequential while shortening their presentation', () => {
+  it('keeps reduced-motion actions sequential without removing readable dwell', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true }));
     const queue = new BotPresentationQueue();
     queue.play([event('BOT_TAKE'), event('BOT_DEFEND')]);
 
     expect(queue.current()?.type).toBe('BOT_TAKE');
-    vi.advanceTimersByTime(1_440);
+    vi.advanceTimersByTime(2_300);
     expect(queue.current()?.type).toBe('BOT_DEFEND');
-    vi.advanceTimersByTime(1_280);
+    vi.advanceTimersByTime(2_300);
     expect(queue.locked()).toBe(false);
     vi.unstubAllGlobals();
   });
 
-  it('accelerates long backlogs without dropping significant events', () => {
+  it('does not compress long backlogs below the selected stable dwell', () => {
     const queue = new BotPresentationQueue();
     const events = Array.from({ length: 20 }, () => event('BOT_TRANSFER'));
     queue.play(events);
 
-    vi.advanceTimersByTime(19_999);
+    vi.advanceTimersByTime(45_999);
     expect(queue.locked()).toBe(true);
     vi.advanceTimersByTime(1);
     expect(queue.locked()).toBe(false);
   });
 
   it.each([
-    ['relaxed', 2_000],
-    ['normal', 1_500],
-    ['fast', 500],
+    ['relaxed', 3_650],
+    ['normal', 2_300],
+    ['fast', 950],
   ] as const)('uses the stored %s presentation dwell', (speed, duration) => {
     const queue = new BotPresentationQueue();
     queue.setSpeed(speed);
@@ -86,14 +95,14 @@ describe('BotPresentationQueue', () => {
       (step) => seen.push(step.type),
     );
 
-    vi.advanceTimersByTime(1_500);
+    vi.advanceTimersByTime(2_300);
     expect(queue.current()?.type).toBe('BOT_TRANSFER');
     queue.setSpeed('fast');
-    vi.advanceTimersByTime(1_799);
+    vi.advanceTimersByTime(2_299);
     expect(queue.current()?.type).toBe('BOT_TRANSFER');
     vi.advanceTimersByTime(1);
     expect(queue.current()?.type).toBe('BOT_DEFEND');
-    vi.advanceTimersByTime(550);
+    vi.advanceTimersByTime(950);
     expect(queue.locked()).toBe(false);
     expect(seen).toEqual(['BOT_INITIAL_ATTACK', 'BOT_TRANSFER', 'BOT_DEFEND']);
   });

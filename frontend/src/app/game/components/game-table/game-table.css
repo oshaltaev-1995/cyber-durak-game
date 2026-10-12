@@ -55,6 +55,15 @@
   max-height: 32rem;
 }
 
+:host.expanded,
+:host.expanded .table,
+.expanded .table {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+
 .table-heading {
   position: sticky;
   z-index: 3;
@@ -81,6 +90,24 @@ h2 {
   margin: 0.15rem 0 0;
   color: #f3fff8;
   font-size: 1rem;
+}
+
+.expand-table {
+  min-height: 1.9rem;
+  margin-top: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid rgb(73 229 190 / 24%);
+  border-radius: 999px;
+  color: #bcebd8;
+  background: rgb(73 229 190 / 7%);
+  font-size: 0.65rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.expand-table:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
 }
 
 .math-facts {
@@ -269,7 +296,7 @@ h2 {
   }
 }
 
-@container (max-width: 44rem) {
+@container (max-width: 28rem) {
   .packet-sides {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;

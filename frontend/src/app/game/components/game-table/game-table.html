@@ -9,6 +9,11 @@
     <div>
       <span class="eyebrow">{{ i18n.t('game.tableLabel') }}</span>
       <h2 id="table-title">{{ i18n.t(final() ? 'game.finalBout' : 'game.currentBout') }}</h2>
+      @if (showExpandControl()) {
+        <button #expandControl class="expand-table" type="button" (click)="expandRequested.emit()">
+          {{ i18n.t('game.expandTable') }}
+        </button>
+      }
     </div>
     <div class="math-facts" [attr.aria-label]="i18n.t('game.tableArithmeticLabel')">
       <span

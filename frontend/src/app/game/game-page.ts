@@ -37,8 +37,12 @@ import { DeckConfigSelectorComponent } from '../core/deck/deck-config-selector';
 import { cardIdentity, isDefaultDeckConfig } from '../core/deck/deck-config';
 import { deriveMultiplayerPlacements } from '../pvp/multiplayer-placement';
 import { ActionBarComponent } from './components/action-bar/action-bar';
+import { BotSpeedControlComponent } from './components/bot-speed-control/bot-speed-control';
 import { CardMotionOverlayComponent } from './components/card-motion-overlay/card-motion-overlay';
-import { GameTableComponent } from './components/game-table/game-table';
+import {
+  TableInspectionComponent,
+  TableInspectionParticipant,
+} from './components/table-inspection/table-inspection';
 import { HandComponent } from './components/hand/hand';
 import { HintPanelComponent } from './components/hint-panel/hint-panel';
 import { TableSeatMapComponent } from './components/table-seat-map/table-seat-map';
@@ -98,9 +102,10 @@ function gamePresentationFrame(
   selector: 'app-game-page',
   imports: [
     ActionBarComponent,
+    BotSpeedControlComponent,
     CardMotionOverlayComponent,
     DeckConfigSelectorComponent,
-    GameTableComponent,
+    TableInspectionComponent,
     HandComponent,
     HintPanelComponent,
     RouterLink,
@@ -137,9 +142,14 @@ export class GamePageComponent implements OnInit, OnDestroy {
   });
   protected readonly restartConfirmation = signal(false);
   protected readonly botPresentation = this.presentation.current;
-  protected readonly visibleGame = computed<GameResponse | null>(() =>
-    gamePresentationFrame(this.game(), this.botPresentation()),
-  );
+  private readonly presentationBaseline = signal<GameResponse | null>(null);
+  protected readonly visibleGame = computed<GameResponse | null>(() => {
+    const latest = this.game();
+    if (!this.presentation.locked()) return latest;
+    const revealed = this.presentation.revealed();
+    if (revealed === null) return this.presentationBaseline() ?? latest;
+    return gamePresentationFrame(latest, revealed);
+  });
   protected readonly interactionLocked = computed(
     () => this.pending() || this.presentation.locked(),
   );
@@ -215,8 +225,26 @@ export class GamePageComponent implements OnInit, OnDestroy {
         leadAttacker: game.lead_attacker === participant.seat,
         defender: game.defender === participant.seat,
         required: game.required_seat === participant.seat,
+        presenting:
+          (this.botPresentation()?.actor_seat ?? game.bot_seat) === participant.seat &&
+          this.botPresentation() !== null,
       }));
   });
+  protected readonly inspectionParticipants = computed<readonly TableInspectionParticipant[]>(
+    () => {
+      const game = this.visibleGame();
+      if (game === null) return [];
+      return game.participants.map((participant) => ({
+        id: participant.participant_id,
+        name: participant.display_name,
+        cardCount:
+          participant.seat === game.human_seat ? game.human_hand.length : participant.hand_count,
+        isBot: participant.is_bot,
+        isLocal: participant.seat === game.human_seat,
+        roles: this.participantRoleLabels(game, participant.seat, participant.finished),
+      }));
+    },
+  );
   protected readonly hasTopOpponent = computed(() =>
     this.opponentSeats().some((seat) => seat.position === 'top'),
   );
@@ -371,7 +399,6 @@ export class GamePageComponent implements OnInit, OnDestroy {
           this.selectedDeckProfile.set(game.deck_profile);
           this.selectedDeckCount.set(game.deck_count);
           this.selectedIds.set(new Set());
-          this.presentInitialBotAction(game);
           this.queueBotStatuses(game.recent_events, null);
         },
         error: (error: unknown) => {
@@ -396,11 +423,8 @@ export class GamePageComponent implements OnInit, OnDestroy {
     this.errorKey.set(null);
   }
 
-  protected setPresentationSpeed(event: Event): void {
-    const speed = (event.target as HTMLSelectElement).value;
-    if (speed === 'relaxed' || speed === 'normal' || speed === 'fast') {
-      this.presentation.setSpeed(speed as BotPresentationSpeed);
-    }
+  protected setPresentationSpeed(speed: BotPresentationSpeed): void {
+    this.presentation.setSpeed(speed);
   }
 
   protected playAgain(): void {
@@ -426,7 +450,6 @@ export class GamePageComponent implements OnInit, OnDestroy {
           this.selectedDeckProfile.set(restarted.deck_profile);
           this.selectedDeckCount.set(restarted.deck_count);
           this.selectedIds.set(new Set());
-          this.presentInitialBotAction(restarted);
           this.queueBotStatuses(restarted.recent_events, null);
         },
         error: (error: unknown) => this.errorKey.set(this.messageKeyForError(error)),
@@ -670,6 +693,24 @@ export class GamePageComponent implements OnInit, OnDestroy {
       : this.i18n.t('game.yourTurn');
   }
 
+  private participantRoleLabels(
+    game: GameResponse,
+    seat: Seat,
+    finished: boolean,
+  ): readonly string[] {
+    const labels: string[] = [];
+    if (game.phase !== 'complete') {
+      if (game.defender === seat) labels.push(this.i18n.t('pvp.defender'));
+      if (game.attacker === seat) labels.push(this.i18n.t('pvp.currentAttacker'));
+      if (game.lead_attacker === seat && game.attacker !== seat) {
+        labels.push(this.i18n.t('pvp.leadAttacker'));
+      }
+      if (game.required_seat === seat) labels.push(this.i18n.t('pvp.currentTurn'));
+    }
+    if (finished) labels.push(this.i18n.t('pvp.finishedPlayer'));
+    return labels;
+  }
+
   private presentUpdatedGame(updatedGame: GameResponse): void {
     const previous = this.game();
     const localAction = this.submittedAction;
@@ -679,7 +720,7 @@ export class GamePageComponent implements OnInit, OnDestroy {
       updatedGame.recent_events.every(
         (event) => event.presentation_state !== null && event.presentation_state !== undefined,
       );
-    if (previous !== null && !synchronizedEvents) {
+    if (previous !== null && !synchronizedEvents && updatedGame.recent_events.length === 0) {
       this.cardMotion.play(
         planCardMotions(this.motionSnapshot(previous), this.motionSnapshot(updatedGame), {
           localAction: this.submittedAction ?? undefined,
@@ -820,10 +861,34 @@ export class GamePageComponent implements OnInit, OnDestroy {
     localAction: HumanActionType | null = null,
     localCards: readonly GameCard[] = [],
   ): void {
-    let previousFrame = baseline;
+    const first = events[0];
+    const latest = this.game();
+    const initialBaseline =
+      baseline ??
+      (latest !== null && first?.type === 'BOT_INITIAL_ATTACK'
+        ? {
+            ...latest,
+            table_cards: [],
+            packets: [],
+            active_packet: null,
+            direct_anchor_cards: [],
+            active_attack_value: null,
+            total_attack_card_count: 0,
+            table_arithmetic: {
+              total_effective_value: 0,
+              physical_card_count: 0,
+              arithmetic_mean: null,
+            },
+          }
+        : latest);
+    let previousFrame = initialBaseline;
+    if (events.length > 0) this.presentationBaseline.set(initialBaseline);
     this.presentation.play(
       events,
-      () => this.refreshHints(),
+      () => {
+        this.presentationBaseline.set(null);
+        this.refreshHints();
+      },
       (event, index) => {
         const nextFrame = gamePresentationFrame(this.game(), event);
         if (nextFrame === null) return;
@@ -870,44 +935,6 @@ export class GamePageComponent implements OnInit, OnDestroy {
       discardCount: game.discard_count,
       tableCards: game.table_cards,
     };
-  }
-
-  private presentInitialBotAction(game: GameResponse): void {
-    if (
-      game.recent_events.length > 0 &&
-      game.recent_events.every(
-        (event) => event.presentation_state !== null && event.presentation_state !== undefined,
-      )
-    )
-      return;
-    const remoteCardCount = this.remotePlayedCount(game.recent_events);
-    if (remoteCardCount === 0) return;
-    const current = this.motionSnapshot(game);
-    this.cardMotion.play(
-      planCardMotions(
-        {
-          ...current,
-          remoteHands: {
-            ...current.remoteHands,
-            [this.remoteActionSource(game.recent_events, game) ?? 'top']:
-              (current.remoteHands[this.remoteActionSource(game.recent_events, game) ?? 'top'] ??
-                0) + remoteCardCount,
-          },
-          tableCards: [],
-        },
-        current,
-        {
-          remoteCardCount,
-          remotePlayedCards: game.table_cards.slice(0, remoteCardCount),
-          remoteFrom: this.remoteActionSource(game.recent_events, game),
-          remotePlays: this.remotePlayBatches(
-            game.recent_events,
-            game.table_cards.slice(0, remoteCardCount),
-            game,
-          ),
-        },
-      ),
-    );
   }
 
   private remotePlayedCount(events: readonly BotPresentationEvent[]): number {

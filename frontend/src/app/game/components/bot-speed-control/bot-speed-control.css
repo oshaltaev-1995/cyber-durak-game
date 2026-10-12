@@ -1,0 +1,82 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.pace-control {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  gap: 0.5rem;
+  align-items: center;
+  border: 0;
+}
+
+legend {
+  float: left;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.pace-options {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
+  padding: 0.16rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgb(3 14 22 / 48%);
+}
+
+label {
+  position: relative;
+  display: grid;
+  min-height: 2.2rem;
+  padding-inline: 0.72rem;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+label.selected {
+  color: #06241d;
+  background: var(--accent);
+  box-shadow: 0 0.2rem 0.7rem rgb(0 0 0 / 22%);
+}
+
+input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+label:has(input:focus-visible) {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+.compact label {
+  min-height: 1.95rem;
+  padding-inline: 0.55rem;
+  font-size: 0.66rem;
+}
+
+@media (max-width: 35rem) {
+  .pace-control {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pace-options {
+    width: 100%;
+  }
+}

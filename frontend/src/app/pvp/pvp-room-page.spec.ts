@@ -318,12 +318,10 @@ describe('PvPRoomPageComponent', () => {
     socket.state.set(makeMixedState(4, 2));
     fixture.detectChanges();
 
-    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
-      '.bot-speed-control select',
-    )!;
-    expect(select.getAttribute('aria-label')).toBe('Темп ботов');
-    select.value = 'fast';
-    select.dispatchEvent(new Event('change'));
+    const control = (fixture.nativeElement as HTMLElement).querySelector('.bot-speed-control')!;
+    const fast = control.querySelector<HTMLInputElement>('input[value="fast"]')!;
+    expect(control.querySelector('legend')?.textContent).toContain('Темп ботов');
+    fast.dispatchEvent(new Event('change'));
     expect(localStorage.getItem('kiba.botPresentationSpeed')).toBe('fast');
   });
 
@@ -361,7 +359,7 @@ describe('PvPRoomPageComponent', () => {
       fixture.detectChanges();
       expect(socket.requestHints).not.toHaveBeenCalled();
 
-      vi.advanceTimersByTime(1_500);
+      vi.advanceTimersByTime(2_300);
       fixture.detectChanges();
       expect(socket.requestHints).toHaveBeenCalledOnce();
       expect(socket.requestHints).toHaveBeenCalledWith([]);
@@ -689,8 +687,11 @@ describe('PvPRoomPageComponent', () => {
 
       const element = fixture.nativeElement as HTMLElement;
       expect(element.textContent).toContain('Milo атакует');
+      expect(element.querySelector('.motion-card.from-top.to-table')).toBeNull();
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
       expect(element.querySelector('.motion-card.from-top.to-table')).not.toBeNull();
-      vi.advanceTimersByTime(1_500);
+      vi.advanceTimersByTime(2_000);
       fixture.detectChanges();
       expect(element.textContent).toContain('Нужно покрыть больше');
     } finally {
@@ -772,16 +773,23 @@ describe('PvPRoomPageComponent', () => {
       fixture.detectChanges();
       let element = fixture.nativeElement as HTMLElement;
       expect(element.textContent).toContain('Milo атакует');
+      expect(element.querySelectorAll('.packet app-playing-card')).toHaveLength(0);
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
+      element = fixture.nativeElement as HTMLElement;
       expect(element.querySelectorAll('.packet app-playing-card')).toHaveLength(1);
       expect(element.querySelector('.table-seat.is-required .seat-name')?.textContent).toBe('Nika');
 
-      vi.advanceTimersByTime(1_500);
+      vi.advanceTimersByTime(2_000);
       fixture.detectChanges();
       element = fixture.nativeElement as HTMLElement;
       expect(element.textContent).toContain('Nika переводит');
+      expect(element.querySelectorAll('.packet app-playing-card')).toHaveLength(1);
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
       expect(element.querySelectorAll('.packet app-playing-card')).toHaveLength(2);
 
-      vi.advanceTimersByTime(1_800);
+      vi.advanceTimersByTime(2_000);
       fixture.detectChanges();
       expect(socket.requestHints).toHaveBeenCalledWith([]);
     } finally {
@@ -868,16 +876,7 @@ describe('PvPRoomPageComponent', () => {
       available_actions: [],
       required_participant_id: null,
       required_seat: null,
-      recent_events: [
-        {
-          type: 'BOT_BITO',
-          actor: 'BOT',
-          actor_seat: 'four',
-          card_count: 0,
-          value: null,
-          target: null,
-        },
-      ],
+      recent_events: [],
     });
     fixture.detectChanges();
 

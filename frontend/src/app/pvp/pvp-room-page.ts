@@ -22,8 +22,12 @@ import { PvPCredentialStore } from '../core/pvp/pvp-credential.store';
 import { PvPWebSocketService } from '../core/pvp/pvp-websocket.service';
 import { HintPreferenceService } from '../core/hints/hint-preference.service';
 import { ActionBarComponent } from '../game/components/action-bar/action-bar';
+import { BotSpeedControlComponent } from '../game/components/bot-speed-control/bot-speed-control';
 import { CardMotionOverlayComponent } from '../game/components/card-motion-overlay/card-motion-overlay';
-import { GameTableComponent } from '../game/components/game-table/game-table';
+import {
+  TableInspectionComponent,
+  TableInspectionParticipant,
+} from '../game/components/table-inspection/table-inspection';
 import { HandComponent } from '../game/components/hand/hand';
 import { HintPanelComponent } from '../game/components/hint-panel/hint-panel';
 import { TableSeatMapComponent } from '../game/components/table-seat-map/table-seat-map';
@@ -99,8 +103,9 @@ function pvpPresentationFrame(
   selector: 'app-pvp-room-page',
   imports: [
     ActionBarComponent,
+    BotSpeedControlComponent,
     CardMotionOverlayComponent,
-    GameTableComponent,
+    TableInspectionComponent,
     HandComponent,
     HintPanelComponent,
     RouterLink,
@@ -133,9 +138,14 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
   protected readonly deckOnboardingVisible = signal(false);
   protected readonly state = this.socket.state;
   protected readonly botPresentation = this.presentation.current;
-  protected readonly visibleState = computed<PvPState | null>(() =>
-    pvpPresentationFrame(this.state(), this.botPresentation()),
-  );
+  private readonly presentationBaseline = signal<PvPState | null>(null);
+  protected readonly visibleState = computed<PvPState | null>(() => {
+    const latest = this.state();
+    if (!this.presentation.locked()) return latest;
+    const revealed = this.presentation.revealed();
+    if (revealed === null) return this.presentationBaseline() ?? latest;
+    return pvpPresentationFrame(latest, revealed);
+  });
   protected readonly selectedCards = computed<readonly GameCard[]>(() => {
     const selected = this.selectedIds();
     return this.state()?.hand.filter((card) => selected.has(cardIdentity(card))) ?? [];
@@ -218,8 +228,23 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
         leadAttacker: state.lead_attacker === player.seat,
         defender: state.defender === player.seat,
         required: state.required_seat === player.seat,
+        presenting: this.botPresentation()?.actor_seat === player.seat,
       }));
   });
+  protected readonly inspectionParticipants = computed<readonly TableInspectionParticipant[]>(
+    () => {
+      const state = this.visibleState();
+      if (state === null) return [];
+      return state.players.map((player) => ({
+        id: player.participant_id,
+        name: player.display_name,
+        cardCount: player.is_self ? state.hand.length : (player.hand_count ?? 0),
+        isBot: player.is_bot,
+        isLocal: player.is_self,
+        roles: this.roleLabels(state, player),
+      }));
+    },
+  );
   protected readonly hasTopOpponent = computed(() =>
     this.opponentSeats().some((seat) => seat.position === 'top'),
   );
@@ -292,7 +317,9 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
           } else {
             const localAction = this.submittedAction;
             const localCards = this.submittedCards;
-            if (this.previousState !== null) this.presentTransition(this.previousState, current);
+            if (this.previousState !== null && current.recent_events.length === 0) {
+              this.presentTransition(this.previousState, current);
+            }
             this.queueBotStatuses(
               current.recent_events,
               this.previousState,
@@ -389,11 +416,8 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  protected setPresentationSpeed(event: Event): void {
-    const speed = (event.target as HTMLSelectElement).value;
-    if (speed === 'relaxed' || speed === 'normal' || speed === 'fast') {
-      this.presentation.setSpeed(speed as BotPresentationSpeed);
-    }
+  protected setPresentationSpeed(speed: BotPresentationSpeed): void {
+    this.presentation.setSpeed(speed);
   }
 
   protected dismissDeckOnboarding(): void {
@@ -653,40 +677,8 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     this.rematchTransitionTimer = setTimeout(() => {
       this.rematchTransitionTimer = null;
       this.startingRematch.set(false);
-      this.presentInitialBotActions(state);
       this.queueBotStatuses(state.recent_events, null);
     }, 650);
-  }
-
-  private presentInitialBotActions(state: PvPState): void {
-    if (
-      state.recent_events.length > 0 &&
-      state.recent_events.every(
-        (event) => event.presentation_state !== null && event.presentation_state !== undefined,
-      )
-    )
-      return;
-    const playedCount = this.remotePlayedCount(state.recent_events);
-    if (playedCount === 0) return;
-    const current = this.motionSnapshot(state);
-    const previousRemoteHands = { ...current.remoteHands };
-    for (const event of state.recent_events) {
-      if (
-        !['BOT_INITIAL_ATTACK', 'BOT_DEFEND', 'BOT_TRANSFER', 'BOT_THROW_IN'].includes(event.type)
-      ) {
-        continue;
-      }
-      const position = this.positionForSeat(event.actor_seat ?? null, state) ?? 'top';
-      previousRemoteHands[position] = (previousRemoteHands[position] ?? 0) + event.card_count;
-    }
-    const visibleCards = state.table_cards.slice(0, playedCount);
-    this.cardMotion.play(
-      planCardMotions({ ...current, remoteHands: previousRemoteHands, tableCards: [] }, current, {
-        remoteCardCount: playedCount,
-        remotePlayedCards: visibleCards,
-        remotePlays: this.remotePlayBatches(state, state, visibleCards),
-      }),
-    );
   }
 
   private getStatusText(): string {
@@ -871,10 +863,34 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
     localAction: HumanActionType | null = null,
     localCards: readonly GameCard[] = [],
   ): void {
-    let previousFrame = baseline;
+    const first = events[0];
+    const latest = this.state();
+    const initialBaseline =
+      baseline ??
+      (latest !== null && first?.type === 'BOT_INITIAL_ATTACK'
+        ? {
+            ...latest,
+            table_cards: [],
+            packets: [],
+            active_packet: null,
+            direct_anchor_cards: [],
+            active_attack_value: null,
+            total_attack_card_count: 0,
+            table_arithmetic: {
+              total_effective_value: 0,
+              physical_card_count: 0,
+              arithmetic_mean: null,
+            },
+          }
+        : latest);
+    let previousFrame = initialBaseline;
+    if (events.length > 0) this.presentationBaseline.set(initialBaseline);
     this.presentation.play(
       events,
-      () => this.refreshHints(),
+      () => {
+        this.presentationBaseline.set(null);
+        this.refreshHints();
+      },
       (event, index) => {
         const nextFrame = pvpPresentationFrame(this.state(), event);
         if (nextFrame === null) return;
@@ -928,12 +944,14 @@ export class PvPRoomPageComponent implements OnInit, OnDestroy {
 
   private roleLabels(state: PvPState, player: PvPPlayerState): readonly string[] {
     const labels: string[] = [];
-    if (state.defender === player.seat) labels.push(this.i18n.t('pvp.defender'));
-    if (state.attacker === player.seat) labels.push(this.i18n.t('pvp.currentAttacker'));
-    if (state.lead_attacker === player.seat && state.attacker !== player.seat) {
-      labels.push(this.i18n.t('pvp.leadAttacker'));
+    if (state.game_phase !== 'complete') {
+      if (state.defender === player.seat) labels.push(this.i18n.t('pvp.defender'));
+      if (state.attacker === player.seat) labels.push(this.i18n.t('pvp.currentAttacker'));
+      if (state.lead_attacker === player.seat && state.attacker !== player.seat) {
+        labels.push(this.i18n.t('pvp.leadAttacker'));
+      }
+      if (state.required_seat === player.seat) labels.push(this.i18n.t('pvp.currentTurn'));
     }
-    if (state.required_seat === player.seat) labels.push(this.i18n.t('pvp.currentTurn'));
     if (player.finished) labels.push(this.i18n.t('pvp.finishedPlayer'));
     if (!player.is_bot && !player.connected) labels.push(this.i18n.t('pvp.disconnectedPlayer'));
     return labels;
