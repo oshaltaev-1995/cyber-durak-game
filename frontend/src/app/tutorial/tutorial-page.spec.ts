@@ -87,6 +87,12 @@ describe('TutorialPageComponent', () => {
       .join(' ');
     expect(allCopy).toContain('4 → 3 → 2');
     expect(allCopy).toContain('Pass ends your attacking phase permanently');
+    expect(allCopy).toContain('moves play clockwise to the next canonical attacker');
+    expect(allCopy).toContain('The transferred cards join the unresolved attack');
+    expect(allCopy).toContain('The same transport command is BITO');
+    expect(allCopy).toContain('Use Expand table to inspect the full bout');
+    expect(allCopy).toContain('Карты перевода присоединяются к незакрытой атаке');
+    expect(allCopy).toContain('Разверните стол, чтобы удобнее просмотреть весь кон');
     expect(allCopy).toContain('All attackers share');
   });
 

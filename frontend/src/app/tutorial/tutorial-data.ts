@@ -616,8 +616,10 @@ export const MULTIPLAYER_LESSONS_EN: readonly TutorialLesson[] = [
     'Attacker phases and Pass',
     'Attackers act one at a time in clockwise order — never simultaneously.',
     [
-      'The current attacker may continue after successful defenses during their phase.',
-      'Pass ends your attacking phase permanently for this bout, even if a later table change would make another card legal.',
+      'The bout-starting lead attacker makes the initial attack; the other attackers wait for their phases.',
+      'After a successful defense, the current attacker may make legal throw-ins or choose Pass.',
+      'Pass ends your attacking phase permanently for this bout and moves play clockwise to the next canonical attacker.',
+      'The same transport command is BITO in native two-player games and Pass in 3–4-player and mixed games, based on the original room size.',
     ],
   ),
   multiplayerLesson(
@@ -626,7 +628,7 @@ export const MULTIPLAYER_LESSONS_EN: readonly TutorialLesson[] = [
     'Before a successful defense, a legal transfer sends the attack to the next active player clockwise.',
     [
       'The previous defender becomes an attacker.',
-      'The new defender responds to the whole active attack.',
+      'The transferred cards join the unresolved attack, and the new defender responds to the whole active attack.',
     ],
   ),
   multiplayerLesson(
@@ -636,6 +638,7 @@ export const MULTIPLAYER_LESSONS_EN: readonly TutorialLesson[] = [
     [
       'Each attacker does not receive a separate limit.',
       'The table always shows the shared total and how many cards may still be added.',
+      'Use Expand table to inspect the full bout and its packets more comfortably.',
     ],
   ),
   multiplayerLesson(
@@ -676,15 +679,20 @@ export const MULTIPLAYER_LESSONS_RU: readonly TutorialLesson[] = [
     'Фазы атаки и Пас',
     'Атакующие действуют по очереди по часовой стрелке, а не одновременно.',
     [
-      'Текущий атакующий может продолжать после успешной защиты в своей фазе.',
-      'Пас окончательно завершает вашу фазу атаки в этом коне, даже если позднее изменение стола снова сделает карту допустимой.',
+      'Начальную атаку делает ведущий атакующий, начавший кон; остальные атакующие ждут своих фаз.',
+      'После успешной защиты текущий атакующий может допустимо подкинуть карты или выбрать «Пас».',
+      'Пас окончательно завершает вашу фазу атаки в этом коне и передаёт ход по часовой стрелке следующему каноническому атакующему.',
+      'Одна и та же команда называется «Бито» в исходно двухместной игре и «Пас» в играх на 3–4 участников и смешанных комнатах — по исходному размеру комнаты.',
     ],
   ),
   multiplayerLesson(
     'multiplayer-transfer',
     'Перевод меняет роли',
     'До успешной защиты допустимый перевод передаёт атаку следующему активному игроку по часовой стрелке.',
-    ['Прежний защитник становится атакующим.', 'Новый защитник отвечает на всю активную атаку.'],
+    [
+      'Прежний защитник становится атакующим.',
+      'Карты перевода присоединяются к незакрытой атаке, а новый защитник отвечает на всю активную атаку.',
+    ],
   ),
   multiplayerLesson(
     'multiplayer-limit',
@@ -693,6 +701,7 @@ export const MULTIPLAYER_LESSONS_RU: readonly TutorialLesson[] = [
     [
       'У каждого атакующего нет отдельного лимита.',
       'На столе всегда показаны общий итог и число карт, которые ещё можно добавить.',
+      'Разверните стол, чтобы удобнее просмотреть весь кон и его пакеты.',
     ],
   ),
   multiplayerLesson(
